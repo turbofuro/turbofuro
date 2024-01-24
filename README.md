@@ -6,11 +6,11 @@ This repository contains the worker application, runtime and Turbofuro Expressio
 Note: This project is in early development stage. We are working on the first public release. Stay tuned!
 
 ## Getting started
-Download a latest release for your platform from the [GitHub releases page](https://github.com/turbofuro/turbofuro/releases). You can also use official [Docker image](https://hub.docker.com/r/turbofuro/turbofuro).
+Download a latest release for your platform from the [GitHub releases page](https://github.com/turbofuro/turbofuro/releases) or install the binary using `cargo install turbofuro_worker`. There is also an official [Docker image](https://hub.docker.com/r/turbofuro/turbofuro) you can use.
 
 Once you have the binary you can run it with the following command:
 ```bash
-./turbofuro_worker --token <YOUR_MACHINE_TOKEN>
+turbofuro_worker --token <YOUR_MACHINE_TOKEN>
 ```
 You can get your machine token from the machine details on [Turbofuro](https://turbofuro.com).
 
