@@ -1,0 +1,113 @@
+{
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "open",
+      "name": "Open file",
+      "description": "Opens a file and returns a file handle.",
+      "parameters": [
+        {
+          "name": "path",
+          "description": "Path to the file to be opened",
+          "optional": false,
+          "type": "tel",
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "string"
+          }
+        },
+        {
+          "name": "mode",
+          "optional": true,
+          "type": "tel",
+          "description": "File open mode, \"r\" by default, \"w\" to overwrite, \"a\" to append, \"x\" to create",
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "string"
+          }
+        }
+      ],
+      "nativeId": "fs/open",
+      "exported": true,
+      "annotations": [
+        {
+          "resource": "file_handle",
+          "strict": true,
+          "type": "provision"
+        }
+      ]
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "read_to_string",
+      "name": "Read file to string",
+      "description": "Opens a file and reads it to a string.",
+      "parameters": [
+        {
+          "name": "path",
+          "type": "tel",
+          "description": "Path to the file to be opened",
+          "optional": false,
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "string"
+          }
+        },
+        {
+          "name": "saveAs",
+          "type": "tel",
+          "optional": true,
+          "description": "Selector where to save the contents",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "fs/read_to_string",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "write_string",
+      "name": "Write string to file",
+      "description": "Writes a string to a file.",
+      "parameters": [
+        {
+          "name": "path",
+          "type": "tel",
+          "description": "Path to the file to be opened",
+          "optional": false,
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "string"
+          }
+        },
+        {
+          "name": "content",
+          "type": "tel",
+          "optional": true,
+          "description": "Selector where to save the contents",
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "string"
+          }
+        }
+      ],
+      "nativeId": "fs/write_string",
+      "exported": true,
+      "annotations": []
+    }
+  ],
+  "imports": {},
+  "description": "Blocks used to interact with the file system.",
+  "moduleId": "05624c52-d54f-412c-93e8-6f342e8e9bb3",
+  "id": "05624c52-d54f-412c-93e8-6f342e8e9bb3"
+}

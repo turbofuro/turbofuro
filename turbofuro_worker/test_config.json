@@ -1,0 +1,118 @@
+{
+  "id": "123",
+  "environmentId": "empty",
+  "modules": [
+    {
+      "path": "/wasi",
+      "method": "post",
+      "moduleId": "_",
+      "environmentId": "empty",
+      "moduleVersionId": "wasi_demo",
+      "debug": false
+    },
+    {
+      "path": "/simple",
+      "method": "get",
+      "moduleId": "_",
+      "environmentId": "empty",
+      "moduleVersionId": "simple",
+      "debug": false
+    },
+    {
+      "path": "/conditional",
+      "method": "get",
+      "moduleId": "_",
+      "environmentId": "empty",
+      "moduleVersionId": "conditional",
+      "debug": false
+    },
+    {
+      "path": "/malformed",
+      "method": "get",
+      "moduleId": "_",
+      "environmentId": "empty",
+      "moduleVersionId": "malformed",
+      "debug": false
+    },
+    {
+      "path": "/echo",
+      "method": "options",
+      "moduleId": "_",
+      "environmentId": "empty",
+      "moduleVersionId": "cors",
+      "debug": false
+    },
+    {
+      "path": "/echo",
+      "method": "get",
+      "moduleId": "_",
+      "environmentId": "empty",
+      "moduleVersionId": "echo",
+      "debug": false
+    },
+    {
+      "path": "/echo_ws",
+      "method": "get",
+      "moduleId": "_",
+      "environmentId": "empty",
+      "moduleVersionId": "echo_ws",
+      "debug": false
+    },
+    {
+      "path": "/http-to-ws-socket",
+      "method": "get",
+      "moduleId": "_",
+      "environmentId": "empty",
+      "moduleVersionId": "http_to_ws_socket",
+      "debug": false
+    },
+    {
+      "path": "/http-to-ws",
+      "method": "get",
+      "moduleId": "_",
+      "environmentId": "empty",
+      "moduleVersionId": "http_to_ws",
+      "debug": false
+    },
+    {
+      "path": "/interval",
+      "method": "get",
+      "moduleId": "_",
+      "environmentId": "empty",
+      "moduleVersionId": "ws_interval",
+      "debug": false
+    },
+    {
+      "path": "/loops",
+      "method": "get",
+      "moduleId": "_",
+      "environmentId": "empty",
+      "moduleVersionId": "loops",
+      "debug": false
+    },
+    {
+      "path": "/actor",
+      "method": "get",
+      "moduleId": "_",
+      "environmentId": "empty",
+      "moduleVersionId": "actor_demo",
+      "debug": false
+    },
+    {
+      "path": "/sum",
+      "method": "get",
+      "moduleId": "_",
+      "environmentId": "empty",
+      "moduleVersionId": "sum",
+      "debug": false
+    },
+    {
+      "path": "/late",
+      "method": "get",
+      "moduleId": "_",
+      "environmentId": "empty",
+      "moduleVersionId": "late",
+      "debug": false
+    }
+  ]
+}

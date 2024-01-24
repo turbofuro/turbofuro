@@ -1,0 +1,63 @@
+{
+  "moduleId": "test",
+  "type": "LIBRARY",
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "write",
+      "name": "Write to KV",
+      "description": "Writes to local key-value store",
+      "parameters": [
+        {
+          "name": "key",
+          "optional": false,
+          "description": "Key to write to",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "name": "value",
+          "optional": false,
+          "description": "Value to write"
+        }
+      ],
+      "nativeId": "kv/write",
+      "exported": true
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "read",
+      "name": "Read from KV",
+      "description": "Reads from local key-value store",
+      "parameters": [
+        {
+          "name": "key",
+          "optional": false,
+          "description": "Key to read from",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "name": "saveAs",
+          "optional": false,
+          "description": "Storage location where to save the value",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "kv/read",
+      "exported": true
+    }
+  ],
+  "imports": {},
+  "id": "kv"
+}

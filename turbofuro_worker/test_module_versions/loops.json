@@ -1,0 +1,143 @@
+{
+  "moduleId": "test",
+  "id": "loops",
+  "type": "HTTP",
+  "imports": {
+    "c2dfa57f-e73e-452a-8707-db7a451965ce": {
+      "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
+      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce",
+      "type": "cloud"
+    }
+  },
+  "handlers": {
+    "onStart": "a5CL6vND6LqD4XOIaMPCO"
+  },
+  "instructions": [
+    {
+      "type": "defineFunction",
+      "version": "1.0.0",
+      "name": "Handle request",
+      "parameters": [
+        {
+          "name": "request",
+          "description": "The incoming request object.",
+          "optional": false
+        }
+      ],
+      "id": "ZVnigLgKIJQ1d_nmeT71g",
+      "body": [
+        {
+          "type": "assign",
+          "value": "1",
+          "to": "x",
+          "id": "VQGZxEQSEl5wGaphvhAuD"
+        },
+        {
+          "type": "while",
+          "version": "1",
+          "condition": "x < 10",
+          "id": "J-szxDRm-fq9VLiFs2BfS",
+          "body": [
+            {
+              "type": "if",
+              "version": "1",
+              "condition": "x == 3",
+              "id": "3g8FyYwvPHydXys1vNNuO",
+              "then": [
+                {
+                  "type": "assign",
+                  "value": "\"yes\"",
+                  "to": "continued",
+                  "id": "fxfw-yy4fMm5LeTIctd_0"
+                },
+                {
+                  "type": "assign",
+                  "value": "4",
+                  "to": "x",
+                  "id": "dkk1eRRsGdjjUXZEDSfON"
+                },
+                {
+                  "type": "continue",
+                  "version": "1",
+                  "id": "iadlHmh-ommQy08nmvMPc"
+                }
+              ],
+              "else": []
+            },
+            {
+              "type": "if",
+              "version": "1",
+              "condition": "x == 5",
+              "id": "DUYvX78prPTP2h82JHIDq",
+              "then": [
+                {
+                  "type": "break",
+                  "version": "1",
+                  "id": "g0uO709J0C9SjZ3bNLvOv"
+                }
+              ],
+              "else": []
+            },
+            {
+              "type": "assign",
+              "id": "foWSViMu3gAcsK53YQE2v",
+              "value": "x + 1",
+              "to": "x"
+            }
+          ]
+        },
+        {
+          "type": "call",
+          "version": "1",
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "body",
+              "expression": "{\n  x: x,\n  continued: continued\n}"
+            },
+            {
+              "type": "tel",
+              "name": "responseType",
+              "expression": "\"json\""
+            }
+          ],
+          "id": "jMwI6DurROzkjebyNhNyD"
+        }
+      ]
+    },
+    {
+      "type": "defineFunction",
+      "name": "On start",
+      "description": "Initializes this module.",
+      "exported": false,
+      "parameters": [],
+      "annotations": [],
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "body": [
+        {
+          "type": "call",
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/setup_route",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "method",
+              "expression": "\"get\""
+            },
+            {
+              "type": "functionRef",
+              "name": "onRequest",
+              "id": "ZVnigLgKIJQ1d_nmeT71g"
+            },
+            {
+              "type": "tel",
+              "name": "path",
+              "expression": "\"/loops\""
+            }
+          ],
+          "id": "ObDqDqaFfGHCZA0-idtFI"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "request",
+      "name": "Send HTTP request",
+      "description": "Sends HTTP or HTTPS request to a given URL. Method, data and additional headers can be specified. Response will be saved to storage to key specified in [saveAs] parameter.",
+      "parameters": [
+        {
+          "name": "method",
+          "optional": false,
+          "description": "HTTP method to use, e.g. 'GET', 'POST', 'PUT', etc.",
+          "type": "tel",
+          "typeDef": {
+            "tag": "one_of",
+            "options": [
+              {
+                "label": "GET",
+                "value": "GET"
+              },
+              {
+                "label": "POST",
+                "value": "POST"
+              },
+              {
+                "label": "PUT",
+                "value": "PUT"
+              },
+              {
+                "label": "PATCH",
+                "value": "PATCH"
+              },
+              {
+                "label": "DELETE",
+                "value": "DELETE"
+              },
+              {
+                "label": "HEAD",
+                "value": "HEAD"
+              },
+              {
+                "label": "OPTIONS",
+                "value": "OPTIONS"
+              }
+            ],
+            "strict": true
+          }
+        },
+        {
+          "name": "url",
+          "optional": false,
+          "description": "URL to send the request to, e.g. 'https://example.com'",
+          "type": "tel",
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "string"
+          }
+        },
+        {
+          "name": "headers",
+          "optional": true,
+          "description": "Headers map",
+          "type": "tel",
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "object"
+          }
+        },
+        {
+          "name": "query",
+          "optional": true,
+          "description": "Query params to append to the URL",
+          "type": "tel",
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "object"
+          }
+        },
+        {
+          "name": "body",
+          "optional": true,
+          "description": "Request body",
+          "type": "tel"
+        },
+        {
+          "name": "saveAs",
+          "optional": true,
+          "description": "Saver key to save the response to",
+          "type": "tel",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "http_client/request",
+      "exported": true,
+      "annotations": []
+    }
+  ],
+  "imports": {},
+  "description": "The HTTP Client Functions are a collection of tools designed to facilitate the creation, sending, and management of HTTP requests and responses in a client-server architecture. These functions are essential for web-based applications and services, enabling them to communicate over the internet using the Hypertext Transfer Protocol (HTTP). ",
+  "moduleId": "37863408-1d22-4da0-9d80-032d27c448a9",
+  "id": "37863408-1d22-4da0-9d80-032d27c448a9"
+}

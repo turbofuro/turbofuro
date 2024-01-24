@@ -1,0 +1,133 @@
+{
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "spawn",
+      "name": "Spawn actor",
+      "description": "This function should be used by another actor to spawn a new actor of this type. You need to insert this function into exported function definition.",
+      "parameters": [
+        {
+          "name": "state",
+          "optional": true,
+          "description": "Initial state of created actor",
+          "type": "tel",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "type": "functionRef",
+          "name": "onMessage",
+          "optional": false,
+          "description": "Function to be called when message is received"
+        },
+        {
+          "type": "tel",
+          "name": "saveAs",
+          "optional": false,
+          "description": "Storage location where to save the actor ID",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "actors/spawn",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "send_command",
+      "name": "Send message to actor",
+      "description": "Sends message to another actor. A message handler (if defined) will be executed in the context of the receiving actor. If message handler is not defined, message will be ignored.",
+      "parameters": [
+        {
+          "name": "id",
+          "optional": false,
+          "description": "ID of the actor to send message to",
+          "type": "tel"
+        },
+        {
+          "name": "message",
+          "optional": false,
+          "description": "Message to send to the actor",
+          "type": "tel"
+        }
+      ],
+      "nativeId": "actors/send_command",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "get_actor_id",
+      "name": "Retrieve actor ID",
+      "description": "Retrieves ID of the current actor. Useful for debugging or to allow other actors to send messages to this actor.",
+      "parameters": [
+        {
+          "name": "saveAs",
+          "optional": false,
+          "description": "Storage location where to save the actor ID",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          },
+          "type": "tel"
+        }
+      ],
+      "nativeId": "actors/get_actor_id",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "terminate",
+      "name": "Terminate actor",
+      "description": "Terminates actor. If actor ID is not provided, current actor is terminated.",
+      "parameters": [
+        {
+          "name": "id",
+          "optional": true,
+          "description": "Actor ID to terminate. If not provided, current actor is terminated.",
+          "type": "tel",
+          "typeDef": {
+            "tag": "string",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "actors/terminate",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "check_actor_exists",
+      "name": "Check if actor exists",
+      "description": "Checks if actor with provided ID exists. Useful to check if actor is still running.",
+      "parameters": [
+        {
+          "name": "id",
+          "optional": true,
+          "type": "tel",
+          "description": "Actor ID to check. If not provided, current actor is checked.",
+          "typeDef": {
+            "tag": "string",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "actors/check_actor_exists",
+      "exported": true,
+      "annotations": []
+    }
+  ],
+  "imports": {},
+  "description": "Actors are isolated units of execution that communicate with each other using messages. They are similar to microservices, but they are not limited to network communication. They can be used to isolate parts of the application, to implement concurrency, or to implement a distributed system.",
+  "moduleId": "77236997-0f20-4141-a21c-7f0e88191999",
+  "id": "77236997-0f20-4141-a21c-7f0e88191999"
+}

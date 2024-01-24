@@ -1,0 +1,14 @@
+[workspace.package]
+version = "0.1.0"
+authors = ["Bartosz Wiśniewski <kontakt@pr0gramista.pl>"]
+repository = "https://github.com/turbofuro/turbofuro"
+license = "Apache-2.0"
+categories = ["compilers", "web-programming"]
+homepage = "https://turbofuro.com"
+keywords = ["visual", "language", "worker", "web"]
+
+
+[workspace]
+resolver = "2"
+
+members = ["tel", "tel-web", "turbofuro_worker", "turbofuro_runtime"]

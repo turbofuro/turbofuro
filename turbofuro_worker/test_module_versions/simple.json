@@ -1,0 +1,91 @@
+{
+  "moduleId": "test",
+  "id": "simple",
+  "type": "HTTP",
+  "imports": {
+    "c2dfa57f-e73e-452a-8707-db7a451965ce": {
+      "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
+      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce",
+      "type": "cloud"
+    }
+  },
+  "handlers": {
+    "onStart": "a5CL6vND6LqD4XOIaMPCO"
+  },
+  "instructions": [
+    {
+      "id": "0",
+      "type": "defineFunction",
+      "name": "Handle HTTP request",
+      "version": "1.0.0",
+      "parameters": [],
+      "body": [
+        {
+          "type": "assign",
+          "id": "3",
+          "value": "{ count: 1 }",
+          "to": "x"
+        },
+        {
+          "type": "while",
+          "id": "4",
+          "condition": "x.count < 10",
+          "body": [
+            {
+              "type": "assign",
+              "id": "4a",
+              "value": "{ \"count\": x.count + 1 }",
+              "to": "x"
+            }
+          ]
+        },
+        {
+          "type": "call",
+          "id": "5",
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "body",
+              "expression": "\"Hello World!\""
+            }
+          ],
+          "version": "0.0.1"
+        }
+      ]
+    },
+    {
+      "type": "defineFunction",
+      "name": "On start",
+      "description": "Initializes this module.",
+      "exported": false,
+      "parameters": [],
+      "annotations": [],
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "body": [
+        {
+          "type": "call",
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/setup_route",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "method",
+              "expression": "\"get\""
+            },
+            {
+              "type": "functionRef",
+              "name": "onRequest",
+              "id": "0"
+            },
+            {
+              "type": "tel",
+              "name": "path",
+              "expression": "\"/simple\""
+            }
+          ],
+          "id": "ObDqDqaFfGHCZA0-idtFI"
+        }
+      ]
+    }
+  ]
+}

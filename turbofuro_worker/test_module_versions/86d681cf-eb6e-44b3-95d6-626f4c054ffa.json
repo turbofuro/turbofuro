@@ -1,0 +1,117 @@
+{
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "run_command",
+      "name": "Run command",
+      "description": "",
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "program",
+          "optional": false,
+          "description": "Program to run",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "type": "tel",
+          "name": "args",
+          "optional": true,
+          "description": "Arguments to pass to the program",
+          "typeDef": {
+            "tag": "simple",
+            "type": "array",
+            "strict": true
+          }
+        },
+        {
+          "type": "tel",
+          "name": "saveAs",
+          "optional": true,
+          "description": "Storage location where to save the output containing status, stdout and stderr",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "os/run_command",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "read_environment_variable",
+      "name": "Read system environment variable",
+      "description": "",
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "key",
+          "optional": false,
+          "description": "Name of the environment variable to read",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "type": "tel",
+          "name": "saveAs",
+          "optional": true,
+          "description": "Storage location where to save the value of the environment variable",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "os/read_environment_variable",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "set_environment_variable",
+      "name": "Set system environment variable",
+      "description": "",
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "key",
+          "optional": false,
+          "description": "Name of the environment variable to read",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "type": "tel",
+          "name": "value",
+          "optional": false,
+          "description": "Value to set for the environment variable",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "os/set_environment_variable",
+      "exported": true,
+      "annotations": []
+    }
+  ],
+  "imports": {},
+  "description": "Utilities for interacting with the operating system and the environment",
+  "moduleId": "86d681cf-eb6e-44b3-95d6-626f4c054ffa",
+  "id": "86d681cf-eb6e-44b3-95d6-626f4c054ffa"
+}

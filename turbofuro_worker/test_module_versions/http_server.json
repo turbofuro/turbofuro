@@ -1,0 +1,44 @@
+{
+  "moduleId": "test",
+  "type": "LIBRARY",
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "respond_with",
+      "name": "Respond with",
+      "description": "Responds to the HTTP request with a given body and status.",
+      "parameters": [
+        {
+          "name": "body",
+          "description": "Response body",
+          "optional": true
+        },
+        {
+          "name": "headers",
+          "optional": true,
+          "description": "Headers map",
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "object"
+          }
+        },
+        {
+          "name": "status",
+          "description": "HTTP Status to be set, 200 by default",
+          "optional": true,
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "integer"
+          }
+        }
+      ],
+      "nativeId": "http_server/respond_with",
+      "exported": true
+    }
+  ],
+  "imports": {},
+  "id": "http_server"
+}

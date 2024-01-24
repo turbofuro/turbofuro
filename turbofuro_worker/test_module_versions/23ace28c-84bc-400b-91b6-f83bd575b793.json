@@ -1,0 +1,116 @@
+{
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "setup_route",
+      "name": "Setup route",
+      "description": "Sets up a route for the HTTP server.",
+      "parameters": [
+        {
+          "name": "path",
+          "optional": true,
+          "description": "Path to match",
+          "type": "tel",
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "object"
+          }
+        },
+        {
+          "name": "onRequest",
+          "description": "Function to be called when the route is matched",
+          "optional": false,
+          "type": "functionRef"
+        },
+        {
+          "name": "onWebSocketConnection",
+          "description": "Function to be called when the WebSocket connection is established",
+          "optional": true,
+          "type": "functionRef"
+        },
+        {
+          "name": "onWebSocketMessage",
+          "description": "Function to be called when the route is matched",
+          "optional": false,
+          "type": "functionRef"
+        },
+        {
+          "name": "onWebSocketDisconnection",
+          "description": "Function to be called when the WebSocket is closed",
+          "optional": true,
+          "type": "functionRef"
+        },
+        {
+          "name": "onMessage",
+          "description": "Function to be called when the actor receives a new message",
+          "optional": true,
+          "type": "functionRef"
+        }
+      ],
+      "nativeId": "http_server/setup_route",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "accept_ws",
+      "name": "Accept WebSocket",
+      "description": "In order to communicate over a WebSocket, the HTTP connection needs to be upgraded to a WebSocket. Use this action in request handler in WebSocket service to upgrade the connection to allow further communication over WebSocket.",
+      "parameters": [],
+      "nativeId": "websocket/accept_ws",
+      "exported": true,
+      "annotations": [
+        {
+          "resource": "http_request",
+          "strict": true,
+          "type": "consumption"
+        }
+      ]
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "send_message",
+      "name": "Send message",
+      "description": "Sends a message over a WebSocket. If no name is provided, the scoped WebSocket will be used. If no WebSocket is found the action will fail.",
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "message",
+          "optional": false,
+          "description": "Message to send"
+        }
+      ],
+      "nativeId": "websocket/send_message",
+      "exported": true,
+      "annotations": [
+        {
+          "resource": "websocket",
+          "strict": true,
+          "type": "requirement"
+        }
+      ]
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "close",
+      "name": "Close WebSocket",
+      "description": "Sends a closing message and terminates a connection consuming WebSocket resource. If no name is provided, the scoped WebSocket will be used. If no WebSocket is found the action will fail.",
+      "parameters": [],
+      "nativeId": "websocket/close",
+      "exported": true,
+      "annotations": [
+        {
+          "resource": "websocket",
+          "strict": true,
+          "type": "consumption"
+        }
+      ]
+    }
+  ],
+  "imports": {},
+  "description": "WebSocket is a computer communications protocol, providing full-duplex communication channels over a single TCP connection.",
+  "moduleId": "23ace28c-84bc-400b-91b6-f83bd575b793",
+  "id": "23ace28c-84bc-400b-91b6-f83bd575b793"
+}

@@ -1,0 +1,48 @@
+{
+  "moduleId": "test",
+  "type": "LIBRARY",
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "jwt_decode",
+      "name": "Decode JWT",
+      "description": "Verifies and decodes JWT",
+      "parameters": [
+        {
+          "name": "token",
+          "optional": false,
+          "description": "JWT token",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "name": "secret",
+          "optional": false,
+          "description": "Secret used to sign the token",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "name": "saveAs",
+          "optional": false,
+          "description": "Storage location where to save the value",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "crypto/jwt_decode",
+      "exported": true
+    }
+  ],
+  "imports": {},
+  "id": "crypto"
+}

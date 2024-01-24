@@ -1,0 +1,172 @@
+{
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "setup_route",
+      "name": "Setup route",
+      "description": "Sets up a route for the HTTP server.",
+      "parameters": [
+        {
+          "name": "method",
+          "description": "HTTP method to use, e.g. GET, POST, PUT, etc.",
+          "optional": true,
+          "type": "tel",
+          "typeDef": {
+            "tag": "one_of",
+            "options": [
+              {
+                "label": "GET",
+                "value": "GET"
+              },
+              {
+                "label": "POST",
+                "value": "POST"
+              },
+              {
+                "label": "PUT",
+                "value": "PUT"
+              },
+              {
+                "label": "PATCH",
+                "value": "PATCH"
+              },
+              {
+                "label": "DELETE",
+                "value": "DELETE"
+              },
+              {
+                "label": "HEAD",
+                "value": "HEAD"
+              },
+              {
+                "label": "OPTIONS",
+                "value": "OPTIONS"
+              }
+            ],
+            "strict": true
+          }
+        },
+        {
+          "name": "path",
+          "optional": true,
+          "description": "Path to match",
+          "type": "tel",
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "object"
+          }
+        },
+        {
+          "name": "onRequest",
+          "description": "Function to be called when the route is matched",
+          "optional": false,
+          "type": "functionRef"
+        },
+        {
+          "name": "onMessage",
+          "description": "Function to be called when the actor receives a new message",
+          "optional": true,
+          "type": "functionRef"
+        }
+      ],
+      "nativeId": "http_server/setup_route",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "respond_with",
+      "name": "Respond with",
+      "description": "Responds to the HTTP request with a given body and status.",
+      "parameters": [
+        {
+          "name": "body",
+          "description": "Response body",
+          "optional": true,
+          "type": "tel"
+        },
+        {
+          "name": "headers",
+          "optional": true,
+          "description": "Headers map",
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "object"
+          },
+          "type": "tel"
+        },
+        {
+          "name": "status",
+          "description": "HTTP Status to be set, 200 by default",
+          "optional": true,
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "integer"
+          },
+          "type": "tel"
+        }
+      ],
+      "nativeId": "http_server/respond_with",
+      "exported": true,
+      "annotations": [
+        {
+          "resource": "http_request",
+          "strict": true,
+          "type": "consumption"
+        }
+      ]
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "respond_with_file_stream",
+      "name": "Respond with file stream",
+      "description": "Responds to the HTTP request with by streaming a file. This function is useful for serving large files as it does not load the entire file into memory.",
+      "parameters": [
+        {
+          "name": "headers",
+          "optional": true,
+          "description": "Headers map",
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "object"
+          },
+          "type": "tel"
+        },
+        {
+          "name": "status",
+          "description": "HTTP Status to be set, 200 by default",
+          "optional": true,
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "integer"
+          },
+          "type": "tel"
+        }
+      ],
+      "nativeId": "http_server/respond_with_file_stream",
+      "exported": true,
+      "annotations": [
+        {
+          "resource": "file_handle",
+          "strict": true,
+          "type": "consumption"
+        },
+        {
+          "resource": "http_request",
+          "strict": true,
+          "type": "consumption"
+        }
+      ]
+    }
+  ],
+  "imports": {},
+  "description": "The HTTP Server Functions encompass a suite of capabilities essential for building and managing a robust and efficient HTTP server. These functions are integral to the server-side of web applications, enabling them to accept, process, and respond to HTTP requests from clients.",
+  "moduleId": "c2dfa57f-e73e-452a-8707-db7a451965ce",
+  "id": "c2dfa57f-e73e-452a-8707-db7a451965ce"
+}

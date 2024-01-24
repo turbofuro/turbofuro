@@ -1,0 +1,102 @@
+{
+  "moduleId": "test",
+  "type": "LIBRARY",
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "request",
+      "name": "Send HTTP request",
+      "description": "Sends HTTPS request to a given URL.",
+      "parameters": [
+        {
+          "name": "method",
+          "optional": false,
+          "description": "HTTP method to use, e.g. 'GET', 'POST', 'PUT', etc.",
+          "typeDef": {
+            "tag": "one_of",
+            "options": [
+              {
+                "label": "GET",
+                "value": "GET"
+              },
+              {
+                "label": "POST",
+                "value": "POST"
+              },
+              {
+                "label": "PUT",
+                "value": "PUT"
+              },
+              {
+                "label": "PATCH",
+                "value": "PATCH"
+              },
+              {
+                "label": "DELETE",
+                "value": "DELETE"
+              },
+              {
+                "label": "HEAD",
+                "value": "HEAD"
+              },
+              {
+                "label": "OPTIONS",
+                "value": "OPTIONS"
+              }
+            ],
+            "strict": true
+          }
+        },
+        {
+          "name": "url",
+          "optional": false,
+          "description": "URL to send the request to, e.g. 'https://example.com'",
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "string"
+          }
+        },
+        {
+          "name": "headers",
+          "optional": true,
+          "description": "Headers map",
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "object"
+          }
+        },
+        {
+          "name": "query",
+          "optional": true,
+          "description": "Query params to append to the URL",
+          "typeDef": {
+            "tag": "simple",
+            "strict": true,
+            "type": "object"
+          }
+        },
+        {
+          "name": "body",
+          "optional": true,
+          "description": "Request body"
+        },
+        {
+          "name": "saveAs",
+          "optional": true,
+          "description": "Saver key to save the response to",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "http_client/request",
+      "exported": true
+    }
+  ],
+  "imports": {},
+  "id": "http_client"
+}

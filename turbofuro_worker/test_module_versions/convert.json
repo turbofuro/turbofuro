@@ -1,0 +1,115 @@
+{
+  "moduleId": "test",
+  "type": "LIBRARY",
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "parse_json",
+      "name": "Parse JSON",
+      "description": "Parses JSON string into a value",
+      "parameters": [
+        {
+          "name": "json",
+          "optional": false,
+          "description": "JSON string",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "name": "saveAs",
+          "optional": false,
+          "description": "Storage location where to save the value",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "convert/parse_json",
+      "exported": true
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "to_json",
+      "name": "Convert to JSON",
+      "description": "Serializes value to JSON string",
+      "parameters": [
+        {
+          "name": "value",
+          "optional": false,
+          "description": "Value to convert to JSON"
+        },
+        {
+          "name": "saveAs",
+          "optional": false,
+          "description": "Storage location where to save the value",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "convert/to_json",
+      "exported": true
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "parse_urlencoded",
+      "name": "Parse URL encoded",
+      "description": "Parses URL encoded string into a value",
+      "parameters": [
+        {
+          "name": "urlencoded",
+          "optional": false,
+          "description": "URL encoded string",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "name": "saveAs",
+          "optional": false,
+          "description": "Storage location where to save the value",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "convert/parse_urlencoded",
+      "exported": true
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "to_urlencoded",
+      "name": "Convert to URL encoded",
+      "description": "Serializes value to URL encoded string",
+      "parameters": [
+        {
+          "name": "value",
+          "optional": false,
+          "description": "Value to convert to URL encoded"
+        },
+        {
+          "name": "saveAs",
+          "optional": false,
+          "description": "Storage location where to save the value",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "convert/to_urlencoded",
+      "exported": true
+    }
+  ],
+  "imports": [],
+  "id": "convert"
+}

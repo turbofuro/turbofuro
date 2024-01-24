@@ -1,0 +1,127 @@
+{
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "parse_json",
+      "name": "Parse JSON",
+      "description": "",
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "json",
+          "optional": false,
+          "description": "JSON string",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "type": "tel",
+          "name": "saveAs",
+          "optional": false,
+          "description": "Storage location where to save the value",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "convert/parse_json",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "to_json",
+      "name": "Convert to JSON",
+      "description": "",
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "value",
+          "optional": false,
+          "description": "Value to convert to JSON"
+        },
+        {
+          "type": "tel",
+          "name": "saveAs",
+          "optional": false,
+          "description": "Storage location where to save the value",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "convert/to_json",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "parse_urlencoded",
+      "name": "Parse URL encoded",
+      "description": "",
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "urlencoded",
+          "optional": false,
+          "description": "URL encoded string",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "type": "tel",
+          "name": "saveAs",
+          "optional": false,
+          "description": "Storage location where to save the value",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "convert/parse_urlencoded",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "to_urlencoded",
+      "name": "Convert to URL encoded",
+      "description": "",
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "value",
+          "optional": false,
+          "description": "Value to convert to URL encoded"
+        },
+        {
+          "type": "tel",
+          "name": "saveAs",
+          "optional": false,
+          "description": "Storage location where to save the value",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "convert/to_urlencoded",
+      "exported": true,
+      "annotations": []
+    }
+  ],
+  "imports": {},
+  "description": "Utilities for converting between different data formats and types",
+  "moduleId": "4e8cdd5a-bb8b-4b26-b274-b4ea299b90c4",
+  "id": "4e8cdd5a-bb8b-4b26-b274-b4ea299b90c4"
+}

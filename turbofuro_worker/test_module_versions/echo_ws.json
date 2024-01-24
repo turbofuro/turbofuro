@@ -1,0 +1,108 @@
+{
+  "moduleId": "echo_ws",
+  "id": "echo_ws",
+  "imports": {
+    "23ace28c-84bc-400b-91b6-f83bd575b793": {
+      "type": "cloud",
+      "id": "23ace28c-84bc-400b-91b6-f83bd575b793",
+      "versionId": "23ace28c-84bc-400b-91b6-f83bd575b793"
+    }
+  },
+  "type": "WEB_SOCKET",
+  "handlers": {
+    "onStart": "a5CL6vND6LqD4XOIaMPCO"
+  },
+  "instructions": [
+    {
+      "type": "defineFunction",
+      "name": "Handle HTTP request",
+      "description": "Handles HTTP request.",
+      "exported": false,
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "request",
+          "description": "The HTTP request object",
+          "optional": false
+        }
+      ],
+      "id": "Xjk2dP1YC_2-FW76IlD-q",
+      "body": [
+        {
+          "type": "call",
+          "callee": "import/23ace28c-84bc-400b-91b6-f83bd575b793/accept_ws",
+          "parameters": [],
+          "id": "7D88zQyq0gk-zGe81sLZL"
+        }
+      ]
+    },
+    {
+      "type": "defineFunction",
+      "name": "Handle WebSocket message",
+      "description": "Handles incoming WebSocket message from the client.",
+      "exported": false,
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "state",
+          "description": "The state object",
+          "optional": false
+        },
+        {
+          "type": "tel",
+          "name": "message",
+          "description": "The WebSocket message",
+          "optional": false
+        }
+      ],
+      "id": "Vg-QVu8_R_hNK8i4zQ8Lw",
+      "body": [
+        {
+          "type": "call",
+          "callee": "import/23ace28c-84bc-400b-91b6-f83bd575b793/send_message",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "message",
+              "expression": "message"
+            }
+          ],
+          "id": "jrnYXqqWYc5gkWZtZ3-RC"
+        }
+      ]
+    },
+    {
+      "type": "defineFunction",
+      "name": "On start",
+      "description": "Initializes this module.",
+      "exported": false,
+      "parameters": [],
+      "annotations": [],
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "body": [
+        {
+          "type": "call",
+          "callee": "import/23ace28c-84bc-400b-91b6-f83bd575b793/setup_route",
+          "parameters": [
+            {
+              "type": "functionRef",
+              "name": "onRequest",
+              "id": "Xjk2dP1YC_2-FW76IlD-q"
+            },
+            {
+              "type": "functionRef",
+              "name": "onWebSocketMessage",
+              "id": "Vg-QVu8_R_hNK8i4zQ8Lw"
+            },
+            {
+              "type": "tel",
+              "name": "path",
+              "expression": "\"/echo_ws\""
+            }
+          ],
+          "id": "ObDqDqaFfGHCZA0-idtFI"
+        }
+      ]
+    }
+  ]
+}

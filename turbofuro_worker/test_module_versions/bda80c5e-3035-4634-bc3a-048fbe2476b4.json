@@ -1,0 +1,145 @@
+{
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "set_alarm",
+      "name": "Set alarm",
+      "description": "Sets an alarm. If the alarm with the same name already exists, it will be overwritten.",
+      "parameters": [
+        {
+          "name": "timeout",
+          "optional": true,
+          "description": "Milliseconds to wait before calling the alarm handler.",
+          "type": "tel",
+          "typeDef": {
+            "tag": "simple",
+            "type": "integer",
+            "strict": true
+          }
+        },
+        {
+          "name": "data",
+          "optional": true,
+          "type": "tel",
+          "description": "Data to be passed to the alarm handler. If not provided, the alarm handler will be called without any arguments."
+        },
+        {
+          "type": "functionRef",
+          "name": "onTimeout",
+          "optional": true,
+          "description": "Function to be called when the alarm is triggered. If not provided a onMessage handler will be called instead"
+        }
+      ],
+      "nativeId": "alarms/set_alarm",
+      "exported": true,
+      "annotations": [
+        {
+          "resource": "cancellation",
+          "strict": true,
+          "type": "provision"
+        }
+      ]
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "set_interval",
+      "name": "Set interval",
+      "description": "Sets an interval alarm.",
+      "parameters": [
+        {
+          "name": "interval",
+          "type": "tel",
+          "optional": true,
+          "description": "Milliseconds between alarm handler calls.",
+          "typeDef": {
+            "tag": "simple",
+            "type": "integer",
+            "strict": true
+          }
+        },
+        {
+          "type": "tel",
+          "name": "data",
+          "optional": true,
+          "description": "Data to be passed to the alarm handler. If not provided, the alarm handler will be called without any arguments."
+        },
+        {
+          "type": "functionRef",
+          "name": "onTimeout",
+          "optional": true,
+          "description": "Function to be called when the alarm is triggered. If not provided a onMessage handler will be called instead"
+        }
+      ],
+      "nativeId": "alarms/set_interval",
+      "exported": true,
+      "annotations": [
+        {
+          "resource": "cancellation",
+          "strict": true,
+          "type": "provision"
+        }
+      ]
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "cancel",
+      "name": "Cancel alarm",
+      "description": "Cancels an alarm.",
+      "parameters": [],
+      "nativeId": "alarms/cancel",
+      "exported": true,
+      "annotations": [
+        {
+          "resource": "cancellation",
+          "strict": true,
+          "type": "consumption"
+        }
+      ]
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "setup_cronjob",
+      "name": "Setup cronjob",
+      "description": "Sets up a cronjob.",
+      "parameters": [
+        {
+          "name": "schedule",
+          "optional": false,
+          "description": "Cron expression",
+          "type": "tel",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "type": "functionRef",
+          "name": "onSchedule",
+          "optional": false,
+          "description": "Function to be called as a task at the scheduled time. Note that the actual time of execution may be delayed."
+        },
+        {
+          "name": "data",
+          "optional": true,
+          "type": "tel",
+          "description": "Data to be passed to the cronjob handler. If not provided, the alarm handler will be called without any arguments."
+        }
+      ],
+      "nativeId": "alarms/setup_cronjob",
+      "exported": true,
+      "annotations": [
+        {
+          "resource": "cancellation",
+          "strict": true,
+          "type": "provision"
+        }
+      ]
+    }
+  ],
+  "imports": {},
+  "description": "Alarms are used to schedule execution of a function at a specified time.",
+  "moduleId": "bda80c5e-3035-4634-bc3a-048fbe2476b4",
+  "id": "bda80c5e-3035-4634-bc3a-048fbe2476b4"
+}

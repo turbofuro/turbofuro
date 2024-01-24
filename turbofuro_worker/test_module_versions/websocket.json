@@ -1,0 +1,74 @@
+{
+  "moduleId": "test",
+  "type": "LIBRARY",
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "accept_ws",
+      "name": "Accept WebSocket",
+      "description": "Upgrades HTTP connection to a WebSocket",
+      "parameters": [
+        {
+          "name": "name",
+          "optional": true,
+          "description": "If provided created WebSocket resource will be put into local scope allowing other services to use it.",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "websocket/accept_ws",
+      "exported": true
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "send_message",
+      "name": "Send message",
+      "description": "Sends a message over a WebSocket",
+      "parameters": [
+        {
+          "name": "message",
+          "optional": false,
+          "description": "Message to send"
+        },
+        {
+          "name": "name",
+          "optional": true,
+          "description": "Resource name of the WebSocket that should be used for this action",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "websocket/send_message",
+      "exported": true
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "close",
+      "name": "Close WebSocket",
+      "description": "Sends a closing message and terminates a connection",
+      "parameters": [
+        {
+          "name": "name",
+          "optional": true,
+          "description": "Resource name of the WebSocket that should be used for this action",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "websocket/close",
+      "exported": true
+    }
+  ],
+  "imports": {},
+  "id": "websocket"
+}

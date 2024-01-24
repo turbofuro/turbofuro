@@ -1,0 +1,128 @@
+{
+  "moduleId": "test",
+  "id": "echo_actor",
+  "imports": {
+    "77236997-0f20-4141-a21c-7f0e88191999": {
+      "id": "77236997-0f20-4141-a21c-7f0e88191999",
+      "versionId": "77236997-0f20-4141-a21c-7f0e88191999",
+      "type": "cloud"
+    },
+    "a816bac0-336e-4f5c-be43-db999b3e08da": {
+      "id": "a816bac0-336e-4f5c-be43-db999b3e08da",
+      "versionId": "a816bac0-336e-4f5c-be43-db999b3e08da",
+      "type": "cloud"
+    }
+  },
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineFunction",
+      "version": "1",
+      "name": "Handle message",
+      "description": "Handles message from another actor.",
+      "exported": false,
+      "annotations": [],
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "state",
+          "description": "The state object.",
+          "optional": false
+        },
+        {
+          "type": "tel",
+          "name": "message",
+          "description": "Message",
+          "optional": false
+        }
+      ],
+      "id": "dXT1mhSZ-_haV_ZG_ITFK",
+      "body": [
+        {
+          "type": "call",
+          "version": "1",
+          "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/send_command",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "id",
+              "expression": "message.respond_to"
+            },
+            {
+              "type": "tel",
+              "name": "message",
+              "expression": "{ data: state }"
+            }
+          ],
+          "id": "kb5pAq7kWAubFK5vQ6RVP"
+        },
+        {
+          "type": "assign",
+          "value": "message.data",
+          "to": "state",
+          "id": "VQGZxEQSEl5wGaphvhAuD"
+        }
+      ]
+    },
+    {
+      "type": "defineFunction",
+      "version": "1",
+      "name": "Spawn me",
+      "description": "",
+      "exported": true,
+      "annotations": [],
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "state",
+          "description": "",
+          "optional": false
+        }
+      ],
+      "id": "23O3mwbiJw7TPnNOWBORS",
+      "body": [
+        {
+          "type": "call",
+          "version": "1",
+          "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/spawn",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "state",
+              "expression": "state"
+            },
+            {
+              "type": "tel",
+              "name": "saveAs",
+              "expression": "actorId"
+            },
+            {
+              "type": "functionRef",
+              "name": "onMessage",
+              "id": "dXT1mhSZ-_haV_ZG_ITFK"
+            }
+          ],
+          "id": "cfaiPeHIXWrDHx-VMrbCj"
+        },
+        {
+          "type": "call",
+          "version": "1",
+          "callee": "import/a816bac0-336e-4f5c-be43-db999b3e08da/write",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "key",
+              "expression": "\"actor\""
+            },
+            {
+              "type": "tel",
+              "name": "value",
+              "expression": "actorId"
+            }
+          ],
+          "id": "lIVZCd10xLMJxcsI_QV56"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,151 @@
+// Storage
+// {
+//     "request": {
+//         "headers": {
+//             "access-control-allow-origin": "*",
+//             "user-agent": "Tel",
+//         },
+//         "body": {
+//             "id": 1,
+//             "name": "John Doe"
+//         }
+//     },
+//     "numbers": [1, 2, 3, 4, 5],
+// }
+// Environment
+// {
+//     "REDIS_URL": "redis://localhost:6379",
+//     "TOKEN": "test",
+//     "NUMBER": 3,
+// }
+{} == {}
+[{}] == [{}]
+[] == []
+5 == 5
+5 + 4 == 9
+5 / 2.5 == 2
+2 > 1
+2.5 > 2
+2.5 == 2.5
+2 + 2 * 2 == 6
+(2 + 2) * 2 == 8
+(2+2)*2==8
+true // false // check if comments work too
+2 == /* Hey there */ 2
+null == null
+!!true == true
+request.body.id == 1 
+!true == false
+"Hello"[0] == "H"
+$NUMBER == 3
+numbers[$NUMBER] == 4
+request.headers["user-agent"] == "Tel"
+request . headers [ "user-agent"]  == "Tel"
+$REDIS_URL == "redis://localhost:6379"
+$REDIS_URL + "/hello" == "redis://localhost:6379/hello"
+numbers[0] == 1
+numbers[1] == 2
+[] + [] == []
+{} + {} == {}
+[1] + [2] == [1, 2]
+[2] + [1] == [2, 1]
+{ "a": 5 } == { a: 5 }
+{ a: 5 } + { b: 4 } == { a: 5, b: 4 }
+{ a: 5 } + { a: 4 } == { a: 4 }
+{ a: 5 } + { a: 4, b: 3 } == { a: 4, b: 3 }
+{ a: 5 } + { b: 4, a: 3 } == { b: 4, a: 3 }
+{ a: 5 } + { b: 4, a: 3, c: 2 } == { b: 4, a: 3, c: 2 }
+[1, 2, 3] + [4] == [1, 2, 3, 4]
+"Hello" + "World" == "HelloWorld"
+"Hello" + 5 == "Hello5"
+"Hello" + 5.0 == "Hello5"
+"Hello" + 5.1 == "Hello5.1"
+["Hello"] + ["World"] == ["Hello", "World"]
+"Hello" + null == "Hellonull"
+!false == true
+(true && true) == true
+(true && false) == false
+(false && true) == false
+(false && false) == false
+(true || true) == true
+(true || false) == true
+(false || true) == true
+(false || false) == false
+(5 + 5) * 2 == 20
+5 + 5 * 2 == 15
+5.0 + 5 == 10.0
+5 + 5.0 == 10.0
+5 + 5 == 10
+request.body.name == "John Doe"
+request.trololo.lololo == null
+numbers[0] == 1
+request["headers"]["user-agent"] == "Tel"
+request.headers["user-agent"] == "Tel"
+request["body"].id == 1
+request["body"] == { id: 1, name: "John Doe" }
+5.toString() == "5"
+"hello".startsWith("h") == true
+"hello".startsWith("nope") == false
+$NUMBER + $NUMBER == 6
+(true ? "halo" : true ? "halo" : "tres") == "halo"
+(true ? 5 : 1) == 5
+(true ? 5 : 1 == 5) == 5
+(false ? 5 : 1) == 1
+5 + "Hello".length == 10
+{ a: $NUMBER == 3 ? 5 : 1 } == { a: 5 }
+{ a: $NUMBER == 3 ? 5 : 1, b: 2 } == { a: 5, b: 2 }
+"Hello".length + 5 == 10
+[1, 2, 3].length + 0 == 3
+[].length + 0 == 0
+"Hello".startsWith("H") == true
+"5.0".toNumber() == 5.0
+"5.0".toNumber() == 5.0
+"5".toNumber() == 5
+5.4.round() == 5
+5.4.round().round() == 5
+5.6.floor() == 5
+5.2.ceil() == 6
+null.toString() == "null"
+5.type() == "number"
+"Hello".type() == "string"
+[1, 2, 3].type() == "array"
+{ a: 5 }.type() == "object"
+true.type() == "boolean"
+false.type() == "boolean"
+5.0.type() == "number"
+null.type() == "null"
+(nothing || "hello") == "hello"
+(request || "hello") != "hello"
+5.4.isInteger == false
+5.0.isInteger == true
+5.isInteger == true
+-9 * 2 == -18
+"Hello".toUpperCase() == "HELLO"
+"World".toLowerCase() == "world"
+"".isEmpty() == true
+" ".isEmpty() == false
+" ".trim().isEmpty() == true
+"Hello World".contains("Hello") == true
+"Hello World".contains(" World") == true
+[1, 2, 3].contains(1) == true
+[1, 2, 3].contains(4) == false
+[1, 2, 3][0].type() == "number"
+numbers.contains(5) == true
+$REDIS_URL + "/hello" == "redis://localhost:6379/hello"
+numbers[0] + numbers[1] == 3
+10 % 3 == 1
+10 % 2 == 0
+[1, 2, 3, 4].join("-") == "1-2-3-4"
+[1, 2, 3, 4].join(", ") == "1, 2, 3, 4"
+5.abs() == 5
+-5.abs() == -5
+(-5).abs() == 5
+(nothing != null ? "OK" : "NOPE") == "NOPE"
+(false ? "one" : true ? "two" : "three") == "two"
+(true ? "one" : true ? "two" : "three") == "one"
+2e-1 == 0.2
+2e+1 == 20
+"\u1114" == "ᄔ"
+// "true".toBoolean() == true
+// "false".toBoolean() == false
+// "Hello".toBoolean() == true

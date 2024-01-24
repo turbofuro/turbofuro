@@ -1,0 +1,75 @@
+{
+  "moduleId": "test",
+  "id": "echo",
+  "debug": false,
+  "version": "alpha",
+  "parameters": [],
+  "type": "HTTP",
+  "imports": {
+    "c2dfa57f-e73e-452a-8707-db7a451965ce": {
+      "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
+      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce",
+      "type": "cloud"
+    }
+  },
+  "handlers": {
+    "onStart": "a5CL6vND6LqD4XOIaMPCO"
+  },
+  "instructions": [
+    {
+      "id": "0",
+      "type": "defineFunction",
+      "name": "Handle HTTP request",
+      "version": "1.0.0",
+      "parameters": [],
+      "body": [
+        {
+          "type": "call",
+          "id": "1",
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "body",
+              "expression": "request"
+            }
+          ],
+          "version": "0.0.1"
+        }
+      ]
+    },
+    {
+      "type": "defineFunction",
+      "name": "On start",
+      "description": "Initializes this module.",
+      "exported": false,
+      "parameters": [],
+      "annotations": [],
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "body": [
+        {
+          "type": "call",
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/setup_route",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "method",
+              "expression": "\"get\""
+            },
+            {
+              "type": "functionRef",
+              "name": "onRequest",
+              "id": "0"
+            },
+            {
+              "type": "tel",
+              "name": "path",
+              "expression": "\"/echo\""
+            }
+          ],
+          "id": "ObDqDqaFfGHCZA0-idtFI"
+        }
+      ]
+    }
+  ]
+}

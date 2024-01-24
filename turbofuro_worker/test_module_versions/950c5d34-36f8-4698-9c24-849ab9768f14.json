@@ -1,0 +1,74 @@
+{
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "run_wasi",
+      "name": "Run WASI",
+      "description": "",
+      "parameters": [
+        {
+          "name": "path",
+          "optional": false,
+          "description": "Path to WASI module.",
+          "type": "tel",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "name": "args",
+          "optional": true,
+          "description": "Arguments to pass to WASI module.",
+          "type": "tel",
+          "typeDef": {
+            "tag": "simple",
+            "type": "array",
+            "strict": true
+          }
+        },
+        {
+          "name": "input",
+          "optional": true,
+          "description": "Standard input to pass to WASI module.",
+          "type": "tel",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "name": "env",
+          "optional": true,
+          "description": "Environment variables to pass to WASI module.",
+          "type": "tel",
+          "typeDef": {
+            "tag": "simple",
+            "type": "array",
+            "strict": true
+          }
+        },
+        {
+          "name": "saveAs",
+          "optional": false,
+          "description": "Storage location where to save the standard output.",
+          "type": "tel",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "wasm/run_wasi",
+      "exported": true,
+      "annotations": []
+    }
+  ],
+  "imports": {},
+  "description": "WebAssembly is a new type of code that can be run in modern web browsers — it is a low-level assembly-like language with a compact binary format that runs with near-native performance and provides languages such as C/C++ and Rust with a compilation target so that they can run on the web.",
+  "moduleId": "950c5d34-36f8-4698-9c24-849ab9768f14",
+  "id": "950c5d34-36f8-4698-9c24-849ab9768f14"
+}

@@ -1,0 +1,168 @@
+{
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "get_connection",
+      "name": "Get connection",
+      "description": "Creates Postgres connection pool using provided connection string or retrieves existing one with specified name.",
+      "parameters": [
+        {
+          "name": "connectionString",
+          "type": "tel",
+          "optional": false,
+          "description": "Connection string in the format of `postgres://user:pass@host:port/dbname`",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "name": "name",
+          "type": "tel",
+          "optional": true,
+          "description": "Resource name, if not provided `default` will be used",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "postgres/get_connection",
+      "exported": true,
+      "annotations": [
+        {
+          "resource": "postgres_connection",
+          "type": "provision",
+          "strict": true
+        }
+      ]
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "query_one",
+      "name": "Query single row",
+      "description": "Queries Postgres to retrieve one row. The result is stored in the provided storage location. If multiple rows are returned, or none at all, the action will fail.",
+      "parameters": [
+        {
+          "name": "statement",
+          "type": "tel",
+          "optional": false,
+          "description": "Statement to execute like \"SELECT * FROM users WHERE name = $1\"",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "name": "params",
+          "type": "tel",
+          "optional": false,
+          "description": "Array of parameters to be used in the statement like [\"John\"]",
+          "typeDef": {
+            "tag": "simple",
+            "type": "array",
+            "strict": true
+          }
+        },
+        {
+          "name": "saveAs",
+          "type": "tel",
+          "optional": false,
+          "description": "Storage location where to save the value",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        },
+        {
+          "name": "name",
+          "type": "tel",
+          "optional": true,
+          "description": "Resource name of the Postgres pool that should be used for this action",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "postgres/query_one",
+      "exported": true,
+      "annotations": [
+        {
+          "resource": "postgres_connection",
+          "type": "requirement",
+          "strict": true
+        }
+      ]
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "query",
+      "name": "Query",
+      "description": "Queries Postgres to retrieve multiple rows. The result is stored in the provided storage location.",
+      "parameters": [
+        {
+          "name": "statement",
+          "type": "tel",
+          "optional": false,
+          "description": "Statement to execute like \"SELECT * FROM users WHERE name = $1\"",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        },
+        {
+          "name": "params",
+          "type": "tel",
+          "optional": false,
+          "description": "Array of parameters to be used in the statement like [\"John\"]",
+          "typeDef": {
+            "tag": "simple",
+            "type": "array",
+            "strict": true
+          }
+        },
+        {
+          "name": "saveAs",
+          "type": "tel",
+          "optional": false,
+          "description": "Storage location where to save the value",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          }
+        },
+        {
+          "name": "name",
+          "type": "tel",
+          "optional": true,
+          "description": "Resource name of the Postgres pool that should be used for this action",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          }
+        }
+      ],
+      "nativeId": "postgres/query",
+      "exported": true,
+      "annotations": [
+        {
+          "resource": "postgres_connection",
+          "type": "requirement",
+          "strict": true
+        }
+      ]
+    }
+  ],
+  "imports": {},
+  "description": "PostgreSQL, also known as Postgres, is a free and open-source relational database management system emphasizing extensibility and SQL compliance.",
+  "moduleId": "00029d7c-5700-4d66-a28f-44c1d97cfcfa",
+  "id": "00029d7c-5700-4d66-a28f-44c1d97cfcfa"
+}

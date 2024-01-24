@@ -1,0 +1,217 @@
+{
+  "imports": {
+    "950c5d34-36f8-4698-9c24-849ab9768f14": {
+      "type": "cloud",
+      "id": "950c5d34-36f8-4698-9c24-849ab9768f14",
+      "versionId": "950c5d34-36f8-4698-9c24-849ab9768f14"
+    },
+    "c2dfa57f-e73e-452a-8707-db7a451965ce": {
+      "type": "cloud",
+      "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
+      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce"
+    }
+  },
+  "description": "Handles HTTP request and responds a Hello World JSON object.",
+  "instructions": [
+    {
+      "type": "defineFunction",
+      "name": "Handle request",
+      "description": "Handles HTTP request.",
+      "exported": false,
+      "parameters": [
+        {
+          "name": "request",
+          "description": "The incoming request object.",
+          "optional": false,
+          "type": "tel"
+        }
+      ],
+      "id": "9wZ6qcD3EpN4rqqVe_1Wg",
+      "body": [
+        {
+          "type": "assign",
+          "value": "\"None. Did you pass query param \\\"lang\\\"?\"",
+          "to": "output",
+          "id": "54P93LthFzlTJlq8WSRiB"
+        },
+        {
+          "type": "assign",
+          "value": "request.body",
+          "to": "code",
+          "id": "_y0L6aMMW6lq2NDWMSTsi"
+        },
+        {
+          "type": "if",
+          "condition": "request.query.lang == \"python\"",
+          "id": "wv05ao4uB4fPaB7ZCW_oM",
+          "then": [
+            {
+              "type": "call",
+              "callee": "import/950c5d34-36f8-4698-9c24-849ab9768f14/run_wasi",
+              "parameters": [
+                {
+                  "type": "tel",
+                  "name": "path",
+                  "expression": "\"./runtimes/python-3.11.4.wasm\""
+                },
+                {
+                  "type": "tel",
+                  "name": "input",
+                  "expression": "\"Hello World\""
+                },
+                {
+                  "type": "tel",
+                  "name": "saveAs",
+                  "expression": "output"
+                },
+                {
+                  "type": "tel",
+                  "name": "args",
+                  "expression": "[\"python\", \"-c\", code]"
+                },
+                {
+                  "type": "tel",
+                  "name": "env",
+                  "expression": "{\n  \"TEST\": \"Hello\"\n}"
+                }
+              ],
+              "id": "HpNT75ev0mEIKCdYkv61X"
+            }
+          ],
+          "else": []
+        },
+        {
+          "type": "if",
+          "condition": "request.query.lang == \"php\"",
+          "id": "5zORSwZ85VDEtM6yHhSLs",
+          "then": [
+            {
+              "type": "call",
+              "callee": "import/950c5d34-36f8-4698-9c24-849ab9768f14/run_wasi",
+              "parameters": [
+                {
+                  "type": "tel",
+                  "name": "path",
+                  "expression": "\"./runtimes/php-cgi-8.2.6.wasm\""
+                },
+                {
+                  "type": "tel",
+                  "name": "input",
+                  "expression": "code"
+                },
+                {
+                  "type": "tel",
+                  "name": "saveAs",
+                  "expression": "output"
+                },
+                {
+                  "type": "tel",
+                  "name": "env",
+                  "expression": "{\n  \"TEST\": \"Hello\"\n}"
+                }
+              ],
+              "id": "AknvMnwSxNXBWN8psMgNF"
+            }
+          ],
+          "else": []
+        },
+        {
+          "type": "if",
+          "condition": "request.query.lang == \"ruby\"",
+          "id": "JcutPCArKKFSQ7f6e45_9",
+          "then": [
+            {
+              "type": "call",
+              "callee": "import/950c5d34-36f8-4698-9c24-849ab9768f14/run_wasi",
+              "parameters": [
+                {
+                  "type": "tel",
+                  "name": "path",
+                  "expression": "\"./runtimes/ruby-3.2.2.wasm\""
+                },
+                {
+                  "type": "tel",
+                  "name": "input",
+                  "expression": "\"Hello World\""
+                },
+                {
+                  "type": "tel",
+                  "name": "saveAs",
+                  "expression": "output"
+                },
+                {
+                  "type": "tel",
+                  "name": "args",
+                  "expression": "[\"ruby\", \"-e\", code]"
+                },
+                {
+                  "type": "tel",
+                  "name": "env",
+                  "expression": "{\n  \"TEST\": \"Hello\"\n}"
+                }
+              ],
+              "id": "yGcEfNjP7NVysdcaJKWd1"
+            }
+          ],
+          "else": []
+        },
+        {
+          "type": "call",
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "body",
+              "expression": "output"
+            },
+            {
+              "type": "tel",
+              "name": "headers",
+              "expression": "{\n  \"Content-Type\": \"text/plain\"\n}"
+            }
+          ],
+          "id": "JnHwuJFJbnX9EWVmGgU0q"
+        }
+      ]
+    },
+    {
+      "type": "defineFunction",
+      "name": "On start",
+      "description": "Initializes this module.",
+      "exported": false,
+      "parameters": [],
+      "annotations": [],
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "body": [
+        {
+          "type": "call",
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/setup_route",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "method",
+              "expression": "\"get\""
+            },
+            {
+              "type": "functionRef",
+              "name": "onRequest",
+              "id": "9wZ6qcD3EpN4rqqVe_1Wg"
+            },
+            {
+              "type": "tel",
+              "name": "path",
+              "expression": "\"/wasi\""
+            }
+          ],
+          "id": "ObDqDqaFfGHCZA0-idtFI"
+        }
+      ]
+    }
+  ],
+  "handlers": {
+    "onStart": "a5CL6vND6LqD4XOIaMPCO"
+  },
+  "type": "HTTP",
+  "moduleId": "wasi_demo",
+  "id": "wasi_demo"
+}

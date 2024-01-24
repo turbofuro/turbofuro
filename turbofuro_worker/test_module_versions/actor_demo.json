@@ -1,0 +1,219 @@
+{
+  "moduleId": "test",
+  "id": "actor_demo",
+  "imports": {
+    "echo_actor": {
+      "id": "echo_actor",
+      "versionId": "echo_actor",
+      "type": "cloud"
+    },
+    "77236997-0f20-4141-a21c-7f0e88191999": {
+      "id": "77236997-0f20-4141-a21c-7f0e88191999",
+      "versionId": "77236997-0f20-4141-a21c-7f0e88191999",
+      "type": "cloud"
+    },
+    "c2dfa57f-e73e-452a-8707-db7a451965ce": {
+      "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
+      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce",
+      "type": "cloud"
+    },
+    "a816bac0-336e-4f5c-be43-db999b3e08da": {
+      "id": "a816bac0-336e-4f5c-be43-db999b3e08da",
+      "versionId": "a816bac0-336e-4f5c-be43-db999b3e08da",
+      "type": "cloud"
+    }
+  },
+  "handlers": {
+    "onStart": "a5CL6vND6LqD4XOIaMPCO"
+  },
+  "instructions": [
+    {
+      "type": "defineFunction",
+      "version": "1.0.0",
+      "name": "Handle message",
+      "description": "Handles actor message",
+      "exported": false,
+      "annotations": [],
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "message",
+          "description": "The incoming message object.",
+          "optional": false
+        }
+      ],
+      "id": "lQn52Y-VCNV5ymfTEgK8_",
+      "body": [
+        {
+          "type": "call",
+          "version": "1",
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "body",
+              "expression": "{\n  \"data\": message.data\n}"
+            },
+            {
+              "type": "tel",
+              "name": "headers",
+              "expression": "{\n  \"Content-Type\": \"application/json\"\n}"
+            }
+          ],
+          "id": "Y1qQeqqah6DNsg1xrX6G-"
+        }
+      ]
+    },
+    {
+      "type": "defineFunction",
+      "version": "1.0.0",
+      "name": "Handle request",
+      "description": "Handles HTTP request.",
+      "exported": false,
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "request",
+          "description": "The incoming request object.",
+          "optional": false
+        }
+      ],
+      "id": "_xr1Fnvgfh9uYPk4rNJKe",
+      "annotations": [],
+      "body": [
+        {
+          "type": "call",
+          "version": "1",
+          "callee": "import/a816bac0-336e-4f5c-be43-db999b3e08da/read",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "key",
+              "expression": "\"actor\""
+            },
+            {
+              "type": "tel",
+              "name": "saveAs",
+              "expression": "actor"
+            }
+          ],
+          "id": "h4pUkMePR2UekzBhqwz1_"
+        },
+        {
+          "type": "if",
+          "version": "1",
+          "condition": "actor == null",
+          "id": "5h-Q4PJKVr34cQmELSHxM",
+          "then": [
+            {
+              "type": "call",
+              "version": "1",
+              "callee": "import/echo_actor/23O3mwbiJw7TPnNOWBORS",
+              "parameters": [
+                {
+                  "type": "tel",
+                  "name": "state",
+                  "expression": "request.query.name"
+                }
+              ],
+              "id": "Niem1ybwxftpvyEEYamc8"
+            },
+            {
+              "type": "call",
+              "version": "1",
+              "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+              "parameters": [
+                {
+                  "type": "tel",
+                  "name": "body",
+                  "expression": "{\n  \"message\": \"created\"\n}"
+                },
+                {
+                  "type": "tel",
+                  "name": "headers",
+                  "expression": "{\n  \"Content-Type\": \"application/json\"\n}"
+                }
+              ],
+              "id": "aTYXJZhctz3pMN1lwOOHF"
+            },
+            {
+              "type": "return",
+              "version": "1",
+              "id": "Yfe7pkMGJi0YJ1LCH7cS2"
+            }
+          ],
+          "else": []
+        },
+        {
+          "type": "call",
+          "version": "1",
+          "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/get_actor_id",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "saveAs",
+              "expression": "actorId"
+            }
+          ],
+          "id": "eH0PeOwb1Yk2FZ_x-iP_R"
+        },
+        {
+          "type": "call",
+          "version": "1",
+          "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/send_command",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "id",
+              "expression": "actor"
+            },
+            {
+              "type": "tel",
+              "name": "message",
+              "expression": "{\n  respond_to: actorId,\n  data: request.query.name\n}"
+            }
+          ],
+          "id": "liBQ-jyadf56AOEol2Hof"
+        }
+      ]
+    },
+    {
+      "type": "defineFunction",
+      "name": "On start",
+      "description": "Initializes this module.",
+      "exported": false,
+      "parameters": [],
+      "annotations": [],
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "body": [
+        {
+          "type": "call",
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/setup_route",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "method",
+              "expression": "\"get\""
+            },
+            {
+              "type": "functionRef",
+              "name": "onRequest",
+              "id": "_xr1Fnvgfh9uYPk4rNJKe"
+            },
+            {
+              "type": "functionRef",
+              "name": "onMessage",
+              "id": "lQn52Y-VCNV5ymfTEgK8_"
+            },
+            {
+              "type": "tel",
+              "name": "path",
+              "expression": "\"/actor\""
+            }
+          ],
+          "id": "ObDqDqaFfGHCZA0-idtFI"
+        }
+      ]
+    }
+  ]
+}

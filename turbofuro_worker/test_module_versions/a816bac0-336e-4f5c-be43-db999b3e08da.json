@@ -1,0 +1,91 @@
+{
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "write",
+      "name": "Write to KV",
+      "description": "Writes to local key-value store. The value will be available to all services running on the same machine.",
+      "parameters": [
+        {
+          "name": "key",
+          "optional": false,
+          "description": "Key to write to",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          },
+          "type": "tel"
+        },
+        {
+          "name": "value",
+          "optional": false,
+          "description": "Value to write",
+          "type": "tel"
+        }
+      ],
+      "nativeId": "kv/write",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "read",
+      "name": "Read from KV",
+      "description": "Reads value from a local key-value store. If the key is not found, the action will save a `null` value.",
+      "parameters": [
+        {
+          "name": "key",
+          "optional": false,
+          "description": "Key to read from",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          },
+          "type": "tel"
+        },
+        {
+          "name": "saveAs",
+          "optional": false,
+          "description": "Storage location where to save the value",
+          "typeDef": {
+            "tag": "selector",
+            "strict": true
+          },
+          "type": "tel"
+        }
+      ],
+      "nativeId": "kv/read",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "delete",
+      "name": "Delete from KV",
+      "description": "Deletes value from a local key-value store. If the key is not found, the action will do nothing.",
+      "parameters": [
+        {
+          "name": "key",
+          "optional": false,
+          "description": "Key to delete",
+          "typeDef": {
+            "tag": "simple",
+            "type": "string",
+            "strict": true
+          },
+          "type": "tel"
+        }
+      ],
+      "nativeId": "kv/delete",
+      "exported": true,
+      "annotations": []
+    }
+  ],
+  "imports": {},
+  "description": "Turbofuro Worker has a built-in in-memory key-value store that can be used to share data between services running on the same machine.",
+  "moduleId": "a816bac0-336e-4f5c-be43-db999b3e08da",
+  "id": "a816bac0-336e-4f5c-be43-db999b3e08da"
+}

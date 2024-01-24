@@ -1,0 +1,33 @@
+# How to install it?
+# Download turbofuro_worker and put it in /usr/bin
+# 
+# Copy this file to /etc/systemd/system/turbofuro_worker.service
+# sudo cp turbofuro_worker.service /etc/systemd/system/turbofuro_worker.service
+# 
+# Then we want to configure environment variables. We can do it by adding overrides like this:
+# sudo systemctl edit turbofuro_worker
+#
+# Then put those 3 lines (modify them to your needs)
+# [Service]
+# Environment="PORT=80"
+# Environment="TURBOFURO_TOKEN=my_turbofuro_token"
+#
+# Lastly we want to enable and start the service
+# sudo systemctl enable turbofuro_worker
+#
+# You can check the status of the service with
+# sudo systemctl status turbofuro_worker
+
+[Unit]
+Description=Turbofuro Worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/turbofuro_worker
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

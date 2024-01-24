@@ -1,0 +1,134 @@
+{
+  "moduleId": "test",
+  "id": "late",
+  "imports": {
+    "bda80c5e-3035-4634-bc3a-048fbe2476b4": {
+      "type": "cloud",
+      "id": "bda80c5e-3035-4634-bc3a-048fbe2476b4",
+      "versionId": "bda80c5e-3035-4634-bc3a-048fbe2476b4"
+    },
+    "c2dfa57f-e73e-452a-8707-db7a451965ce": {
+      "type": "cloud",
+      "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
+      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce"
+    }
+  },
+  "type": "HTTP",
+  "handlers": {
+    "onStart": "a5CL6vND6LqD4XOIaMPCO"
+  },
+  "instructions": [
+    {
+      "type": "defineFunction",
+      "name": "Handle HTTP request",
+      "description": "Handles HTTP request.",
+      "exported": false,
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "request",
+          "description": "The HTTP request object",
+          "optional": false
+        }
+      ],
+      "id": "UpoKVYUhvIAHgDUuL9veM",
+      "body": [
+        {
+          "type": "call",
+          "callee": "import/bda80c5e-3035-4634-bc3a-048fbe2476b4/set_alarm",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "timeout",
+              "expression": "1000"
+            },
+            {
+              "type": "tel",
+              "name": "data",
+              "expression": "\"Hey after 1s\""
+            }
+          ],
+          "id": "wN4CkUEftOGHp3s_yu4QE"
+        }
+      ]
+    },
+    {
+      "type": "defineFunction",
+      "name": "Handle message",
+      "description": "Handles message from another actor.",
+      "exported": false,
+      "parameters": [
+        {
+          "type": "tel",
+          "name": "state",
+          "description": "The state object",
+          "optional": false
+        },
+        {
+          "type": "tel",
+          "name": "message",
+          "description": "Message payload",
+          "optional": false
+        }
+      ],
+      "id": "cIiuQTbHcyWoOTA_cfDCl",
+      "body": [
+        {
+          "type": "call",
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "body",
+              "expression": "message"
+            },
+            {
+              "type": "tel",
+              "name": "headers",
+              "expression": "{\n  \"Content-Type\": \"text/plain\"\n}"
+            }
+          ],
+          "id": "RlTFM74dJ5jgJUNGwjT4D"
+        }
+      ]
+    },
+    {
+      "type": "defineFunction",
+      "name": "On start",
+      "description": "Initializes this module.",
+      "exported": false,
+      "parameters": [],
+      "annotations": [],
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "body": [
+        {
+          "type": "call",
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/setup_route",
+          "parameters": [
+            {
+              "type": "tel",
+              "name": "method",
+              "expression": "\"get\""
+            },
+            {
+              "type": "functionRef",
+              "name": "onRequest",
+              "id": "UpoKVYUhvIAHgDUuL9veM"
+            },
+            {
+              "type": "functionRef",
+              "name": "onMessage",
+              "id": "cIiuQTbHcyWoOTA_cfDCl"
+            },
+            {
+              "type": "tel",
+              "name": "path",
+              "expression": "\"/late\""
+            }
+          ],
+          "id": "ObDqDqaFfGHCZA0-idtFI"
+        }
+      ]
+    }
+  ]
+}
