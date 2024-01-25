@@ -1,9 +1,9 @@
-FROM rust:1.75 as builder
+FROM rust:1.75-slim-buster as builder
 WORKDIR /build
 COPY . .
 RUN cargo build --release --locked
 
-FROM debian:buster-slim
+FROM rust:1.75-slim-buster
 RUN apt-get update
 RUN apt-get install -y openssl ca-certificates
 COPY --from=builder /build/target/release/turbofuro_worker /turbofuro_worker
