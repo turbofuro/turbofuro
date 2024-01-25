@@ -119,6 +119,8 @@ jobs:
 
   # Create a GitHub release
   deploy:
+    permissions:
+      contents: write
     if: startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-latest
