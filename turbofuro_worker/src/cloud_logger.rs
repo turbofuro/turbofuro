@@ -40,9 +40,10 @@ fn check_if_should_report(report: &ExecutionReport, stats: &mut LoggerStats) -> 
 
 pub static RUNS_ACCUMULATOR: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
-pub fn start_cloud_logger(token: String) -> ExecutionLoggerHandle {
+pub fn start_cloud_logger(token: String, cloud_url: String) -> ExecutionLoggerHandle {
     let client: Client = Client::new();
     let mut log_counter = HashMap::<String, LoggerStats>::new();
+    let url = format!("{}/mission-control/log", cloud_url);
 
     let (sender, mut receiver) = mpsc::channel::<LoggerMessage>(16);
     tokio::spawn(async move {
@@ -74,7 +75,7 @@ pub fn start_cloud_logger(token: String) -> ExecutionLoggerHandle {
 
                     if should_report {
                         match client
-                            .post("https://api.turbofuro.com/mission-control/log")
+                            .post(&url)
                             .header("x-turbofuro-token", &token)
                             .json(&report)
                             .send()

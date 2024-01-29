@@ -66,6 +66,7 @@ pub enum CloudAgentCommand {
 }
 
 pub struct CloudAgent {
+    pub cloud_url: String,
     pub token: String,
     pub environment_resolver: SharedEnvironmentResolver,
     pub module_version_resolver: SharedModuleVersionResolver,
@@ -219,7 +220,8 @@ impl CloudAgent {
                             }
                             CloudAgentCommand::UpdateConfiguration { id: _ } => {
                                 debug!("Cloud agent: Received configuration update command");
-                                let result = fetch_configuration(&self.token).await;
+                                let result =
+                                    fetch_configuration(self.cloud_url.clone(), &self.token).await;
                                 match result {
                                     Ok(configuration) => {
                                         self.configuration_coordinator

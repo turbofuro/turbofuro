@@ -40,7 +40,7 @@ impl EnvironmentResolver for FileSystemEnvironmentResolver {
     }
 }
 
-pub struct ManagerStorageEnvironmentResolver {
+pub struct CloudEnvironmentResolver {
     pub client: Client,
     pub base_url: String,
 
@@ -48,7 +48,7 @@ pub struct ManagerStorageEnvironmentResolver {
     cache: Cache<String, Environment>,
 }
 
-impl ManagerStorageEnvironmentResolver {
+impl CloudEnvironmentResolver {
     pub fn new(client: Client, base_url: String, token: String) -> Self {
         let cache = Cache::<String, Environment>::new(4);
 
@@ -62,7 +62,7 @@ impl ManagerStorageEnvironmentResolver {
 }
 
 #[async_trait]
-impl EnvironmentResolver for ManagerStorageEnvironmentResolver {
+impl EnvironmentResolver for CloudEnvironmentResolver {
     async fn get_environment(&mut self, id: &str) -> Result<Environment, AppError> {
         if let Some(cached) = self.cache.get(id).await {
             return Ok(cached);

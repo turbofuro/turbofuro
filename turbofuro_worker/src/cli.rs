@@ -10,7 +10,9 @@ FLAGS:
 OPTIONS:
   --config PATH         Runs worker with a configuration read from given PATH
   --token TOKEN         Runs worker with a given device TOKEN
-  --port PORT           Runs HTTP endpoints on a given PORT 
+  --port PORT           Runs HTTP endpoints on a given PORT
+  --disable-agent       Disables cloud agent
+  --cloud URL           Uses a given cloud URL instead of the default one (https://api.turbofuro.com)
 ";
 
 #[derive(Debug)]
@@ -18,6 +20,8 @@ pub struct AppArgs {
     pub token: Option<String>,
     pub port: Option<u16>,
     pub config: Option<std::path::PathBuf>,
+    pub disable_agent: bool,
+    pub cloud_url: Option<String>,
 }
 
 pub fn parse_cli_args() -> Result<AppArgs, pico_args::Error> {
@@ -33,6 +37,8 @@ pub fn parse_cli_args() -> Result<AppArgs, pico_args::Error> {
         token: pargs.opt_value_from_str("--token")?,
         config: pargs.opt_value_from_os_str("--config", parse_path)?,
         port: pargs.opt_value_from_str("--port")?,
+        disable_agent: pargs.contains("--disable-agent"),
+        cloud_url: pargs.opt_value_from_str("--cloud")?,
     };
 
     // It's up to the caller what to do with the remaining arguments.
