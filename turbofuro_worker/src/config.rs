@@ -23,9 +23,14 @@ pub struct ModuleSpec {
 
 pub type SharedConfiguration = Arc<Mutex<Configuration>>;
 
-pub async fn fetch_configuration(turbofuro_token: &str) -> Result<Configuration, WorkerError> {
+pub async fn fetch_configuration(
+    cloud_url: String,
+    turbofuro_token: &str,
+) -> Result<Configuration, WorkerError> {
+    let url = format!("{}/mission-control/log", cloud_url);
+
     let response = reqwest::Client::new()
-        .get("https://api.turbofuro.com/mission-control/configuration")
+        .get(url)
         .header("x-turbofuro-token", turbofuro_token)
         .header("content-length", 0)
         .send()
@@ -56,12 +61,15 @@ pub async fn fetch_configuration(turbofuro_token: &str) -> Result<Configuration,
 ///
 /// This is a backup mechanism in case there is an issue with Cloud Agent.
 pub fn run_configuration_fetcher(
+    cloud_url: String,
     turbofuro_token: String,
     configuration_coordinator: ConfigurationCoordinator,
 ) {
     tokio::spawn(async move {
         loop {
-            let new_config = fetch_configuration(&turbofuro_token).await.unwrap(); // TODO: Error handling
+            let new_config = fetch_configuration(cloud_url.clone(), &turbofuro_token)
+                .await
+                .unwrap(); // TODO: Error handling
             {
                 configuration_coordinator
                     .update_configuration(new_config)

@@ -1277,7 +1277,7 @@ mod test_description {
     #[test]
     fn test_save_description() {
         let mut storage = HashMap::new();
-        let mut environment = HashMap::new();
+        let environment = HashMap::new();
 
         apply(
             "test",
@@ -1293,7 +1293,7 @@ mod test_description {
     #[test]
     fn test_save_description2() {
         let mut storage = HashMap::new();
-        let mut environment = HashMap::new();
+        let environment = HashMap::new();
 
         apply(
             "test",
