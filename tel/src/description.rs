@@ -1,7 +1,17 @@
-use crate::{Expr, Spanned, StorageValue, TelError};
+use crate::{Expr, Selector, SelectorPart, Spanned, StorageValue, TelError};
 use once_cell::sync::Lazy;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+pub type ObjectDescription = HashMap<String, Description>;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "code", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SelectorDescription {
+    Static { selector: Selector },
+    Error { error: TelError },
+    Unknown,
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -283,7 +293,8 @@ impl Description {
      * Converts a description into potential index
      *
      * If the description is a valid index, it will return the index.
-     * Otherwise it will return an error or an empty option if it could be potentially a valid index.
+     * Otherwise it will return an error or an empty option if it could be potentially a valid index
+     * but it could not be determined.
      */
     pub fn as_index(&self) -> Result<usize, Option<TelError>> {
         match self {
@@ -327,6 +338,60 @@ impl Description {
             Description::Error { error } => Err(Some(error.to_owned())),
             Description::Unknown => Err(None),
             Description::Any => Err(None),
+        }
+    }
+
+    /**
+     * Converts a description into potential slice
+     *
+     * Like numbers[0] or headers["Content-Type"]
+     *
+     * If the description is a valid slice, it will return the slice part.
+     * Otherwise it will return an error or unknown if it could be potentially a valid slice
+     * but it could not be determined.
+     */
+    pub fn as_slice(&self) -> Vec<SelectorDescription> {
+        match self {
+            Description::Null => vec![SelectorDescription::Static {
+                selector: vec![SelectorPart::Slice(StorageValue::Null(None))],
+            }],
+            Description::StringValue { value } => vec![SelectorDescription::Static {
+                selector: vec![SelectorPart::Slice(StorageValue::String(value.clone()))],
+            }],
+            Description::NumberValue { value } => vec![SelectorDescription::Static {
+                selector: vec![SelectorPart::Slice(StorageValue::Number(*value))],
+            }],
+            Description::BooleanValue { value } => vec![SelectorDescription::Static {
+                selector: vec![SelectorPart::Slice(StorageValue::Boolean(*value))],
+            }],
+            Description::Object { .. } => vec![SelectorDescription::Error {
+                error: TelError::InvalidSelector {
+                    message: "Can't use object as slice".to_owned(),
+                },
+            }],
+            Description::ExactArray { .. } => vec![SelectorDescription::Error {
+                error: TelError::InvalidSelector {
+                    message: "Can't use array as slice".to_owned(),
+                },
+            }],
+            Description::Array { .. } => vec![SelectorDescription::Error {
+                error: TelError::InvalidSelector {
+                    message: "Can't use array as slice".to_owned(),
+                },
+            }],
+            Description::BaseType { .. } => vec![SelectorDescription::Unknown],
+            Description::Union { of } => {
+                let mut descriptions = Vec::new();
+                for item in of {
+                    descriptions.append(&mut item.as_slice());
+                }
+                descriptions
+            }
+            Description::Error { error } => vec![SelectorDescription::Error {
+                error: error.clone(),
+            }],
+            Description::Unknown => vec![SelectorDescription::Unknown],
+            Description::Any => vec![SelectorDescription::Unknown],
         }
     }
 
@@ -811,9 +876,343 @@ pub fn evaluate_description(
     }
 }
 
+pub fn evaluate_selector_description(
+    expr: Spanned<Expr>,
+    storage: &HashMap<String, Description>,
+    environment: &HashMap<String, Description>,
+) -> Vec<SelectorDescription> {
+    match expr.0 {
+        Expr::Null => vec![SelectorDescription::Static {
+            selector: vec![SelectorPart::Null],
+        }],
+        Expr::Identifier(iden) => vec![SelectorDescription::Static {
+            selector: vec![SelectorPart::Identifier(iden)],
+        }],
+        Expr::Attribute(expr, attr) => {
+            let mut selectors = evaluate_selector_description(*expr, storage, environment);
+            for selector in selectors.iter_mut() {
+                if let SelectorDescription::Static { selector } = selector {
+                    selector.push(SelectorPart::Attribute(attr.clone()))
+                }
+            }
+            selectors
+        }
+        Expr::Slice(expr, slice_expr) => {
+            let selectors = evaluate_selector_description(*expr, storage, environment);
+            let value = evaluate_description(*slice_expr, storage, environment);
+
+            let mut combined_selectors = Vec::new();
+            let mut value_selector_branches = value.as_slice();
+
+            for branch in value_selector_branches.iter_mut() {
+                match branch {
+                    SelectorDescription::Static {
+                        selector: added_selector,
+                    } => {
+                        for selector in selectors.iter() {
+                            if let SelectorDescription::Static { selector } = selector {
+                                let mut combined_selector = selector.clone();
+                                combined_selector.append(&mut added_selector.clone());
+                                combined_selectors.push(SelectorDescription::Static {
+                                    selector: combined_selector,
+                                });
+                            }
+                        }
+                    }
+                    SelectorDescription::Error { error } => {
+                        combined_selectors.push(SelectorDescription::Error {
+                            error: error.clone(),
+                        });
+                    }
+                    SelectorDescription::Unknown => {
+                        combined_selectors.push(SelectorDescription::Unknown);
+                    }
+                }
+            }
+            combined_selectors
+        }
+        Expr::If {
+            condition,
+            then,
+            otherwise,
+        } => {
+            let value = evaluate_description(*condition, storage, environment);
+
+            match value {
+                Description::BooleanValue { value } => {
+                    if value {
+                        evaluate_selector_description(*then, storage, environment)
+                    } else {
+                        evaluate_selector_description(*otherwise, storage, environment)
+                    }
+                }
+                Description::Any => {
+                    let mut if_then = evaluate_selector_description(*then, storage, environment);
+                    let mut if_else =
+                        evaluate_selector_description(*otherwise, storage, environment);
+                    if_then.append(&mut if_else);
+                    if_then
+                }
+                Description::BaseType { field_type } if field_type == "boolean" => {
+                    let mut if_then = evaluate_selector_description(*then, storage, environment);
+                    let mut if_else =
+                        evaluate_selector_description(*otherwise, storage, environment);
+                    if_then.append(&mut if_else);
+                    if_then
+                }
+                Description::Unknown => vec![SelectorDescription::Unknown],
+                e => {
+                    vec![SelectorDescription::Error {
+                        error: TelError::InvalidSelector {
+                            message: format!("Invalid selector containing: {:?}", e),
+                        },
+                    }]
+                }
+            }
+        }
+        e => vec![SelectorDescription::Error {
+            error: TelError::InvalidSelector {
+                message: format!("Invalid selector containing: {:?}", e),
+            },
+        }],
+    }
+}
+
+enum ContextStorage<'a> {
+    Object(&'a mut HashMap<String, Description>),
+    Array(&'a mut Vec<Description>),
+    SimpleArray(&'a mut Box<Description>),
+}
+
+pub fn save_to_storage_description(
+    selectors: &Vec<SelectorPart>,
+    storage: &mut HashMap<String, Description>,
+    value: Description,
+) -> Result<(), TelError> {
+    let remaining = selectors.len();
+    let mut traversed = ContextStorage::Object(storage);
+
+    for (index, selector) in selectors.iter().enumerate() {
+        let last = index == remaining - 1;
+        match (selector, last) {
+            // This is last element so we need to apply the modification
+            (part, true) => match part {
+                SelectorPart::Identifier(p) => match traversed {
+                    ContextStorage::Object(obj) => {
+                        obj.insert(p.to_owned(), value);
+                        return Ok(());
+                    }
+                    ContextStorage::Array(_) | ContextStorage::SimpleArray(_) => {
+                        unreachable!()
+                    }
+                },
+                SelectorPart::Attribute(attr) => match traversed {
+                    ContextStorage::Object(obj) => {
+                        obj.insert(attr.to_owned(), value);
+                        return Ok(());
+                    }
+                    ContextStorage::Array(_) | ContextStorage::SimpleArray(_) => {
+                        return Err(TelError::NoAttribute {
+                            message: format!("array has no attribute {}", attr),
+                            subject: "array".to_owned(),
+                            attribute: attr.to_string(),
+                        });
+                    }
+                },
+                SelectorPart::Slice(slice) => match traversed {
+                    ContextStorage::Object(obj) => {
+                        obj.insert(slice.to_string()?, value);
+                        return Ok(());
+                    }
+                    ContextStorage::Array(arr) => {
+                        let index = slice.as_index()?;
+                        let length = arr.len();
+                        if index >= length {
+                            return Err(TelError::IndexOutOfBounds {
+                                index,
+                                max: length - 1,
+                            });
+                        }
+                        arr[index] = value;
+                        return Ok(());
+                    }
+                    ContextStorage::SimpleArray(item_type) => {
+                        *item_type = Box::new(merge(value, *item_type.clone()));
+                        return Ok(());
+                    }
+                },
+                SelectorPart::Null => return Ok(()),
+            },
+            // This is not the last element so we need to traverse further
+            (part, false) => match part {
+                SelectorPart::Identifier(identifier) => match traversed {
+                    ContextStorage::Object(obj) => match obj.get_mut(identifier) {
+                        Some(value) => match value {
+                            Description::Object { value } => {
+                                traversed = ContextStorage::Object(value);
+                            }
+                            Description::ExactArray { value } => {
+                                traversed = ContextStorage::Array(value);
+                            }
+                            Description::Array { item_type } => {
+                                traversed = ContextStorage::SimpleArray(item_type);
+                            }
+                            sv => {
+                                return Err(TelError::InvalidSelector {
+                                    message: format!(
+                                        "{} is not a writeable storage",
+                                        sv.get_type()
+                                    ),
+                                })
+                            }
+                        },
+                        None => {
+                            return Err(TelError::NotIndexable {
+                                message: "null is not indexable".to_owned(),
+                                subject: "null".to_owned(),
+                            })
+                        }
+                    },
+                    ContextStorage::Array(_) | ContextStorage::SimpleArray(_) => {
+                        unreachable!()
+                    }
+                },
+                SelectorPart::Attribute(attr) => match traversed {
+                    ContextStorage::Object(obj) => match obj.get_mut(attr) {
+                        Some(value) => match value {
+                            Description::Object { value } => {
+                                traversed = ContextStorage::Object(value);
+                            }
+                            Description::ExactArray { value } => {
+                                traversed = ContextStorage::Array(value);
+                            }
+                            Description::Array { item_type } => {
+                                traversed = ContextStorage::SimpleArray(item_type);
+                            }
+                            sv => {
+                                return Err(TelError::InvalidSelector {
+                                    message: format!(
+                                        "{} is not a writeable storage",
+                                        sv.get_type()
+                                    ),
+                                })
+                            }
+                        },
+                        None => {
+                            return Err(TelError::NoAttribute {
+                                attribute: attr.to_string(),
+                                subject: "object".to_owned(),
+                                message: format!("object has no attribute {}", attr),
+                            })
+                        }
+                    },
+                    ContextStorage::Array(_) | ContextStorage::SimpleArray(_) => {
+                        return Err(TelError::NoAttribute {
+                            attribute: attr.to_string(),
+                            subject: "array".to_owned(),
+                            message: format!("array has no attribute {}", attr),
+                        })
+                    }
+                },
+                SelectorPart::Slice(slice) => match traversed {
+                    ContextStorage::Object(obj) => {
+                        let key = slice.to_string()?;
+                        match obj.get_mut(&key) {
+                            Some(value) => match value {
+                                Description::Object { value } => {
+                                    traversed = ContextStorage::Object(value);
+                                }
+                                Description::ExactArray { value } => {
+                                    traversed = ContextStorage::Array(value);
+                                }
+                                Description::Array { item_type } => {
+                                    traversed = ContextStorage::SimpleArray(item_type);
+                                }
+                                sv => {
+                                    return Err(TelError::InvalidSelector {
+                                        message: format!(
+                                            "{} is not a writeable storage",
+                                            sv.get_type()
+                                        ),
+                                    })
+                                }
+                            },
+                            None => {
+                                return Err(TelError::NoAttribute {
+                                    attribute: key.to_string(),
+                                    subject: "object".to_owned(),
+                                    message: format!("object has no attribute {}", key),
+                                })
+                            }
+                        }
+                    }
+                    ContextStorage::Array(arr) => {
+                        let index = slice.as_index()?;
+                        match arr.get_mut(index) {
+                            Some(arr_item) => match arr_item {
+                                Description::Object { value } => {
+                                    traversed = ContextStorage::Object(value);
+                                }
+                                Description::ExactArray { value } => {
+                                    traversed = ContextStorage::Array(value);
+                                }
+                                Description::Array { item_type } => {
+                                    traversed = ContextStorage::SimpleArray(item_type);
+                                }
+                                sv => {
+                                    return Err(TelError::InvalidSelector {
+                                        message: format!(
+                                            "{} is not a writeable storage",
+                                            sv.get_type()
+                                        ),
+                                    })
+                                }
+                            },
+                            None => {
+                                return Err(TelError::NoAttribute {
+                                    attribute: index.to_string(),
+                                    subject: "array".to_owned(),
+                                    message: format!("array has no element at index {}", index),
+                                })
+                            }
+                        }
+                    }
+                    ContextStorage::SimpleArray(item_type) => {
+                        let index = slice.as_index()?;
+
+                        match item_type.as_mut() {
+                            Description::Object { value } => {
+                                traversed = ContextStorage::Object(value);
+                            }
+                            Description::ExactArray { value } => {
+                                traversed = ContextStorage::Array(value);
+                            }
+                            Description::Array { item_type } => {
+                                traversed = ContextStorage::SimpleArray(item_type);
+                            }
+                            sv => {
+                                return Err(TelError::InvalidSelector {
+                                    message: format!(
+                                        "{} is not a writeable storage",
+                                        sv.get_type()
+                                    ),
+                                })
+                            }
+                        }
+                    }
+                },
+                SelectorPart::Null => return Ok(()),
+            },
+        }
+    }
+    panic!("Should not happen, right?")
+}
+
 #[cfg(test)]
 mod test_description {
     use std::vec;
+
+    use crate::{parse, storage_value};
 
     use super::*;
 
@@ -849,5 +1248,68 @@ mod test_description {
             description,
             r#"{"type":"union","of":[{"type":"baseType","fieldType":"number"},{"type":"baseType","fieldType":"string"}]}"#
         )
+    }
+
+    fn apply(
+        input: &str,
+        value: Description,
+        storage: &mut ObjectDescription,
+        environment: &HashMap<String, Description>,
+    ) {
+        let result = parse(input);
+
+        if let Some(expr) = result.expr {
+            let mut selector = evaluate_selector_description(expr, storage, environment);
+            assert_eq!(selector.len(), 1);
+
+            let selector = selector.remove(0);
+            match selector {
+                SelectorDescription::Static { selector } => {
+                    save_to_storage_description(&selector, storage, value).unwrap();
+                }
+                _ => {
+                    panic!("Should not happen");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_save_description() {
+        let mut storage = HashMap::new();
+        let mut environment = HashMap::new();
+
+        apply(
+            "test",
+            describe(storage_value!({ "a": 4 })),
+            &mut storage,
+            &environment,
+        );
+
+        let current_test = storage.get("test").unwrap().clone();
+        assert_eq!(current_test, describe(storage_value!({ "a": 4 })))
+    }
+
+    #[test]
+    fn test_save_description2() {
+        let mut storage = HashMap::new();
+        let mut environment = HashMap::new();
+
+        apply(
+            "test",
+            describe(storage_value!({ "a": 4 })),
+            &mut storage,
+            &environment,
+        );
+
+        apply(
+            "test.a",
+            describe(StorageValue::Number(6.0)),
+            &mut storage,
+            &environment,
+        );
+
+        let current_test = storage.get("test").unwrap().clone();
+        assert_eq!(current_test, describe(storage_value!({ "a": 6.0 })))
     }
 }

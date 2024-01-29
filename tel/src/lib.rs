@@ -8,7 +8,11 @@ mod operators;
 
 pub use description::describe;
 pub use description::evaluate_description;
+pub use description::evaluate_selector_description;
+pub use description::save_to_storage_description;
 pub use description::Description;
+pub use description::ObjectDescription;
+pub use description::SelectorDescription;
 
 pub type ObjectBody = HashMap<String, StorageValue>;
 
