@@ -118,16 +118,14 @@ async fn load_config_from_file(file_path: PathBuf) -> Result<Configuration, Work
 }
 
 async fn setup_configuration_fetching(
-    turbofuro_token: String,
-    cloud_url: String,
+    cloud_options: CloudOptions,
     http_server_options: HttpServerOptions,
-    agent_disabled: bool,
 ) -> Result<(), WorkerError> {
     // Flag to indicate when the worker should stop
     let closing_flag = Arc::new(Mutex::new(false));
 
     // Fetch first configuration
-    let first_config = fetch_configuration(cloud_url.clone(), &turbofuro_token).await?;
+    let first_config = fetch_configuration(&cloud_options).await?;
     let config = Arc::new(Mutex::new(first_config));
 
     // Setup configuration updates
@@ -135,83 +133,69 @@ async fn setup_configuration_fetching(
     let coordinator = run_configuration_coordinator(config.clone(), config_id_update_sender);
 
     // Start passive fetcher
-    run_configuration_fetcher(
-        cloud_url.clone(),
-        turbofuro_token.clone(),
-        coordinator.clone(),
-    );
+    run_configuration_fetcher(cloud_options.clone(), coordinator.clone());
 
     let worker_mutex = config.clone();
-    let module_version_resolver =
-        get_module_version_resolver(turbofuro_token.clone(), cloud_url.clone());
-    let environment_resolver = get_environment_resolver(turbofuro_token.clone(), cloud_url.clone());
+    let module_version_resolver = get_module_version_resolver(&cloud_options);
+    let environment_resolver = get_environment_resolver(&cloud_options);
 
     // Setup global
     let global = Arc::new(
         GlobalBuilder::new()
-            .execution_logger(start_cloud_logger(
-                turbofuro_token.clone(),
-                cloud_url.clone(),
-            ))
+            .execution_logger(start_cloud_logger(cloud_options.clone()))
             .build(),
     );
     let worker_global = Arc::clone(&global);
 
-    // Start cloud agent if not disabled
-    if !agent_disabled {
-        let cloud_agent_token = turbofuro_token.clone();
-        let cloud_agent_environment_resolver: Arc<Mutex<dyn EnvironmentResolver>> =
-            environment_resolver.clone();
-        let cloud_agent_module_version_resolver = module_version_resolver.clone();
-        tokio::spawn(async move {
-            let mut agent = CloudAgent {
-                cloud_url: cloud_url.clone(),
+    // Start cloud agent
+    let cloud_agent_environment_resolver: Arc<Mutex<dyn EnvironmentResolver>> =
+        environment_resolver.clone();
+    let cloud_agent_module_version_resolver = module_version_resolver.clone();
+    let cloud_agent_cloud_options = cloud_options.clone();
+    tokio::spawn(async move {
+        let mut agent = CloudAgent {
+            cloud_options: cloud_agent_cloud_options.clone(),
+            global: global.clone(),
+            environment_resolver: cloud_agent_environment_resolver.clone(),
+            module_version_resolver: cloud_agent_module_version_resolver.clone(),
+            configuration_coordinator: coordinator.clone(),
+        };
+
+        // Let's try to connect with a exponential backoff
+        let mut attempts = 1;
+        loop {
+            let mut failed = false;
+            match agent.start().await {
+                Ok(()) => {
+                    attempts = 1;
+                }
+                Err(e) => {
+                    error!("Cloud agent failed to connect: {:?}", e);
+                    attempts += 1;
+                    failed = true;
+                }
+            }
+            agent = CloudAgent {
+                cloud_options: cloud_agent_cloud_options.clone(),
                 global: global.clone(),
-                token: cloud_agent_token.clone(),
                 environment_resolver: cloud_agent_environment_resolver.clone(),
                 module_version_resolver: cloud_agent_module_version_resolver.clone(),
                 configuration_coordinator: coordinator.clone(),
             };
 
-            // Let's try to connect with a exponential backoff
-            let mut attempts = 1;
-            loop {
-                let mut failed = false;
-                match agent.start().await {
-                    Ok(()) => {
-                        attempts = 1;
-                    }
-                    Err(e) => {
-                        error!("Cloud agent failed to connect: {:?}", e);
-                        attempts += 1;
-                        failed = true;
-                    }
-                }
-                agent = CloudAgent {
-                    cloud_url: cloud_url.clone(),
-                    global: global.clone(),
-                    token: cloud_agent_token.clone(),
-                    environment_resolver: cloud_agent_environment_resolver.clone(),
-                    module_version_resolver: cloud_agent_module_version_resolver.clone(),
-                    configuration_coordinator: coordinator.clone(),
-                };
-
-                if failed {
-                    // Cap delay at ~1h
-                    let delay = Duration::from_millis(
-                        2_u64.pow(attempts.min(MAX_ATTEMPTS_EXPONENT)) * BASE_DELAY,
-                    );
-                    warn!(
-                        "Cloud agent failed to connect, waiting {} milliseconds before retry...",
-                        delay.as_millis()
-                    );
-                    tokio::time::sleep(delay).await;
-                }
+            if failed {
+                // Cap delay at ~1h
+                let delay = Duration::from_millis(
+                    2_u64.pow(attempts.min(MAX_ATTEMPTS_EXPONENT)) * BASE_DELAY,
+                );
+                warn!(
+                    "Cloud agent failed to connect, waiting {} milliseconds before retry...",
+                    delay.as_millis()
+                );
+                tokio::time::sleep(delay).await;
             }
-        });
-    } else {
-        info!("Cloud agent disabled");
-    }
+        }
+    });
 
     // Run worker indefinitely until a closing flag is raised
     loop {
@@ -248,25 +232,19 @@ async fn setup_configuration_fetching(
     Ok(())
 }
 
-pub fn get_module_version_resolver(
-    turbofuro_token: String,
-    base_url: String,
-) -> SharedModuleVersionResolver {
+pub fn get_module_version_resolver(cloud_options: &CloudOptions) -> SharedModuleVersionResolver {
     Arc::new(CloudModuleVersionResolver::new(
         Client::new(),
-        base_url,
-        turbofuro_token,
+        cloud_options.cloud_url.clone(),
+        cloud_options.token.clone(),
     ))
 }
 
-pub fn get_environment_resolver(
-    turbofuro_token: String,
-    base_url: String,
-) -> SharedEnvironmentResolver {
+pub fn get_environment_resolver(cloud_options: &CloudOptions) -> SharedEnvironmentResolver {
     Arc::new(Mutex::new(CloudEnvironmentResolver::new(
         Client::new(),
-        base_url,
-        turbofuro_token,
+        cloud_options.cloud_url.clone(),
+        cloud_options.token.clone(),
     )))
 }
 
@@ -275,23 +253,34 @@ pub struct HttpServerOptions {
     pub port: u16,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct CloudOptions {
+    pub cloud_url: String,
+    pub operator_url: String,
+    pub token: String,
+}
+
+static DEFAULT_CLOUD_URL: &str = "https://api.turbofuro.com";
+static DEFAULT_OPERATOR_URL: &str = "wss://operator.turbofuro.com";
+static TURBOFURO_TOKEN_ENV_NAME: &str = "TURBOFURO_TOKEN";
+static TURBOFURO_CLOUD_URL_ENV_NAME: &str = "TURBOFURO_CLOUD_URL";
+static TURBOFURO_OPERATOR_URL_ENV_NAME: &str = "TURBOFURO_OPERATOR_URL";
+static PORT_ENV_NAME: &str = "PORT";
+
 async fn startup() -> Result<(), WorkerError> {
     let args = parse_cli_args().map_err(|e| WorkerError::IncorrectParameters(e.to_string()))?;
 
-    let cloud_url = args
-        .cloud_url
-        .or_else(|| std::env::var("TURBOFURO_CLOUD_URL").ok())
-        .unwrap_or("https://api.turbofuro.com".to_owned());
-
-    let turbofuro_token = args.token.or_else(|| std::env::var("TURBOFURO_TOKEN").ok());
+    let turbofuro_token = args
+        .token
+        .or_else(|| std::env::var(TURBOFURO_TOKEN_ENV_NAME).ok());
     let config_path_env = args.config;
     let port = match args.port.ok_or_else(|| {
-        std::env::var("PORT")
+        std::env::var(PORT_ENV_NAME)
             .ok()
             .unwrap_or("4000".to_owned())
             .parse::<u16>()
             .map_err(|e| {
-                WorkerError::IncorrectEnvironmentVariable("PORT".to_owned(), e.to_string())
+                WorkerError::IncorrectEnvironmentVariable(PORT_ENV_NAME.into(), e.to_string())
             })
     }) {
         Ok(p) => p,
@@ -302,14 +291,34 @@ async fn startup() -> Result<(), WorkerError> {
 
     info!("Starting Turbofuro Worker");
     match (turbofuro_token, config_path_env) {
-        (Some(turbofuro_token), None) => {
-            setup_configuration_fetching(
-                turbofuro_token,
-                cloud_url,
-                http_server_options,
-                args.disable_agent,
-            )
-            .await
+        (Some(token), None) => {
+            let cloud_options = CloudOptions {
+                cloud_url: args
+                    .cloud_url
+                    .or_else(|| std::env::var(TURBOFURO_CLOUD_URL_ENV_NAME).ok())
+                    .unwrap_or(DEFAULT_CLOUD_URL.to_owned()),
+                operator_url: args
+                    .operator_url
+                    .or_else(|| std::env::var(TURBOFURO_OPERATOR_URL_ENV_NAME).ok())
+                    .unwrap_or(DEFAULT_OPERATOR_URL.to_owned()),
+                token,
+            };
+
+            if cloud_options.cloud_url != DEFAULT_CLOUD_URL {
+                info!(
+                    "Using custom cloud URL: {}",
+                    cloud_options.cloud_url.clone()
+                );
+            }
+
+            if cloud_options.operator_url != DEFAULT_OPERATOR_URL {
+                info!(
+                    "Using custom operator URL: {}",
+                    cloud_options.operator_url.clone()
+                );
+            }
+
+            setup_configuration_fetching(cloud_options, http_server_options).await
         }
         (None, Some(path)) => {
             let config = load_config_from_file(path).await?;

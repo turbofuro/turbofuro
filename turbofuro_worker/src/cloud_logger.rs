@@ -8,6 +8,8 @@ use turbofuro_runtime::{
     executor::{ExecutionReport, ExecutionStatus},
 };
 
+use crate::CloudOptions;
+
 #[derive(Debug, Clone, Default)]
 struct LoggerStats {
     count: u64,
@@ -40,10 +42,10 @@ fn check_if_should_report(report: &ExecutionReport, stats: &mut LoggerStats) -> 
 
 pub static RUNS_ACCUMULATOR: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
-pub fn start_cloud_logger(token: String, cloud_url: String) -> ExecutionLoggerHandle {
+pub fn start_cloud_logger(cloud_options: CloudOptions) -> ExecutionLoggerHandle {
     let client: Client = Client::new();
     let mut log_counter = HashMap::<String, LoggerStats>::new();
-    let url = format!("{}/mission-control/log", cloud_url);
+    let url = format!("{}/mission-control/log", cloud_options.cloud_url);
 
     let (sender, mut receiver) = mpsc::channel::<LoggerMessage>(16);
     tokio::spawn(async move {
@@ -76,7 +78,7 @@ pub fn start_cloud_logger(token: String, cloud_url: String) -> ExecutionLoggerHa
                     if should_report {
                         match client
                             .post(&url)
-                            .header("x-turbofuro-token", &token)
+                            .header("x-turbofuro-token", &cloud_options.token)
                             .json(&report)
                             .send()
                             .await
