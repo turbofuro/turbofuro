@@ -17,6 +17,53 @@ const SERIALIZER: Serializer = Serializer::new().serialize_maps_as_objects(true)
  */
 #[wasm_bindgen(typescript_custom_section)]
 const TYPESCRIPT: &'static str = r#"
+export type Description =
+  | {
+      type: 'null';
+    }
+  | {
+      type: 'stringValue';
+      value: string;
+    }
+  | {
+      type: 'numberValue';
+      value: number;
+    }
+  | {
+      type: 'booleanValue';
+      value: boolean;
+    }
+  | {
+      type: 'object';
+      value: Record<string, Description>;
+    }
+  | {
+      type: 'exactArray';
+      value: Description[];
+    }
+  | {
+      type: 'array';
+      itemType: Description;
+    }
+  | {
+      type: 'baseType';
+      fieldType: string;
+    }
+  | {
+      type: 'union';
+      of: Description[];
+    }
+  | {
+      type: 'error';
+      error: any;
+    }
+  | {
+      type: 'unknown';
+    }
+  | {
+      type: 'any';
+    };
+
 export interface BinaryOp {
   binaryOp: {
     lhs: Spanned<Expr>;
@@ -72,12 +119,8 @@ export interface Environment {
   environment: string;
 }
 
-export interface Int {
-  int: number;
-}
-
-export interface Float {
-  float: number;
+export interface Number {
+  number: number;
 }
 
 export interface String {
@@ -94,14 +137,6 @@ export interface Array {
 
 export interface Object {
   object: { [key: string]: Spanned<Expr> };
-}
-
-export interface Null {
-  null: null;
-}
-
-export interface Invalid {
-  invalid: null;
 }
 
 export interface If {
@@ -208,8 +243,6 @@ export function evaluateValue(
   storage: any,
   environment: any,
 ): EvaluationResult;
-
-export type Description = any;
 
 export type DescriptionEvaluationResult = {
   value: Description;
