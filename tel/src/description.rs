@@ -1178,7 +1178,7 @@ pub fn save_to_storage_description(
                         }
                     }
                     ContextStorage::SimpleArray(item_type) => {
-                        let index = slice.as_index()?;
+                        let _index = slice.as_index()?; // TODO: Check if index could be used for better data
 
                         match item_type.as_mut() {
                             Description::Object { value } => {
