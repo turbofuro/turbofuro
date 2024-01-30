@@ -20,6 +20,7 @@ use crate::{
     environment_resolver::SharedEnvironmentResolver,
     module_version_resolver::SharedModuleVersionResolver,
     worker::{compile_module, get_compiled_module, AppError, ModuleVersion},
+    CloudOptions,
 };
 
 #[derive(Debug)]
@@ -66,8 +67,7 @@ pub enum CloudAgentCommand {
 }
 
 pub struct CloudAgent {
-    pub cloud_url: String,
-    pub token: String,
+    pub cloud_options: CloudOptions,
     pub environment_resolver: SharedEnvironmentResolver,
     pub module_version_resolver: SharedModuleVersionResolver,
     pub global: Arc<Global>,
@@ -93,8 +93,8 @@ impl CloudAgent {
         info!("Cloud agent: Starting {}", name);
 
         let url = Url::parse(&format!(
-            "wss://operator.turbofuro.com/server?token={}",
-            self.token
+            "{}/server?token={}",
+            self.cloud_options.operator_url, self.cloud_options.token
         ))
         .unwrap();
 
@@ -220,8 +220,7 @@ impl CloudAgent {
                             }
                             CloudAgentCommand::UpdateConfiguration { id: _ } => {
                                 debug!("Cloud agent: Received configuration update command");
-                                let result =
-                                    fetch_configuration(self.cloud_url.clone(), &self.token).await;
+                                let result = fetch_configuration(&self.cloud_options).await;
                                 match result {
                                     Ok(configuration) => {
                                         self.configuration_coordinator
