@@ -17,6 +17,65 @@ const SERIALIZER: Serializer = Serializer::new().serialize_maps_as_objects(true)
  */
 #[wasm_bindgen(typescript_custom_section)]
 const TYPESCRIPT: &'static str = r#"
+export interface TelParseError {
+  from: number;
+  to: number;
+  severity: string;
+  message: string;
+  actions: TelParseAction[];
+}
+
+export interface TelParseAction {
+  name: string;
+  code: string;
+}
+
+export type TelError =
+  | {
+      code: 'PARSE_ERROR';
+      errors: TelParseError[];
+    }
+  | {
+      code: 'CONVERSION_ERROR';
+      message: string;
+      from: string;
+      to: string;
+    }
+  | {
+      code: 'NOT_INDEXABLE';
+      message: string;
+      subject: string;
+    }
+  | {
+      code: 'NO_ATTRIBUTE';
+      message: string;
+      subject: string;
+      attribute: string;
+    }
+  | {
+      code: 'INVALID_SELECTOR';
+      message: string;
+    }
+  | {
+      code: 'UNSUPPORTED_OPERATION';
+      operation: string;
+      message: string;
+    }
+  | {
+      code: 'FUNCTION_NOT_FOUND';
+      message: string;
+    }
+  | {
+      code: 'INDEX_OUT_OF_BOUNDS';
+      index: number;
+      max: number;
+    }
+  | {
+      code: 'INVALID_INDEX';
+      subject: string;
+      message: string;
+    };
+
 export type Description =
   | {
       type: 'null';
@@ -55,7 +114,7 @@ export type Description =
     }
   | {
       type: 'error';
-      error: any;
+      error: TelError;
     }
   | {
       type: 'unknown';
@@ -66,7 +125,7 @@ export type Description =
 
 export interface BinaryOp {
   binaryOp: {
-    lhs: Spanned<Expr>;
+    lhs: SpannedExpr;
     op:
       | 'add'
       | 'subtract'
@@ -81,34 +140,34 @@ export interface BinaryOp {
       | 'lte'
       | 'and'
       | 'or';
-    rhs: Spanned<Expr>;
+    rhs: SpannedExpr;
   };
 }
 
 export interface UnaryOp {
   unaryOp: {
     op: 'plus' | 'minus' | 'negation';
-    expr: Spanned<Expr>;
+    expr: SpannedExpr;
   };
 }
 
 export interface MethodCall {
   methodCall: {
-    callee: Spanned<Expr>;
+    callee: SpannedExpr;
     name: string;
-    arguments: Spanned<Expr>[];
+    arguments: SpannedExpr[];
   };
 }
 
 export interface Attribute {
   attribute: {
-    value: Spanned<Expr>;
+    value: SpannedExpr;
     attribute: string;
   };
 }
 
 export interface Slice {
-  slice: [Spanned<Expr>, Spanned<Expr>];
+  slice: [SpannedExpr, SpannedExpr];
 }
 
 export interface Identifier {
@@ -132,27 +191,27 @@ export interface Boolean {
 }
 
 export interface Array {
-  array: Spanned<Expr>[];
+  array: SpannedExpr[];
 }
 
 export interface Object {
-  object: { [key: string]: Spanned<Expr> };
+  object: { [key: string]: SpannedExpr };
 }
 
 export interface If {
   if: {
-    condition: Spanned<Expr>;
-    then: Spanned<Expr>;
-    otherwise: Spanned<Expr>;
+    condition: SpannedExpr;
+    then: SpannedExpr;
+    otherwise: SpannedExpr;
   };
 }
 
 export type Expr =
   | {
       if: {
-        condition: Spanned<Expr>;
-        then: Spanned<Expr>;
-        otherwise: Spanned<Expr>;
+        condition: SpannedExpr;
+        then: SpannedExpr;
+        otherwise: SpannedExpr;
       };
     }
   | { number: number }
@@ -164,23 +223,23 @@ export type Expr =
       };
     }
   | { boolean: boolean }
-  | { array: Spanned<Expr>[] }
-  | { object: { [key: string]: Spanned<Expr> } }
+  | { array: SpannedExpr[] }
+  | { object: { [key: string]: SpannedExpr } }
   | { identifier: string }
   | { environment: string }
-  | { attribute: [value: Spanned<Expr>, attribute: string] }
-  | { slice: [Spanned<Expr>, Spanned<Expr>] }
-  | { unaryOp: [op: 'plus' | 'minus' | 'negation', expr: Spanned<Expr>] }
+  | { attribute: [value: SpannedExpr, attribute: string] }
+  | { slice: [SpannedExpr, SpannedExpr] }
+  | { unaryOp: [op: 'plus' | 'minus' | 'negation', expr: SpannedExpr] }
   | {
       methodCall: {
-        callee: Spanned<Expr>;
+        callee: SpannedExpr;
         name: string;
-        arguments: Spanned<Expr>[];
+        arguments: SpannedExpr[];
       };
     }
   | {
       binaryOp: {
-        lhs: Spanned<Expr>;
+        lhs: SpannedExpr;
         op:
           | 'add'
           | 'subtract'
@@ -195,7 +254,7 @@ export type Expr =
           | 'lte'
           | 'and'
           | 'or';
-        rhs: Spanned<Expr>;
+        rhs: SpannedExpr;
       };
     }
   | 'invalid'
@@ -205,16 +264,9 @@ export type Range = { start: number; end: number };
 
 export type SpannedExpr = [Expr, Range];
 
-export type ParseError = {
-  message: string;
-  from: number;
-  to: number;
-  actions: string[];
-};
-
 export type ParseResult = {
   expr?: SpannedExpr;
-  errors: ParseError[];
+  errors: TelParseError[];
 };
 
 /**
@@ -229,7 +281,7 @@ export type EvaluationResult =
     }
   | {
       type: 'error';
-      message: string;
+      error: TelError;
     };
 
 /**
@@ -271,7 +323,7 @@ export type DescriptionSaverBranch =
     }
   | {
       type: 'error';
-      message: string;
+      error: TelError;
     };
 
 export type DescriptionSaverResult = {
@@ -343,7 +395,7 @@ pub fn describe(storage_value: JsValue) -> JsValue {
 
     let result: Description = tel::describe(storage_value);
 
-    serialize(&result).expect("Could not serialize DescriptionEvaluationResult")
+    serialize(&result).expect("Could not serialize Description")
 }
 
 #[wasm_bindgen(skip_typescript, js_name = evaluateDescription)]
@@ -354,15 +406,6 @@ pub fn evaluate_description(input: &str, storage: JsValue, environment: JsValue)
         .expect("Could not deserialize described environment");
 
     let parse_result = tel::parse(input);
-    if !parse_result.errors.is_empty() {
-        return serialize(&EvaluationResult::Error {
-            error: TelError::ParseError {
-                errors: parse_result.errors,
-            },
-        })
-        .expect("Could not serialize DescriptionEvaluationResult");
-    }
-
     let result: DescriptionEvaluationResult = match parse_result.expr {
         Some(expr) => {
             let output = tel::evaluate_description(expr, &storage, &environment);
@@ -370,7 +413,9 @@ pub fn evaluate_description(input: &str, storage: JsValue, environment: JsValue)
         }
         None => DescriptionEvaluationResult {
             value: Description::Error {
-                error: TelError::ParseError { errors: vec![] },
+                error: TelError::ParseError {
+                    errors: parse_result.errors,
+                },
             },
         },
     };
@@ -393,15 +438,6 @@ pub fn evaluate_saver_description(
         serde_wasm_bindgen::from_value(value).expect("Could not deserialize described value");
 
     let parse_result = tel::parse(input);
-    if !parse_result.errors.is_empty() {
-        return serialize(&EvaluationResult::Error {
-            error: TelError::ParseError {
-                errors: parse_result.errors,
-            },
-        })
-        .expect("Could not serialize DescriptionEvaluationResult");
-    }
-
     let result: DescriptionSaverResult = match parse_result.expr {
         Some(expr) => {
             let selector = tel::evaluate_selector_description(expr, &storage, &environment);
@@ -429,12 +465,14 @@ pub fn evaluate_saver_description(
         }
         None => DescriptionSaverResult {
             branches: vec![DescriptionSaverBranch::Error {
-                error: TelError::ParseError { errors: vec![] },
+                error: TelError::ParseError {
+                    errors: parse_result.errors,
+                },
             }],
         },
     };
 
-    serialize(&result).expect("Could not serialize DescriptionEvaluationResult")
+    serialize(&result).expect("Could not serialize DescriptionSaverResult")
 }
 
 #[wasm_bindgen(skip_typescript, js_name = evaluateValue)]
