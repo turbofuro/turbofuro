@@ -28,6 +28,9 @@ pub enum CloudAgentError {
     WebSocketError {
         error: tokio_tungstenite::tungstenite::Error,
     },
+    InvalidOperatorUrl {
+        url: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,18 +95,20 @@ impl CloudAgent {
         let name = get_name();
         info!("Cloud agent: Starting {}", name);
 
-        let url = Url::parse(&format!(
+        let url_string = format!(
             "{}/server?token={}",
             self.cloud_options.operator_url, self.cloud_options.token
-        ))
-        .unwrap();
+        );
+        let url = Url::parse(&url_string).map_err(|_| CloudAgentError::InvalidOperatorUrl {
+            url: url_string.clone(),
+        })?;
 
         let (ws_stream, _) = connect_async(url)
             .await
             .map_err(|e| CloudAgentError::WebSocketError { error: e })?;
         let (mut write, mut read) = ws_stream.split();
 
-        debug!("Cloud agent: Connected to operator");
+        info!("Cloud agent: Connected to operator");
 
         // Start writer
         let (write_send, mut write_receiver) = mpsc::channel(16);
