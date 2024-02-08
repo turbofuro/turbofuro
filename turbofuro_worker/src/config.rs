@@ -37,7 +37,10 @@ pub async fn fetch_configuration(options: &CloudOptions) -> Result<Configuration
             WorkerError::ConfigurationFetch
         })?;
 
-    let response_body = response.text().await.unwrap();
+    let response_body = response.text().await.map_err(|e| {
+        error!("Failed to read configuration response body {}", e);
+        WorkerError::ConfigurationFetch
+    })?;
     let config: Configuration = serde_json::from_str(&response_body).map_err(|e| {
         error!(
             "Failed to parse configuration\nError is {}\nResponse body is {}",
