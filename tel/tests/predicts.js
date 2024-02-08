@@ -11,6 +11,7 @@
 //         }
 //     },
 //     "numbers": [1, 2, 3, 4, 5],
+//     "anything": any
 // }
 // Environment
 // {
@@ -122,3 +123,7 @@ numbers[0] + numbers[1] CHECK number
 nothing != null ? "OK" : "NOPE" CHECK "OK" | "NOPE"
 (nothing != null ? "OK" : "NOPE").type() CHECK "string"
 nothing != null ? [] + "wtf" : 5 CHECK error | 5
+anything + 5 CHECK number
+anything + [] CHECK array
+anything + {} CHECK object
+null == anything CHECK boolean

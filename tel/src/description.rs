@@ -1,7 +1,7 @@
 use crate::{Expr, Selector, SelectorPart, Spanned, StorageValue, TelError};
 use once_cell::sync::Lazy;
 use serde_derive::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, vec};
 
 pub type ObjectDescription = HashMap<String, Description>;
 
@@ -58,7 +58,7 @@ static OPERATORS: Lazy<HashMap<String, Description>> = Lazy::new(|| {
         "string_string_+".to_owned(),
         Description::new_base_type("string"),
     );
-    for thing_summable_to_string in ["number", "boolean", "null"] {
+    for thing_summable_to_string in ["number", "boolean", "null", "any"] {
         map.insert(
             format!("{}_string_+", thing_summable_to_string),
             Description::new_base_type("string"),
@@ -68,15 +68,32 @@ static OPERATORS: Lazy<HashMap<String, Description>> = Lazy::new(|| {
             Description::new_base_type("string"),
         );
     }
-
     map.insert(
         "array_array_+".to_owned(),
+        Description::new_base_type("array"),
+    );
+    map.insert(
+        "array_any_+".to_owned(),
+        Description::new_base_type("array"),
+    );
+    map.insert(
+        "any_array_+".to_owned(),
         Description::new_base_type("array"),
     );
     map.insert(
         "object_object_+".to_owned(),
         Description::new_base_type("object"),
     );
+    map.insert(
+        "any_object_+".to_owned(),
+        Description::new_base_type("object"),
+    );
+    map.insert(
+        "object_any_+".to_owned(),
+        Description::new_base_type("object"),
+    );
+
+    // Arithmetics
     map.insert(
         "number_number_+".to_owned(),
         Description::new_base_type("number"),
@@ -96,14 +113,55 @@ static OPERATORS: Lazy<HashMap<String, Description>> = Lazy::new(|| {
     map.insert("number_+".to_owned(), Description::new_base_type("number"));
     map.insert("number_-".to_owned(), Description::new_base_type("number"));
 
+    // Arithmetics with any
+    map.insert(
+        "any_number_+".to_owned(),
+        Description::new_base_type("number"),
+    );
+    map.insert(
+        "any_number_-".to_owned(),
+        Description::new_base_type("number"),
+    );
+    map.insert(
+        "any_number_*".to_owned(),
+        Description::new_base_type("number"),
+    );
+    map.insert(
+        "any_number_/".to_owned(),
+        Description::new_base_type("number"),
+    );
+    map.insert(
+        "number_any_+".to_owned(),
+        Description::new_base_type("number"),
+    );
+    map.insert(
+        "number_any_-".to_owned(),
+        Description::new_base_type("number"),
+    );
+    map.insert(
+        "number_any_*".to_owned(),
+        Description::new_base_type("number"),
+    );
+    map.insert(
+        "number_any_/".to_owned(),
+        Description::new_base_type("number"),
+    );
+    map.insert("any_+".to_owned(), Description::new_base_type("number"));
+    map.insert("any_-".to_owned(), Description::new_base_type("number"));
+
     map.insert(
         "boolean_!".to_owned(),
         Description::new_base_type("boolean"),
     );
+    map.insert("any_!".to_owned(), Description::new_base_type("boolean"));
 
     // Equals
-    for a in ["string", "number", "boolean", "object", "array", "null"] {
-        for b in ["string", "number", "boolean", "object", "array", "null"] {
+    for a in [
+        "string", "number", "boolean", "object", "array", "null", "any",
+    ] {
+        for b in [
+            "string", "number", "boolean", "object", "array", "null", "any",
+        ] {
             map.insert(
                 format!("{}_{}_==", a, b),
                 Description::new_base_type("boolean"),
@@ -139,6 +197,22 @@ static OPERATORS: Lazy<HashMap<String, Description>> = Lazy::new(|| {
         "boolean_boolean_||".to_owned(),
         Description::new_base_type("boolean"),
     );
+    map.insert(
+        "any_boolean_&&".to_owned(),
+        Description::new_base_type("boolean"),
+    );
+    map.insert(
+        "any_boolean_||".to_owned(),
+        Description::new_base_type("boolean"),
+    );
+    map.insert(
+        "boolean_any_&&".to_owned(),
+        Description::new_base_type("boolean"),
+    );
+    map.insert(
+        "boolean_any_||".to_owned(),
+        Description::new_base_type("boolean"),
+    );
 
     map
 });
@@ -172,6 +246,7 @@ static METHODS: Lazy<HashMap<&'static str, Description>> = Lazy::new(|| {
     map.insert("object_type", Description::new_string("object".to_string()));
     map.insert("null_toString", Description::new_base_type("string"));
     map.insert("null_type", Description::new_string("null".to_string()));
+
     map
 });
 

@@ -37,10 +37,11 @@ fn test_predicts_cases() {
             }
         );
         let storage: HashMap<String, StorageValue> = serde_json::from_value(storage_json).unwrap();
-        let storage_description = storage
+        let mut storage_description = storage
             .into_iter()
             .map(|(k, v)| (k, describe(v)))
             .collect::<HashMap<_, _>>();
+        storage_description.insert("anything".to_owned(), tel::Description::Any);
         let env_json = json!(
             {
                 "REDIS_URL": "redis://localhost:6379",
