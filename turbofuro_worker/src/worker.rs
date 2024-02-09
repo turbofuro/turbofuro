@@ -22,6 +22,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, oneshot};
+use tower_http::compression::CompressionLayer;
+use tower_http::cors::{Any, CorsLayer};
+use tower_http::timeout::TimeoutLayer;
 use turbofuro_runtime::actor::{activate_actor, Actor, ActorCommand};
 use turbofuro_runtime::errors::ExecutionError;
 use turbofuro_runtime::executor::{
@@ -606,11 +609,19 @@ impl WorkerHttpServer {
             router = router.route(&path, method_router);
         }
 
-        router.with_state(AppState {
-            module_version_resolver,
-            global,
-            environment,
-        })
+        let cors = CorsLayer::new().allow_origin(Any);
+        let timeout = TimeoutLayer::new(std::time::Duration::from_secs(60));
+        let compression = CompressionLayer::new();
+
+        router
+            .layer(cors)
+            .layer(timeout)
+            .layer(compression)
+            .with_state(AppState {
+                module_version_resolver,
+                global,
+                environment,
+            })
     }
 }
 
