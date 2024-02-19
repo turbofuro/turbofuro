@@ -13,6 +13,10 @@ OPTIONS:
   --port PORT           Runs HTTP server on a given PORT
   --cloud URL           Uses a given URL as cloud API instead of the default one (https://api.turbofuro.com)
   --operator URL        Uses a given URL as operator (debugger, stats) instead of the default one (https://operator.turbofuro.com)
+  --name NAME           Sets a name of the worker
+
+Alternatively, you can use the following environment variables:
+TURBOFURO_TOKEN, PORT, TURBOFURO_CLOUD_URL, TURBOFURO_OPERATOR_URL, NAME
 ";
 
 #[derive(Debug)]
@@ -22,6 +26,7 @@ pub struct AppArgs {
     pub config: Option<std::path::PathBuf>,
     pub cloud_url: Option<String>,
     pub operator_url: Option<String>,
+    pub name: Option<String>,
 }
 
 pub fn parse_cli_args() -> Result<AppArgs, pico_args::Error> {
@@ -39,6 +44,7 @@ pub fn parse_cli_args() -> Result<AppArgs, pico_args::Error> {
         port: pargs.opt_value_from_str("--port")?,
         cloud_url: pargs.opt_value_from_str("--cloud")?,
         operator_url: pargs.opt_value_from_str("--operator")?,
+        name: pargs.opt_value_from_str("--name")?,
     };
 
     // It's up to the caller what to do with the remaining arguments.
