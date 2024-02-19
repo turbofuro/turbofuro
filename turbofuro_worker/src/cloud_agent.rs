@@ -75,25 +75,12 @@ pub struct CloudAgent {
     pub module_version_resolver: SharedModuleVersionResolver,
     pub global: Arc<Global>,
     pub configuration_coordinator: ConfigurationCoordinator,
-}
-
-fn get_name() -> String {
-    let name_env = std::option_env!("NAME");
-
-    let name = name_env.map(|s| s.to_owned()).unwrap_or(
-        hostname::get()
-            .map(|s| s.to_string_lossy().into_owned())
-            .ok()
-            .unwrap_or("Unknown".to_owned()),
-    );
-
-    name.chars().take(200).collect()
+    pub name: String,
 }
 
 impl CloudAgent {
     pub async fn start(mut self) -> Result<(), CloudAgentError> {
-        let name = get_name();
-        info!("Cloud agent: Starting {}", name);
+        info!("Cloud agent: Starting {}", self.name);
 
         let url_string = format!(
             "{}/server?token={}",
@@ -127,6 +114,7 @@ impl CloudAgent {
 
         // Setup stats reporting
         let report_write = write_send.clone();
+        let name = self.name.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
 
@@ -139,7 +127,7 @@ impl CloudAgent {
                         serde_json::to_string(&OperatorCommand::Stats {
                             os: env::consts::OS,
                             runs_count: RUNS_ACCUMULATOR.load(std::sync::atomic::Ordering::SeqCst),
-                            name: &name
+                            name: &name,
                         })
                         .unwrap()
                     );

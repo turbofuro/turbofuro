@@ -159,6 +159,7 @@ async fn setup_configuration_fetching(
             environment_resolver: cloud_agent_environment_resolver.clone(),
             module_version_resolver: cloud_agent_module_version_resolver.clone(),
             configuration_coordinator: coordinator.clone(),
+            name: cloud_agent_cloud_options.name.clone(),
         };
 
         // Let's try to connect with a exponential backoff
@@ -181,6 +182,7 @@ async fn setup_configuration_fetching(
                 environment_resolver: cloud_agent_environment_resolver.clone(),
                 module_version_resolver: cloud_agent_module_version_resolver.clone(),
                 configuration_coordinator: coordinator.clone(),
+                name: cloud_agent_cloud_options.name.clone(),
             };
 
             if failed {
@@ -258,14 +260,17 @@ pub struct CloudOptions {
     pub cloud_url: String,
     pub operator_url: String,
     pub token: String,
+    pub name: String,
 }
 
+// Remember to update the help message in cli.rs when changing those
 static DEFAULT_CLOUD_URL: &str = "https://api.turbofuro.com";
 static DEFAULT_OPERATOR_URL: &str = "wss://operator.turbofuro.com";
 static TURBOFURO_TOKEN_ENV_NAME: &str = "TURBOFURO_TOKEN";
 static TURBOFURO_CLOUD_URL_ENV_NAME: &str = "TURBOFURO_CLOUD_URL";
 static TURBOFURO_OPERATOR_URL_ENV_NAME: &str = "TURBOFURO_OPERATOR_URL";
 static PORT_ENV_NAME: &str = "PORT";
+static NAME_ENV_NAME: &str = "NAME";
 
 async fn startup() -> Result<(), WorkerError> {
     let args = parse_cli_args().map_err(|e| WorkerError::IncorrectParameters(e.to_string()))?;
@@ -287,6 +292,19 @@ async fn startup() -> Result<(), WorkerError> {
         Err(p) => p?,
     };
 
+    let name = args
+        .name
+        .or_else(|| std::env::var(NAME_ENV_NAME).ok())
+        .or_else(|| {
+            {
+                hostname::get()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .ok()
+            }
+            .map(|s| s.chars().take(200).collect())
+        })
+        .unwrap_or("Unknown".to_owned());
+
     let http_server_options = HttpServerOptions { port };
 
     info!("Starting Turbofuro Worker");
@@ -302,6 +320,7 @@ async fn startup() -> Result<(), WorkerError> {
                     .or_else(|| std::env::var(TURBOFURO_OPERATOR_URL_ENV_NAME).ok())
                     .unwrap_or(DEFAULT_OPERATOR_URL.to_owned()),
                 token,
+                name,
             };
 
             if cloud_options.cloud_url != DEFAULT_CLOUD_URL {
