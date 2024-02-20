@@ -1,6 +1,6 @@
 extern crate log;
 
-use crate::config::Configuration;
+use crate::config::{Configuration, WorkerSettings};
 use crate::environment_resolver::SharedEnvironmentResolver;
 use crate::module_version_resolver::SharedModuleVersionResolver;
 use crate::HttpServerOptions;
@@ -15,7 +15,7 @@ use axum::{
 };
 use axum::{Json, RequestExt};
 use futures_util::{SinkExt, StreamExt};
-use http::Request;
+use http::{HeaderValue, Request};
 use hyper::Body;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -555,7 +555,8 @@ impl WorkerHttpServer {
         global: Arc<Global>,
         module_version_resolver: SharedModuleVersionResolver,
         environment: Arc<Environment>,
-    ) -> Router {
+        settings: WorkerSettings,
+    ) -> Result<Router, WorkerError> {
         let mut router = Router::new();
 
         let grouped_http_endpoints = self
@@ -609,19 +610,62 @@ impl WorkerHttpServer {
             router = router.route(&path, method_router);
         }
 
-        let cors = CorsLayer::new().allow_origin(Any);
-        let timeout = TimeoutLayer::new(std::time::Duration::from_secs(60));
-        let compression = CompressionLayer::new();
+        match settings.timeout {
+            crate::config::Timeout::Disabled => {
+                // No-op
+            }
+            crate::config::Timeout::Default => {
+                router = router.layer(TimeoutLayer::new(std::time::Duration::from_secs(60)));
+            }
+            crate::config::Timeout::Custom { seconds } => {
+                router = router.layer(TimeoutLayer::new(std::time::Duration::from_secs(seconds)));
+            }
+        }
 
-        router
-            .layer(cors)
-            .layer(timeout)
-            .layer(compression)
-            .with_state(AppState {
-                module_version_resolver,
-                global,
-                environment,
-            })
+        match settings.cors {
+            crate::config::Cors::Disabled => {
+                // No-op
+            }
+            crate::config::Cors::Any => {
+                router = router.layer(CorsLayer::permissive());
+            }
+            crate::config::Cors::Origins {
+                origins: raw_origins,
+            } => {
+                // Map String to HeaderValue
+                let mut origins: Vec<HeaderValue> = Vec::with_capacity(raw_origins.len());
+                for raw_origin in raw_origins {
+                    let header_value = HeaderValue::from_str(&raw_origin).map_err(|e| {
+                        WorkerError::IncorrectParameters(format!("Could not parse origin: {}", e))
+                    })?;
+                    origins.push(header_value);
+                }
+
+                router = router.layer(
+                    CorsLayer::new()
+                        .allow_headers(Any)
+                        .allow_methods(Any)
+                        .allow_origin(origins)
+                        .expose_headers(Any),
+                );
+            }
+            crate::config::Cors::AnyWithCredentials => {
+                router = router.layer(CorsLayer::very_permissive());
+            }
+        }
+
+        match settings.compression {
+            crate::config::Compression::Disabled => {
+                // No-op
+            }
+            crate::config::Compression::Automatic => router = router.layer(CompressionLayer::new()),
+        }
+
+        Ok(router.with_state(AppState {
+            module_version_resolver,
+            global,
+            environment,
+        }))
     }
 }
 
@@ -748,7 +792,8 @@ impl Worker {
             self.global.clone(),
             self.module_version_resolver.clone(),
             environment.clone(),
-        );
+            self.config.settings.clone(),
+        )?;
 
         Ok(router)
     }
