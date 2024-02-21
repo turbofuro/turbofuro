@@ -6,12 +6,56 @@ use tracing::{debug, error, info, warn};
 
 use crate::{worker::WorkerError, CloudOptions};
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum Cors {
+    Disabled,
+    Any,
+    Origins { origins: Vec<String> },
+    AnyWithCredentials,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum Compression {
+    Disabled,
+    Automatic,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum Timeout {
+    Disabled,
+    Default,
+    Custom { seconds: u64 },
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkerSettings {
+    pub cors: Cors,
+    pub compression: Compression,
+    pub timeout: Timeout,
+}
+
+impl Default for WorkerSettings {
+    fn default() -> Self {
+        WorkerSettings {
+            cors: Cors::Disabled,
+            compression: Compression::Automatic,
+            timeout: Timeout::Default,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Configuration {
     pub id: String,
     pub modules: Vec<ModuleSpec>,
     pub environment_id: String,
+    #[serde(default)]
+    pub settings: WorkerSettings,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]

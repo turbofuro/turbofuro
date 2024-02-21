@@ -13,7 +13,7 @@ description = "Runtime for Turbofuro visual programming language"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-axum = { version = "0.6.1", features = ["ws", "multipart"] }
+axum = { version = "0.6.20", features = ["ws", "multipart"] }
 chrono = "0.4.23"
 hyper = { version = "0.14.23", features = ["full"] }
 log = "0.4.17"
@@ -21,7 +21,7 @@ pretty_env_logger = "0.4.0"
 serde = "1.0.149"
 serde_json = "1.0.91"
 serde_urlencoded = "0.7.1"
-tokio = { version = "1.23.0", features = ["full"] }
+tokio = { version = "1.36.0", features = ["full"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
 async-trait = "0.1.60"
