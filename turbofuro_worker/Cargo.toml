@@ -18,7 +18,7 @@ path = "src/main.rs"
 
 [dependencies]
 axum = { version = "0.6.20", features = ["ws", "multipart"] }
-turbofuro_runtime = { path = "../turbofuro_runtime", version = "0.1.0" }
+turbofuro_runtime = { path = "../turbofuro_runtime", version = "0.1.1" }
 chrono = "0.4.23"
 hyper = { version = "0.14.23", features = ["full"] }
 log = "0.4.17"
