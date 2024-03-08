@@ -13,6 +13,7 @@ use crate::errors::ExecutionError;
 use crate::execution_logging::LoggerMessage;
 use crate::executor::execute;
 use crate::executor::CompiledModule;
+use crate::executor::DebuggerHandle;
 use crate::executor::Environment;
 use crate::executor::ExecutionContext;
 use crate::executor::ExecutionLog;
@@ -368,6 +369,7 @@ impl Actor {
         steps: &Steps,
         mut resources: ActorResources,
         initial_storage: ObjectBody,
+        debugger: DebuggerHandle,
     ) -> ExecutionLog {
         let mut storage = initial_storage;
         storage.insert("state".to_owned(), self.state.clone());
@@ -381,8 +383,9 @@ impl Actor {
             resources: &mut resources,
             module: self.module.clone(),
             global: self.global.clone(),
-            error_reported: false,
+            bubbling: false,
             references: HashMap::new(),
+            debugger: Some(debugger),
         };
 
         match execute(steps, &mut context).await {
@@ -468,8 +471,9 @@ impl Actor {
             resources: &mut self.resources,
             module: self.module.clone(),
             global: self.global.clone(),
-            error_reported: false,
+            bubbling: false,
             references: HashMap::new(),
+            debugger: None,
         };
 
         let body = match &local_function {
