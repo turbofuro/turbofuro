@@ -2,6 +2,8 @@ use std::{collections::HashMap, time::Duration};
 
 use http::{header, Method};
 use mime::{Mime, TEXT_PLAIN};
+use once_cell::sync::Lazy;
+use reqwest::Client;
 use tel::{describe, Description, ObjectBody, StorageValue};
 use tracing::{debug, info, instrument};
 
@@ -19,14 +21,20 @@ use super::as_string;
 
 static USER_AGENT: &str = concat!("turbofuro/", env!("CARGO_PKG_VERSION"));
 
+static CLIENT: Lazy<Client> = Lazy::new(|| {
+    reqwest::Client::builder()
+        .user_agent(USER_AGENT)
+        .timeout(Duration::from_secs(60))
+        .build()
+        .unwrap()
+});
+
 #[instrument(level = "trace", skip_all)]
 pub async fn http_request<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let client = reqwest::Client::new();
-
     let url_param = eval_param("url", parameters, &context.storage, &context.environment)?;
     let url = as_string(url_param, "url")?;
 
@@ -56,7 +64,7 @@ pub async fn http_request<'a>(
         }
     };
 
-    let mut request_builder = client.request(method, url);
+    let mut request_builder = CLIENT.request(method, url);
 
     if let Some(query) =
         eval_optional_param("query", parameters, &context.storage, &context.environment)?
@@ -109,7 +117,7 @@ pub async fn http_request<'a>(
             inner: e.to_string(),
         })?;
 
-    let response = client.execute(request).await.unwrap();
+    let response = CLIENT.execute(request).await.unwrap();
 
     let mut response_object: ObjectBody = HashMap::new();
     response_object.insert(
