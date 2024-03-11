@@ -41,10 +41,6 @@ pub enum CloudAgentError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum OperatorCommand<'a> {
-    // ReportRun {
-    //     id: String,
-    //     log: ExecutionLog,
-    // },
     ReportDiagnostic {
         id: String,
         details: Value,
@@ -240,7 +236,7 @@ impl CloudAgent {
                                     debug!("Cloud agent: Debug writer finished");
                                 });
 
-                                // TODO: Shall we do something with the execution log
+                                // TODO: Report app errors
                                 let _result = self
                                     .perform_run(
                                         id.clone(),
@@ -251,32 +247,6 @@ impl CloudAgent {
                                         debugger_handle,
                                     )
                                     .await;
-
-                                // match result {
-                                //     Ok(log) => {
-                                //         let command = OperatorCommand::ReportRun { id, log };
-                                //         debug_writer
-                                //             .send(Message::Text(
-                                //                 serde_json::to_string(&command).unwrap(),
-                                //             ))
-                                //             .await
-                                //             .expect("Cloud agent: write failed");
-                                //     }
-                                //     Err(error) => {
-                                //         warn!(
-                                //             "Cloud agent: Error while performing run: {:?}",
-                                //             error
-                                //         );
-                                //         debug_writer
-                                //             .send(Message::Text({
-                                //                 let command =
-                                //                     OperatorCommand::ReportError { id, error };
-                                //                 serde_json::to_string(&command).unwrap()
-                                //             }))
-                                //             .await
-                                //             .expect("Cloud agent: write failed");
-                                //     }
-                                // }
                             }
                             CloudAgentCommand::UpdateConfiguration { id: _ } => {
                                 debug!("Cloud agent: Received configuration update command");
