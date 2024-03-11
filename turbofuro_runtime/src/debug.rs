@@ -11,7 +11,7 @@ pub enum LoggerMessage {
 pub type ExecutionLoggerHandle = Sender<LoggerMessage>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum DebugLoggingMessage {
+pub enum DebugMessage {
     StartReport {
         started_at: u64,
         initial_storage: ObjectBody,
@@ -22,4 +22,4 @@ pub enum DebugLoggingMessage {
     EndReport,
 }
 
-pub type DebugLoggingHandle = Sender<DebugLoggingMessage>;
+pub type DebuggerHandle = Sender<DebugMessage>;

@@ -4,7 +4,7 @@ use reqwest::Client;
 use tokio::sync::mpsc::{self};
 use tracing::{debug, error};
 use turbofuro_runtime::{
-    execution_logging::{ExecutionLoggerHandle, LoggerMessage},
+    debug::{ExecutionLoggerHandle, LoggerMessage},
     executor::{ExecutionReport, ExecutionStatus},
 };
 

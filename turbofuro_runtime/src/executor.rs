@@ -41,12 +41,12 @@ use crate::actions::pubsub;
 use crate::actions::redis;
 use crate::actions::wasm;
 use crate::actions::websocket;
+use crate::debug::DebugMessage;
+use crate::debug::ExecutionLoggerHandle;
+use crate::debug::LoggerMessage;
 use crate::errors::ExecutionError;
 use crate::evaluations::eval;
 use crate::evaluations::eval_saver;
-use crate::execution_logging::DebugLoggingMessage;
-use crate::execution_logging::ExecutionLoggerHandle;
-use crate::execution_logging::LoggerMessage;
 use crate::resources::{ActorResources, ResourceRegistry};
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -407,7 +407,7 @@ fn get_timestamp() -> u64 {
 #[derive(Debug, Clone)]
 pub struct DebuggerHandle {
     pub id: String,
-    pub sender: mpsc::Sender<DebugLoggingMessage>,
+    pub sender: mpsc::Sender<DebugMessage>,
 }
 
 #[derive(Debug)]
@@ -431,7 +431,7 @@ pub struct ExecutionContext<'a> {
 }
 
 // TODO: Figure out proper error handling for such cases
-fn handle_logging_error(result: Result<(), TrySendError<DebugLoggingMessage>>) {
+fn handle_logging_error(result: Result<(), TrySendError<DebugMessage>>) {
     match result {
         Ok(_) => {
             // No-op
@@ -472,7 +472,7 @@ impl<'a> ExecutionContext<'a> {
 
     pub fn report_event(&mut self, event: ExecutionEvent) {
         if let Some(debugger) = &self.debugger {
-            handle_logging_error(debugger.sender.try_send(DebugLoggingMessage::AppendEvent {
+            handle_logging_error(debugger.sender.try_send(DebugMessage::AppendEvent {
                 event: event.clone(),
             }))
         }
@@ -506,7 +506,7 @@ impl<'a> ExecutionContext<'a> {
         self.log = ExecutionLog::with_initial_storage(self.storage.clone());
 
         if let Some(debugger) = &self.debugger {
-            handle_logging_error(debugger.sender.try_send(DebugLoggingMessage::StartReport {
+            handle_logging_error(debugger.sender.try_send(DebugMessage::StartReport {
                 started_at: self.log.started_at,
                 initial_storage: self.log.initial_storage.clone(),
             }));
@@ -515,7 +515,7 @@ impl<'a> ExecutionContext<'a> {
 
     pub fn end_report(&mut self) {
         if let Some(debugger) = &self.debugger {
-            handle_logging_error(debugger.sender.try_send(DebugLoggingMessage::EndReport));
+            handle_logging_error(debugger.sender.try_send(DebugMessage::EndReport));
         }
     }
 

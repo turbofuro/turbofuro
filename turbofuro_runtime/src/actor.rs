@@ -9,8 +9,8 @@ use tracing::info;
 use tracing::warn;
 
 use crate::actions::alarms::cancellation_name;
+use crate::debug::LoggerMessage;
 use crate::errors::ExecutionError;
-use crate::execution_logging::LoggerMessage;
 use crate::executor::execute;
 use crate::executor::CompiledModule;
 use crate::executor::DebuggerHandle;

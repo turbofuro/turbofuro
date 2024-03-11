@@ -10,7 +10,7 @@ use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use tracing::{debug, info, warn};
 use turbofuro_runtime::{
     actor::Actor,
-    execution_logging::DebugLoggingMessage,
+    debug::DebugMessage,
     executor::{
         Callee, DebuggerHandle, ExecutionEvent, ExecutionLog, Global, Import, Parameter, Step,
         Steps,
@@ -97,9 +97,9 @@ pub struct CloudAgent {
     pub name: String,
 }
 
-fn wrap_debug_message(message: DebugLoggingMessage, id: String) -> OperatorCommand<'static> {
+fn wrap_debug_message(message: DebugMessage, id: String) -> OperatorCommand<'static> {
     match message {
-        DebugLoggingMessage::StartReport {
+        DebugMessage::StartReport {
             started_at,
             initial_storage,
         } => OperatorCommand::StartReport {
@@ -107,10 +107,8 @@ fn wrap_debug_message(message: DebugLoggingMessage, id: String) -> OperatorComma
             started_at,
             initial_storage,
         },
-        DebugLoggingMessage::AppendEvent { event } => {
-            OperatorCommand::AppendReportEvent { id, event }
-        }
-        DebugLoggingMessage::EndReport => OperatorCommand::EndReport { id },
+        DebugMessage::AppendEvent { event } => OperatorCommand::AppendReportEvent { id, event },
+        DebugMessage::EndReport => OperatorCommand::EndReport { id },
     }
 }
 
@@ -211,8 +209,7 @@ impl CloudAgent {
                                 parameters,
                                 environment_id,
                             } => {
-                                let (sender, mut receiver) =
-                                    mpsc::channel::<DebugLoggingMessage>(16);
+                                let (sender, mut receiver) = mpsc::channel::<DebugMessage>(16);
 
                                 let debugger_handle = DebuggerHandle {
                                     sender,
