@@ -3,13 +3,18 @@ use std::{collections::HashMap, env, sync::Arc};
 use futures_util::{SinkExt, StreamExt};
 use reqwest::Url;
 use serde_derive::{Deserialize, Serialize};
+use serde_json::Value;
 use tokio::sync::mpsc;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 use tracing::{debug, info, warn};
 use turbofuro_runtime::{
     actor::Actor,
-    executor::{Callee, ExecutionLog, Global, Import, Parameter, Step, Steps},
+    debug::DebugMessage,
+    executor::{
+        Callee, DebuggerHandle, ExecutionEvent, ExecutionLog, Global, Import, Parameter, Step,
+        Steps,
+    },
     resources::ActorResources,
     ObjectBody, StorageValue,
 };
@@ -36,15 +41,25 @@ pub enum CloudAgentError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum OperatorCommand<'a> {
-    ReportRun {
+    ReportDiagnostic {
         id: String,
-        log: ExecutionLog,
+        details: Value,
     },
-    ReportError {
+    StartReport {
         id: String,
-        error: AppError,
+        #[serde(rename = "startedAt")]
+        started_at: u64,
+        #[serde(rename = "initialStorage")]
+        initial_storage: ObjectBody,
     },
-    Stats {
+    AppendReportEvent {
+        id: String,
+        event: ExecutionEvent,
+    },
+    EndReport {
+        id: String,
+    },
+    UpdateStats {
         os: &'static str,
         #[serde(rename = "runsCount")]
         runs_count: u64,
@@ -76,6 +91,21 @@ pub struct CloudAgent {
     pub global: Arc<Global>,
     pub configuration_coordinator: ConfigurationCoordinator,
     pub name: String,
+}
+
+fn wrap_debug_message(message: DebugMessage, id: String) -> OperatorCommand<'static> {
+    match message {
+        DebugMessage::StartReport {
+            started_at,
+            initial_storage,
+        } => OperatorCommand::StartReport {
+            id,
+            started_at,
+            initial_storage,
+        },
+        DebugMessage::AppendEvent { event } => OperatorCommand::AppendReportEvent { id, event },
+        DebugMessage::EndReport => OperatorCommand::EndReport { id },
+    }
 }
 
 impl CloudAgent {
@@ -124,7 +154,7 @@ impl CloudAgent {
                 match {
                     debug!(
                         "Cloud agent: Sending stats {}",
-                        serde_json::to_string(&OperatorCommand::Stats {
+                        serde_json::to_string(&OperatorCommand::UpdateStats {
                             os: env::consts::OS,
                             runs_count: RUNS_ACCUMULATOR.load(std::sync::atomic::Ordering::SeqCst),
                             name: &name,
@@ -133,7 +163,7 @@ impl CloudAgent {
                     );
                     report_write
                         .send(Message::Text(
-                            serde_json::to_string(&OperatorCommand::Stats {
+                            serde_json::to_string(&OperatorCommand::UpdateStats {
                                 os: env::consts::OS,
                                 name: &name,
                                 runs_count: RUNS_ACCUMULATOR
@@ -175,41 +205,48 @@ impl CloudAgent {
                                 parameters,
                                 environment_id,
                             } => {
-                                let result = self
+                                let (sender, mut receiver) = mpsc::channel::<DebugMessage>(16);
+
+                                let debugger_handle = DebuggerHandle {
+                                    sender,
+                                    id: id.clone(),
+                                };
+
+                                let log_writer = debug_writer.clone();
+                                let id_receiver = id.clone();
+                                tokio::spawn(async move {
+                                    while let Some(message) = receiver.recv().await {
+                                        let message =
+                                            wrap_debug_message(message, id_receiver.clone());
+
+                                        match log_writer
+                                            .send(Message::Text(
+                                                serde_json::to_string(&message).unwrap(),
+                                            ))
+                                            .await
+                                        {
+                                            Ok(_) => {}
+                                            Err(err) => {
+                                                // Quite simple cancellation - when WebSocket is closed, the write will fail and we will stop the loop
+                                                debug!("Cloud agent: Debug write failed: {}", err);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    debug!("Cloud agent: Debug writer finished");
+                                });
+
+                                // TODO: Report app errors
+                                let _result = self
                                     .perform_run(
-                                        id.as_str(),
+                                        id.clone(),
                                         module_version,
                                         callee,
                                         parameters,
                                         environment_id,
+                                        debugger_handle,
                                     )
                                     .await;
-
-                                match result {
-                                    Ok(log) => {
-                                        let command = OperatorCommand::ReportRun { id, log };
-                                        debug_writer
-                                            .send(Message::Text(
-                                                serde_json::to_string(&command).unwrap(),
-                                            ))
-                                            .await
-                                            .expect("Cloud agent: write failed");
-                                    }
-                                    Err(error) => {
-                                        warn!(
-                                            "Cloud agent: Error while performing run: {:?}",
-                                            error
-                                        );
-                                        debug_writer
-                                            .send(Message::Text({
-                                                let command =
-                                                    OperatorCommand::ReportError { id, error };
-                                                serde_json::to_string(&command).unwrap()
-                                            }))
-                                            .await
-                                            .expect("Cloud agent: write failed");
-                                    }
-                                }
                             }
                             CloudAgentCommand::UpdateConfiguration { id: _ } => {
                                 debug!("Cloud agent: Received configuration update command");
@@ -242,11 +279,12 @@ impl CloudAgent {
 
     async fn perform_run(
         &mut self,
-        _id: &str,
+        _id: String,
         module_version: ModuleVersion,
         callee: Callee,
         parameters: Vec<Parameter>,
         environment_id: String,
+        debugger_handle: DebuggerHandle,
     ) -> Result<ExecutionLog, AppError> {
         let environment = self
             .environment_resolver
@@ -293,8 +331,9 @@ impl CloudAgent {
 
         let resources = ActorResources::default();
         let execution_log = actor
-            .execute_custom(&custom_steps, resources, ObjectBody::new())
+            .execute_custom(&custom_steps, resources, ObjectBody::new(), debugger_handle)
             .await;
+
         Ok(execution_log)
     }
 }

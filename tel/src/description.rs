@@ -35,6 +35,8 @@ pub enum Description {
     Array {
         #[serde(rename = "itemType")]
         item_type: Box<Description>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        length: Option<usize>,
     },
     BaseType {
         #[serde(rename = "fieldType")]
@@ -297,7 +299,10 @@ impl Description {
                 }
                 format!("[{}]", descriptions.join(", "))
             }
-            Description::Array { item_type } => {
+            Description::Array {
+                item_type,
+                length: _,
+            } => {
                 format!("{}[]", item_type.to_form_string())
             }
             Description::BaseType { field_type } => field_type.to_owned(),
@@ -488,7 +493,10 @@ impl Description {
                     message: "Can't convert array to string".to_owned(),
                 },
             },
-            Description::Array { item_type: _ } => Description::Error {
+            Description::Array {
+                item_type: _,
+                length: _,
+            } => Description::Error {
                 error: TelError::UnsupportedOperation {
                     operation: "to_string_array".to_owned(),
                     message: "Can't convert array to string".to_owned(),
@@ -617,11 +625,11 @@ impl Description {
                 }
             }
             Description::ExactArray { value } => {
-                let mut descriptions = Vec::new();
-                // TODO: Limit and pick at certain levels
-                for item in value {
-                    descriptions.push(item.to_base());
-                }
+                // let mut descriptions = Vec::new();
+                // // TODO: Limit and pick at certain levels
+                // for item in value {
+                //     descriptions.push(item.to_base());
+                // }
 
                 let unified = value
                     .clone()
@@ -630,6 +638,7 @@ impl Description {
 
                 if let Some(item_type) = unified {
                     Description::Array {
+                        length: Some(value.len()),
                         item_type: Box::new(item_type),
                     }
                 } else {
@@ -653,13 +662,26 @@ pub fn describe(value: StorageValue) -> Description {
         StorageValue::Number(f) => Description::NumberValue { value: f },
         StorageValue::Boolean(b) => Description::BooleanValue { value: b },
         StorageValue::Array(array) => {
-            let mut descriptions = Vec::new();
-            // TODO: Smart limit so the resulting
-            for item in array {
-                descriptions.push(describe(item));
-            }
-            Description::ExactArray {
-                value: descriptions,
+            let length = array.len();
+
+            // TODO: Make this limit smarter
+            if length > 12 {
+                let mut item_description = Description::Unknown;
+                for item in array {
+                    item_description = merge(item_description, describe(item));
+                }
+                Description::Array {
+                    length: Some(length),
+                    item_type: Box::new(item_description),
+                }
+            } else {
+                let mut descriptions = Vec::new();
+                for item in array {
+                    descriptions.push(describe(item));
+                }
+                Description::ExactArray {
+                    value: descriptions,
+                }
             }
         }
         StorageValue::Object(object) => {
@@ -823,10 +845,17 @@ pub fn evaluate_description(
                     },
                     _ => Description::Null,
                 },
-                Description::Array { item_type } => match attr.parse::<usize>() {
-                    Ok(_i) => {
-                        // TODO
-                        Description::new_union(vec![*item_type.clone(), Description::Null])
+                Description::Array { item_type, length } => match attr.parse::<usize>() {
+                    Ok(i) => {
+                        if let Some(length) = length {
+                            if i >= *length {
+                                Description::Null
+                            } else {
+                                *item_type.clone()
+                            }
+                        } else {
+                            Description::new_union(vec![*item_type.clone(), Description::Null])
+                        }
                     }
                     Err(_) => Description::Null,
                 },
@@ -872,7 +901,10 @@ pub fn evaluate_description(
                             None => Description::Unknown,
                         },
                     },
-                    Description::Array { item_type } => item_type.optional(),
+                    Description::Array {
+                        item_type,
+                        length: _,
+                    } => item_type.optional(),
                     Description::BaseType { field_type } => match field_type.as_str() {
                         "string" => Description::new_base_type("string").optional(),
                         "object" => Description::Any,
@@ -1129,7 +1161,10 @@ pub fn save_to_storage_description(
                             Description::ExactArray { value } => {
                                 traversed = ContextStorage::Array(value);
                             }
-                            Description::Array { item_type } => {
+                            Description::Array {
+                                item_type,
+                                length: _,
+                            } => {
                                 traversed = ContextStorage::SimpleArray(item_type);
                             }
                             sv => {
@@ -1161,7 +1196,10 @@ pub fn save_to_storage_description(
                             Description::ExactArray { value } => {
                                 traversed = ContextStorage::Array(value);
                             }
-                            Description::Array { item_type } => {
+                            Description::Array {
+                                item_type,
+                                length: _,
+                            } => {
                                 traversed = ContextStorage::SimpleArray(item_type);
                             }
                             sv => {
@@ -1200,7 +1238,10 @@ pub fn save_to_storage_description(
                                 Description::ExactArray { value } => {
                                     traversed = ContextStorage::Array(value);
                                 }
-                                Description::Array { item_type } => {
+                                Description::Array {
+                                    item_type,
+                                    length: _,
+                                } => {
                                     traversed = ContextStorage::SimpleArray(item_type);
                                 }
                                 sv => {
@@ -1231,8 +1272,18 @@ pub fn save_to_storage_description(
                                 Description::ExactArray { value } => {
                                     traversed = ContextStorage::Array(value);
                                 }
-                                Description::Array { item_type } => {
-                                    traversed = ContextStorage::SimpleArray(item_type);
+                                Description::Array { item_type, length } => {
+                                    if let Some(length) = length {
+                                        if index >= *length {
+                                            return Err(TelError::IndexOutOfBounds {
+                                                index,
+                                                max: *length - 1,
+                                            });
+                                        }
+                                        traversed = ContextStorage::SimpleArray(item_type);
+                                    } else {
+                                        traversed = ContextStorage::SimpleArray(item_type);
+                                    }
                                 }
                                 sv => {
                                     return Err(TelError::InvalidSelector {
@@ -1253,7 +1304,7 @@ pub fn save_to_storage_description(
                         }
                     }
                     ContextStorage::SimpleArray(item_type) => {
-                        let _index = slice.as_index()?; // TODO: Check if index could be used for better data
+                        let index = slice.as_index()?; // TODO: Check if index could be used for better data
 
                         match item_type.as_mut() {
                             Description::Object { value } => {
@@ -1262,8 +1313,18 @@ pub fn save_to_storage_description(
                             Description::ExactArray { value } => {
                                 traversed = ContextStorage::Array(value);
                             }
-                            Description::Array { item_type } => {
-                                traversed = ContextStorage::SimpleArray(item_type);
+                            Description::Array { item_type, length } => {
+                                if let Some(length) = length {
+                                    if index >= *length {
+                                        return Err(TelError::IndexOutOfBounds {
+                                            index,
+                                            max: *length - 1,
+                                        });
+                                    }
+                                    traversed = ContextStorage::SimpleArray(item_type);
+                                } else {
+                                    traversed = ContextStorage::SimpleArray(item_type);
+                                }
                             }
                             sv => {
                                 return Err(TelError::InvalidSelector {
@@ -1304,7 +1365,8 @@ mod test_description {
             Description::Array {
                 item_type: Box::new(Description::BaseType {
                     field_type: "string".to_owned()
-                })
+                }),
+                length: Some(3)
             }
         )
     }

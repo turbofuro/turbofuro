@@ -18,9 +18,11 @@ use tel::Selector;
 use tel::SelectorPart;
 use tel::StorageValue;
 use tokio::sync::mpsc;
+use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 use tracing::info;
+use tracing::warn;
 use tracing::{debug, instrument};
 
 use crate::actions::actors;
@@ -39,11 +41,12 @@ use crate::actions::pubsub;
 use crate::actions::redis;
 use crate::actions::wasm;
 use crate::actions::websocket;
+use crate::debug::DebugMessage;
+use crate::debug::ExecutionLoggerHandle;
+use crate::debug::LoggerMessage;
 use crate::errors::ExecutionError;
 use crate::evaluations::eval;
 use crate::evaluations::eval_saver;
-use crate::execution_logging::ExecutionLoggerHandle;
-use crate::execution_logging::LoggerMessage;
 use crate::resources::{ActorResources, ResourceRegistry};
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -291,6 +294,7 @@ impl ExecutionTest {
             self.global.clone(),
             self.environment.clone(),
             &mut self.resources,
+            None,
         )
     }
 }
@@ -400,19 +404,47 @@ fn get_timestamp() -> u64 {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct DebuggerHandle {
+    pub id: String,
+    pub sender: mpsc::Sender<DebugMessage>,
+}
+
 #[derive(Debug)]
 pub struct ExecutionContext<'a> {
     pub actor_id: String,
     pub log: ExecutionLog,
     pub storage: ObjectBody,
     pub references: HashMap<String, String>,
-    pub error_reported: bool,
+
+    /// Exception bubbling
+    /// If set to true, the context is currently bubbling an exception
+    pub bubbling: bool,
 
     pub module: Arc<CompiledModule>,
     pub global: Arc<Global>,
 
     pub resources: &'a mut ActorResources,
     pub environment: Arc<Environment>,
+
+    pub debugger: Option<DebuggerHandle>,
+}
+
+// TODO: Figure out proper error handling for such cases
+fn handle_logging_error(result: Result<(), TrySendError<DebugMessage>>) {
+    match result {
+        Ok(_) => {
+            // No-op
+        }
+        Err(e) => match e {
+            mpsc::error::TrySendError::Full(_) => {
+                warn!("Logging channel is full")
+            }
+            mpsc::error::TrySendError::Closed(_) => {
+                warn!("Logging channel is closed")
+            }
+        },
+    }
 }
 
 impl<'a> ExecutionContext<'a> {
@@ -422,6 +454,7 @@ impl<'a> ExecutionContext<'a> {
         global: Arc<Global>,
         environment: Arc<Environment>,
         resources: &'a mut ActorResources,
+        debugger: Option<DebuggerHandle>,
     ) -> Self {
         ExecutionContext {
             actor_id,
@@ -431,31 +464,59 @@ impl<'a> ExecutionContext<'a> {
             environment,
             global,
             module,
-            error_reported: false,
+            bubbling: false,
             references: HashMap::new(),
+            debugger,
         }
     }
 
+    pub fn report_event(&mut self, event: ExecutionEvent) {
+        if let Some(debugger) = &self.debugger {
+            handle_logging_error(debugger.sender.try_send(DebugMessage::AppendEvent {
+                event: event.clone(),
+            }))
+        }
+
+        self.log.events.push(event);
+    }
+
     pub fn add_step_started(&mut self, id: &str) {
-        self.log.events.push(ExecutionEvent::StepStarted {
+        self.report_event(ExecutionEvent::StepStarted {
             id: id.to_owned(),
             timestamp: get_timestamp(),
         });
     }
 
     pub fn add_step_finished(&mut self, id: &str) {
-        self.log.events.push(ExecutionEvent::StepFinished {
+        self.report_event(ExecutionEvent::StepFinished {
             id: id.to_owned(),
             timestamp: get_timestamp(),
         });
     }
 
     pub fn add_error_thrown(&mut self, id: &str, error: ExecutionError) {
-        self.log.events.push(ExecutionEvent::ErrorThrown {
+        self.report_event(ExecutionEvent::ErrorThrown {
             id: id.to_owned(),
             error,
             timestamp: get_timestamp(),
         });
+    }
+
+    pub fn start_report(&mut self) {
+        self.log = ExecutionLog::with_initial_storage(self.storage.clone());
+
+        if let Some(debugger) = &self.debugger {
+            handle_logging_error(debugger.sender.try_send(DebugMessage::StartReport {
+                started_at: self.log.started_at,
+                initial_storage: self.log.initial_storage.clone(),
+            }));
+        }
+    }
+
+    pub fn end_report(&mut self) {
+        if let Some(debugger) = &self.debugger {
+            handle_logging_error(debugger.sender.try_send(DebugMessage::EndReport));
+        }
     }
 
     pub fn add_to_storage(
@@ -467,7 +528,7 @@ impl<'a> ExecutionContext<'a> {
         tel::save_to_storage(&selector, &mut self.storage, value.clone())
             .map_err(ExecutionError::from)?;
 
-        self.log.events.push(ExecutionEvent::StorageUpdated {
+        self.report_event(ExecutionEvent::StorageUpdated {
             id: id.to_string(),
             selector,
             value,
@@ -652,17 +713,8 @@ async fn execute_function<'a>(
     if let Some(function) = function {
         match function {
             Function::Normal { id: _, body } => {
-                let mut function_context = ExecutionContext {
-                    actor_id: context.actor_id.clone(),
-                    log: ExecutionLog::default(),
-                    storage: HashMap::new(),
-                    environment: context.environment.clone(),
-                    resources: context.resources,
-                    global: context.global.clone(),
-                    module: module.clone(),
-                    error_reported: false,
-                    references: HashMap::new(),
-                };
+                let mut initial_storage = HashMap::new();
+                let mut initial_references = HashMap::new();
 
                 let mut saver: Option<Selector> = None;
                 for parameter in parameters.iter() {
@@ -676,19 +728,26 @@ async fn execute_function<'a>(
                         }
                         Parameter::Tel { name, expression } => {
                             let value = eval(expression, &context.storage, &context.environment)?;
-
-                            function_context.add_to_storage(
-                                step_id,
-                                vec![SelectorPart::Identifier(name.clone())],
-                                value,
-                            )?;
+                            initial_storage.insert(name.clone(), value);
                         }
                         Parameter::FunctionRef { name, id } => {
-                            // TODO: Rethink
-                            context.references.insert(name.clone(), id.clone());
+                            initial_references.insert(name.clone(), id.clone());
                         }
                     }
                 }
+
+                let mut function_context = ExecutionContext {
+                    actor_id: context.actor_id.clone(),
+                    log: ExecutionLog::default(),
+                    storage: initial_storage,
+                    environment: context.environment.clone(),
+                    resources: context.resources,
+                    global: context.global.clone(),
+                    module: module.clone(),
+                    bubbling: false,
+                    references: initial_references,
+                    debugger: context.debugger.clone(),
+                };
 
                 context.log.events.push(ExecutionEvent::EnterFunction {
                     function_id: function_id.to_owned(),
@@ -975,9 +1034,9 @@ async fn execute_steps<'a>(
                     ExecutionError::Break => {}
                     ExecutionError::Return { .. } => {}
                     e => {
-                        if !context.error_reported {
+                        if !context.bubbling {
                             context.add_error_thrown(step.get_step_id(), e.clone());
-                            context.error_reported = true;
+                            context.bubbling = true;
                         }
                     }
                 }
@@ -1001,7 +1060,19 @@ pub async fn execute<'a>(
         "Environment:\n{}",
         serde_json::to_string_pretty(&context.environment.variables).unwrap()
     );
-    execute_steps(steps, context).await
+
+    context.start_report();
+
+    match execute_steps(steps, context).await {
+        Ok(_) => {
+            context.end_report();
+            Ok(())
+        }
+        Err(e) => {
+            context.end_report();
+            Err(e)
+        }
+    }
 }
 
 #[cfg(test)]
