@@ -106,9 +106,6 @@ pub async fn http_request<'a>(
         }
     }
 
-    request_builder = request_builder.header("User-Agent", USER_AGENT);
-    request_builder = request_builder.timeout(Duration::from_secs(60));
-
     let request = request_builder
         .build()
         .map_err(|e| ExecutionError::StateInvalid {
