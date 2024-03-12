@@ -472,6 +472,7 @@ impl<'a> ExecutionContext<'a> {
 
     pub fn report_event(&mut self, event: ExecutionEvent) {
         if let Some(debugger) = &self.debugger {
+            // TODO: Use send_timeout instead?
             handle_logging_error(debugger.sender.try_send(DebugMessage::AppendEvent {
                 event: event.clone(),
             }))
@@ -500,6 +501,17 @@ impl<'a> ExecutionContext<'a> {
             error,
             timestamp: get_timestamp(),
         });
+    }
+
+    pub fn add_enter_function(&mut self, function_id: String, initial_storage: ObjectBody) {
+        self.report_event(ExecutionEvent::EnterFunction {
+            function_id,
+            initial_storage,
+        });
+    }
+
+    pub fn add_leave_function(&mut self, function_id: String) {
+        self.report_event(ExecutionEvent::LeaveFunction { function_id });
     }
 
     pub fn start_report(&mut self) {
@@ -640,6 +652,7 @@ async fn execute_native<'a>(
         "alarms/set_interval" => alarms::set_interval(context, parameters, step_id).await?,
         "alarms/cancel" => alarms::cancel_alarm(context, parameters, step_id).await?,
         "alarms/setup_cronjob" => alarms::setup_cronjob(context, parameters, step_id).await?,
+        "alarms/sleep" => alarms::sleep(context, parameters, step_id).await?,
         "actors/spawn" => actors::spawn_actor(context, parameters, step_id).await?,
         "os/run_command" => os::run_command(context, parameters, step_id).await?,
         "os/read_environment_variable" => {
@@ -736,6 +749,8 @@ async fn execute_function<'a>(
                     }
                 }
 
+                context.add_enter_function(function_id.to_owned(), initial_storage.clone());
+
                 let mut function_context = ExecutionContext {
                     actor_id: context.actor_id.clone(),
                     log: ExecutionLog::default(),
@@ -749,11 +764,6 @@ async fn execute_function<'a>(
                     debugger: context.debugger.clone(),
                 };
 
-                context.log.events.push(ExecutionEvent::EnterFunction {
-                    function_id: function_id.to_owned(),
-                    initial_storage: function_context.storage.clone(),
-                });
-
                 let returned_value = match execute_steps(body, &mut function_context).await {
                     Ok(_) => StorageValue::Null(None),
                     Err(e) => match e {
@@ -765,9 +775,8 @@ async fn execute_function<'a>(
                     },
                 };
                 context.log.events.append(&mut function_context.log.events);
-                context.log.events.push(ExecutionEvent::LeaveFunction {
-                    function_id: function_id.to_owned(),
-                });
+
+                context.add_leave_function(function_id.to_owned());
 
                 if let Some(saver) = saver {
                     context.add_to_storage(step_id, saver, returned_value)?;
@@ -795,9 +804,6 @@ async fn execute_step<'a>(
     step_id: &str,
 ) -> Result<(), ExecutionError> {
     debug!("Step: {}", step_id);
-
-    context.add_step_started(step_id);
-
     match step {
         Step::Break { .. } => {
             return Err(ExecutionError::Break);
@@ -1014,8 +1020,6 @@ async fn execute_step<'a>(
             },
         },
     }
-
-    context.add_step_finished(step_id);
     Ok(())
 }
 
@@ -1025,17 +1029,28 @@ async fn execute_steps<'a>(
     context: &mut ExecutionContext<'a>,
 ) -> Result<(), ExecutionError> {
     for step in steps {
-        match execute_step(step, context, step.get_step_id()).await {
-            Ok(_) => {}
+        let step_id = step.get_step_id();
+        context.add_step_started(step_id);
+        match execute_step(step, context, step_id).await {
+            Ok(_) => {
+                context.add_step_finished(step_id);
+            }
             Err(e) => {
                 // Silence logging error that are in fact a exception
                 match &e {
-                    ExecutionError::Continue => {}
-                    ExecutionError::Break => {}
-                    ExecutionError::Return { .. } => {}
+                    ExecutionError::Continue => {
+                        context.add_step_finished(step.get_step_id());
+                    }
+                    ExecutionError::Break => {
+                        context.add_step_finished(step.get_step_id());
+                    }
+                    ExecutionError::Return { .. } => {
+                        context.add_step_finished(step.get_step_id());
+                    }
                     e => {
                         if !context.bubbling {
                             context.add_error_thrown(step.get_step_id(), e.clone());
+                            context.add_step_finished(step.get_step_id());
                             context.bubbling = true;
                         }
                     }

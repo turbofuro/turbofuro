@@ -205,7 +205,7 @@ impl CloudAgent {
                                 parameters,
                                 environment_id,
                             } => {
-                                let (sender, mut receiver) = mpsc::channel::<DebugMessage>(16);
+                                let (sender, mut receiver) = mpsc::channel::<DebugMessage>(128);
 
                                 let debugger_handle = DebuggerHandle {
                                     sender,
