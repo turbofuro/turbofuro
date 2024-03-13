@@ -16,6 +16,7 @@ pub mod os;
 pub mod postgres;
 pub mod pubsub;
 pub mod redis;
+pub mod time;
 pub mod wasm;
 pub mod websocket;
 

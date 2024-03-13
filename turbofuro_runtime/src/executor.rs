@@ -39,6 +39,7 @@ use crate::actions::os;
 use crate::actions::postgres;
 use crate::actions::pubsub;
 use crate::actions::redis;
+use crate::actions::time;
 use crate::actions::wasm;
 use crate::actions::websocket;
 use crate::debug::DebugMessage;
@@ -652,7 +653,8 @@ async fn execute_native<'a>(
         "alarms/set_interval" => alarms::set_interval(context, parameters, step_id).await?,
         "alarms/cancel" => alarms::cancel_alarm(context, parameters, step_id).await?,
         "alarms/setup_cronjob" => alarms::setup_cronjob(context, parameters, step_id).await?,
-        "alarms/sleep" => alarms::sleep(context, parameters, step_id).await?,
+        "time/sleep" => time::sleep(context, parameters, step_id).await?,
+        "time/get_current_time" => time::get_current_time(context, parameters, step_id).await?,
         "actors/spawn" => actors::spawn_actor(context, parameters, step_id).await?,
         "os/run_command" => os::run_command(context, parameters, step_id).await?,
         "os/read_environment_variable" => {
