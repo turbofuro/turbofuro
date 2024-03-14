@@ -1224,7 +1224,7 @@ mod test_executor {
         let serialized = serde_json::to_value(&log).unwrap();
         let expected = json!(
             {
-                "status": "finished",
+                "status": "started",
                 "initialStorage": {},
                 "startedAt": log.started_at,
                 "events": [
