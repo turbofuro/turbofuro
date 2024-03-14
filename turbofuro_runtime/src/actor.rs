@@ -74,6 +74,14 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                                     serde_json::to_string(&log).unwrap()
                                 );
                             }
+                            ExecutionStatus::Started => {
+                                warn!(
+                                    "{} handler returned started status, actor: {}. Execution log:\n{}",
+                                    handler,
+                                    actor.id,
+                                    serde_json::to_string(&log).unwrap()
+                                );
+                            }
                         }
 
                         // TODO:
@@ -142,6 +150,14 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                             ExecutionStatus::Failed => {
                                 warn!(
                                     "ref/{} handler failed, actor: {}. Execution log:\n{}",
+                                    function_ref,
+                                    actor.id,
+                                    serde_json::to_string(&log).unwrap()
+                                );
+                            }
+                            ExecutionStatus::Started => {
+                                warn!(
+                                    "ref/{} handler returned started status, actor: {}. Execution log:\n{}",
                                     function_ref,
                                     actor.id,
                                     serde_json::to_string(&log).unwrap()
@@ -225,6 +241,14 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                                 ExecutionStatus::Failed => {
                                     warn!(
                                         "{} handler failed, actor: {}. Execution log:\n{}",
+                                        handler,
+                                        actor.id,
+                                        serde_json::to_string(&log).unwrap()
+                                    );
+                                }
+                                ExecutionStatus::Started => {
+                                    warn!(
+                                        "{} handler returned started status, actor: {}. Execution log:\n{}",
                                         handler,
                                         actor.id,
                                         serde_json::to_string(&log).unwrap()
@@ -377,7 +401,7 @@ impl Actor {
         // Build execution context
         let mut context = ExecutionContext {
             actor_id: self.get_id().to_owned(),
-            log: ExecutionLog::with_initial_storage(storage.clone()),
+            log: ExecutionLog::started_with_initial_storage(storage.clone()),
             storage,
             environment: self.environment.clone(),
             resources: &mut resources,
@@ -400,6 +424,7 @@ impl Actor {
                 context.log
             }
             Err(e) => match e {
+                // Case where early return was called
                 ExecutionError::Return { .. } => {
                     self.state = context
                         .storage
@@ -465,7 +490,7 @@ impl Actor {
         // Build execution context
         let mut context = ExecutionContext {
             actor_id: self.get_id().to_owned(),
-            log: ExecutionLog::with_initial_storage(storage.clone()),
+            log: ExecutionLog::started_with_initial_storage(storage.clone()),
             storage,
             environment: self.environment.clone(),
             resources: &mut self.resources,

@@ -12,8 +12,8 @@ use turbofuro_runtime::{
     actor::Actor,
     debug::DebugMessage,
     executor::{
-        Callee, DebuggerHandle, ExecutionEvent, ExecutionLog, Global, Import, Parameter, Step,
-        Steps,
+        Callee, DebuggerHandle, ExecutionEvent, ExecutionLog, ExecutionStatus, Global, Import,
+        Parameter, Step, Steps,
     },
     resources::ActorResources,
     ObjectBody, StorageValue,
@@ -58,6 +58,7 @@ pub enum OperatorCommand<'a> {
     },
     EndReport {
         id: String,
+        status: ExecutionStatus,
     },
     UpdateStats {
         os: &'static str,
@@ -104,7 +105,7 @@ fn wrap_debug_message(message: DebugMessage, id: String) -> OperatorCommand<'sta
             initial_storage,
         },
         DebugMessage::AppendEvent { event } => OperatorCommand::AppendReportEvent { id, event },
-        DebugMessage::EndReport => OperatorCommand::EndReport { id },
+        DebugMessage::EndReport { status } => OperatorCommand::EndReport { id, status },
     }
 }
 

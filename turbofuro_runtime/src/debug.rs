@@ -1,4 +1,4 @@
-use crate::executor::{ExecutionEvent, ExecutionReport};
+use crate::executor::{ExecutionEvent, ExecutionReport, ExecutionStatus};
 use serde::{Deserialize, Serialize};
 use tel::ObjectBody;
 use tokio::sync::mpsc::Sender;
@@ -19,7 +19,9 @@ pub enum DebugMessage {
     AppendEvent {
         event: ExecutionEvent,
     },
-    EndReport,
+    EndReport {
+        status: ExecutionStatus,
+    },
 }
 
 pub type DebuggerHandle = Sender<DebugMessage>;

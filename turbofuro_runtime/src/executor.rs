@@ -500,7 +500,13 @@ impl<'a> ExecutionContext<'a> {
         self.report_event(ExecutionEvent::ErrorThrown {
             id: id.to_owned(),
             error,
-            timestamp: get_timestamp(),
+            snapshot: match &self.debugger {
+                Some(_) => Some(ContextSnapshot {
+                    storage: self.storage.clone(),
+                    references: self.references.clone(),
+                }),
+                None => None,
+            },
         });
     }
 
@@ -516,7 +522,7 @@ impl<'a> ExecutionContext<'a> {
     }
 
     pub fn start_report(&mut self) {
-        self.log = ExecutionLog::with_initial_storage(self.storage.clone());
+        self.log = ExecutionLog::started_with_initial_storage(self.storage.clone());
 
         if let Some(debugger) = &self.debugger {
             handle_logging_error(debugger.sender.try_send(DebugMessage::StartReport {
@@ -526,9 +532,12 @@ impl<'a> ExecutionContext<'a> {
         }
     }
 
-    pub fn end_report(&mut self) {
+    pub fn end_report(&mut self, final_status: ExecutionStatus) {
+        self.log.status = final_status;
         if let Some(debugger) = &self.debugger {
-            handle_logging_error(debugger.sender.try_send(DebugMessage::EndReport));
+            handle_logging_error(debugger.sender.try_send(DebugMessage::EndReport {
+                status: self.log.status.clone(),
+            }));
         }
     }
 
@@ -554,8 +563,12 @@ impl<'a> ExecutionContext<'a> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ExecutionStatus {
+    // Execution finished successfully
     Finished,
+    /// Execution was stopped unexpectedly by an error
     Failed,
+    /// Execution has been started but not finished yet
+    Started,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -585,6 +598,12 @@ pub struct ExecutionReport {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ContextSnapshot {
+    pub storage: ObjectBody,
+    pub references: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE", tag = "type")]
 pub enum ExecutionEvent {
     StepStarted {
@@ -598,7 +617,7 @@ pub enum ExecutionEvent {
     ErrorThrown {
         id: String,
         error: ExecutionError,
-        timestamp: u64,
+        snapshot: Option<ContextSnapshot>,
     },
     StorageUpdated {
         id: String,
@@ -620,7 +639,7 @@ impl Default for ExecutionLog {
     fn default() -> Self {
         ExecutionLog {
             events: Vec::new(),
-            status: ExecutionStatus::Finished,
+            status: ExecutionStatus::Started,
             initial_storage: HashMap::new(),
             started_at: get_timestamp(),
         }
@@ -628,9 +647,9 @@ impl Default for ExecutionLog {
 }
 
 impl ExecutionLog {
-    pub fn with_initial_storage(storage: ObjectBody) -> Self {
+    pub fn started_with_initial_storage(storage: ObjectBody) -> Self {
         ExecutionLog {
-            status: ExecutionStatus::Finished,
+            status: ExecutionStatus::Started,
             initial_storage: storage,
             events: Vec::new(),
             started_at: get_timestamp(),
@@ -772,12 +791,12 @@ async fn execute_function<'a>(
                         ExecutionError::Return { value } => value,
                         e => {
                             context.log.events.append(&mut function_context.log.events);
+                            context.add_leave_function(function_id.to_owned());
                             return Err(e);
                         }
                     },
                 };
                 context.log.events.append(&mut function_context.log.events);
-
                 context.add_leave_function(function_id.to_owned());
 
                 if let Some(saver) = saver {
@@ -1050,11 +1069,9 @@ async fn execute_steps<'a>(
                         context.add_step_finished(step.get_step_id());
                     }
                     e => {
-                        if !context.bubbling {
-                            context.add_error_thrown(step.get_step_id(), e.clone());
-                            context.add_step_finished(step.get_step_id());
-                            context.bubbling = true;
-                        }
+                        context.add_error_thrown(step.get_step_id(), e.clone());
+                        context.add_step_finished(step.get_step_id());
+                        context.bubbling = true;
                     }
                 }
                 return Err(e);
@@ -1082,11 +1099,11 @@ pub async fn execute<'a>(
 
     match execute_steps(steps, context).await {
         Ok(_) => {
-            context.end_report();
+            context.end_report(ExecutionStatus::Finished);
             Ok(())
         }
         Err(e) => {
-            context.end_report();
+            context.end_report(ExecutionStatus::Failed);
             Err(e)
         }
     }
@@ -1118,7 +1135,6 @@ mod test_executor {
             match e {
                 ExecutionEvent::StepStarted { timestamp, .. } => *timestamp = 0,
                 ExecutionEvent::StepFinished { timestamp, .. } => *timestamp = 0,
-                ExecutionEvent::ErrorThrown { timestamp, .. } => *timestamp = 0,
                 _ => {}
             }
         }
