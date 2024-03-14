@@ -295,7 +295,7 @@ impl ExecutionTest {
             self.global.clone(),
             self.environment.clone(),
             &mut self.resources,
-            None,
+            ExecutionMode::Probe,
         )
     }
 }
@@ -411,6 +411,16 @@ pub struct DebuggerHandle {
     pub sender: mpsc::Sender<DebugMessage>,
 }
 
+#[derive(Debug, Clone)]
+pub enum ExecutionMode {
+    /// Optimize for speed with minimal observability
+    Fast,
+    /// Collect execution events for later analysis with acceptable performance overhead
+    Probe,
+    /// Debug mode with live observability with the cost of performance overhead
+    Debug(DebuggerHandle),
+}
+
 #[derive(Debug)]
 pub struct ExecutionContext<'a> {
     pub actor_id: String,
@@ -428,7 +438,7 @@ pub struct ExecutionContext<'a> {
     pub resources: &'a mut ActorResources,
     pub environment: Arc<Environment>,
 
-    pub debugger: Option<DebuggerHandle>,
+    pub mode: ExecutionMode,
 }
 
 // TODO: Figure out proper error handling for such cases
@@ -455,7 +465,7 @@ impl<'a> ExecutionContext<'a> {
         global: Arc<Global>,
         environment: Arc<Environment>,
         resources: &'a mut ActorResources,
-        debugger: Option<DebuggerHandle>,
+        mode: ExecutionMode,
     ) -> Self {
         ExecutionContext {
             actor_id,
@@ -467,64 +477,94 @@ impl<'a> ExecutionContext<'a> {
             module,
             bubbling: false,
             references: HashMap::new(),
-            debugger,
+            mode,
         }
     }
 
-    pub fn report_event(&mut self, event: ExecutionEvent) {
-        if let Some(debugger) = &self.debugger {
-            // TODO: Use send_timeout instead?
-            handle_logging_error(debugger.sender.try_send(DebugMessage::AppendEvent {
-                event: event.clone(),
-            }))
+    fn report_verbose_event(&mut self, event: ExecutionEvent) {
+        match &self.mode {
+            ExecutionMode::Fast => {
+                // No-op
+            }
+            ExecutionMode::Probe => {
+                self.log.events.push(event);
+            }
+            ExecutionMode::Debug(debugger) => {
+                handle_logging_error(debugger.sender.try_send(DebugMessage::AppendEvent {
+                    event: event.clone(),
+                }));
+                self.log.events.push(event);
+            }
         }
-
-        self.log.events.push(event);
     }
 
     pub fn add_step_started(&mut self, id: &str) {
-        self.report_event(ExecutionEvent::StepStarted {
+        self.report_verbose_event(ExecutionEvent::StepStarted {
             id: id.to_owned(),
             timestamp: get_timestamp(),
         });
     }
 
     pub fn add_step_finished(&mut self, id: &str) {
-        self.report_event(ExecutionEvent::StepFinished {
+        self.report_verbose_event(ExecutionEvent::StepFinished {
             id: id.to_owned(),
             timestamp: get_timestamp(),
         });
     }
 
-    pub fn add_error_thrown(&mut self, id: &str, error: ExecutionError) {
-        self.report_event(ExecutionEvent::ErrorThrown {
-            id: id.to_owned(),
-            error,
-            snapshot: match &self.debugger {
-                Some(_) => Some(ContextSnapshot {
-                    storage: self.storage.clone(),
-                    references: self.references.clone(),
-                }),
-                None => None,
-            },
-        });
-    }
-
     pub fn add_enter_function(&mut self, function_id: String, initial_storage: ObjectBody) {
-        self.report_event(ExecutionEvent::EnterFunction {
+        self.report_verbose_event(ExecutionEvent::EnterFunction {
             function_id,
             initial_storage,
         });
     }
 
     pub fn add_leave_function(&mut self, function_id: String) {
-        self.report_event(ExecutionEvent::LeaveFunction { function_id });
+        self.report_verbose_event(ExecutionEvent::LeaveFunction { function_id });
+    }
+
+    pub fn add_error_thrown(&mut self, id: &str, error: ExecutionError) {
+        match &self.mode {
+            ExecutionMode::Fast => {
+                let event = ExecutionEvent::ErrorThrown {
+                    id: id.to_owned(),
+                    error,
+                    // Add snapshot so the user can see the state of the context when the error was thrown
+                    snapshot: Some(ContextSnapshot {
+                        storage: self.storage.clone(),
+                        references: self.references.clone(),
+                    }),
+                };
+                self.log.events.push(event);
+            }
+            ExecutionMode::Probe => {
+                let event = ExecutionEvent::ErrorThrown {
+                    id: id.to_owned(),
+                    error,
+                    // No need to add snapshot in probe mode as the user can retrieve the context using events
+                    snapshot: None,
+                };
+                self.log.events.push(event);
+            }
+            ExecutionMode::Debug(debugger) => {
+                let event = ExecutionEvent::ErrorThrown {
+                    id: id.to_owned(),
+                    error,
+                    // No need to add snapshot in probe mode as the user can retrieve the context using events
+                    snapshot: None,
+                };
+                handle_logging_error(debugger.sender.try_send(DebugMessage::AppendEvent {
+                    event: event.clone(),
+                }));
+                self.log.events.push(event);
+            }
+        }
     }
 
     pub fn start_report(&mut self) {
         self.log = ExecutionLog::started_with_initial_storage(self.storage.clone());
 
-        if let Some(debugger) = &self.debugger {
+        if let ExecutionMode::Debug(debugger) = &self.mode {
             handle_logging_error(debugger.sender.try_send(DebugMessage::StartReport {
                 started_at: self.log.started_at,
                 initial_storage: self.log.initial_storage.clone(),
@@ -533,10 +573,14 @@ impl<'a> ExecutionContext<'a> {
     }
 
     pub fn end_report(&mut self, final_status: ExecutionStatus) {
+        let now = get_timestamp();
         self.log.status = final_status;
-        if let Some(debugger) = &self.debugger {
+        self.log.finished_at = Some(now);
+
+        if let ExecutionMode::Debug(debugger) = &self.mode {
             handle_logging_error(debugger.sender.try_send(DebugMessage::EndReport {
                 status: self.log.status.clone(),
+                finished_at: now,
             }));
         }
     }
@@ -550,7 +594,7 @@ impl<'a> ExecutionContext<'a> {
         tel::save_to_storage(&selector, &mut self.storage, value.clone())
             .map_err(ExecutionError::from)?;
 
-        self.report_event(ExecutionEvent::StorageUpdated {
+        self.report_verbose_event(ExecutionEvent::StorageUpdated {
             id: id.to_string(),
             selector,
             value,
@@ -578,6 +622,8 @@ pub struct ExecutionLog {
     pub initial_storage: ObjectBody,
     pub events: Vec<ExecutionEvent>,
     pub started_at: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub finished_at: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -642,6 +688,7 @@ impl Default for ExecutionLog {
             status: ExecutionStatus::Started,
             initial_storage: HashMap::new(),
             started_at: get_timestamp(),
+            finished_at: None,
         }
     }
 }
@@ -653,6 +700,7 @@ impl ExecutionLog {
             initial_storage: storage,
             events: Vec::new(),
             started_at: get_timestamp(),
+            finished_at: None,
         }
     }
 }
@@ -782,7 +830,7 @@ async fn execute_function<'a>(
                     module: module.clone(),
                     bubbling: false,
                     references: initial_references,
-                    debugger: context.debugger.clone(),
+                    mode: context.mode.clone(),
                 };
 
                 let returned_value = match execute_steps(body, &mut function_context).await {

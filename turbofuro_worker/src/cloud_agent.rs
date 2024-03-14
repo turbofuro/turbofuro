@@ -59,6 +59,8 @@ pub enum OperatorCommand<'a> {
     EndReport {
         id: String,
         status: ExecutionStatus,
+        #[serde(rename = "finishedAt")]
+        finished_at: u64,
     },
     UpdateStats {
         os: &'static str,
@@ -105,7 +107,14 @@ fn wrap_debug_message(message: DebugMessage, id: String) -> OperatorCommand<'sta
             initial_storage,
         },
         DebugMessage::AppendEvent { event } => OperatorCommand::AppendReportEvent { id, event },
-        DebugMessage::EndReport { status } => OperatorCommand::EndReport { id, status },
+        DebugMessage::EndReport {
+            status,
+            finished_at,
+        } => OperatorCommand::EndReport {
+            id,
+            status,
+            finished_at,
+        },
     }
 }
 

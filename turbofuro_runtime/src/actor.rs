@@ -17,6 +17,7 @@ use crate::executor::DebuggerHandle;
 use crate::executor::Environment;
 use crate::executor::ExecutionContext;
 use crate::executor::ExecutionLog;
+use crate::executor::ExecutionMode;
 use crate::executor::ExecutionReport;
 use crate::executor::ExecutionStatus;
 use crate::executor::Function;
@@ -409,7 +410,7 @@ impl Actor {
             global: self.global.clone(),
             bubbling: false,
             references: HashMap::new(),
-            debugger: Some(debugger),
+            mode: ExecutionMode::Debug(debugger),
         };
 
         match execute(steps, &mut context).await {
@@ -498,7 +499,7 @@ impl Actor {
             global: self.global.clone(),
             bubbling: false,
             references: HashMap::new(),
-            debugger: None,
+            mode: ExecutionMode::Probe, // TODO: Roll the dice or something to prefer fast mode
         };
 
         let body = match &local_function {

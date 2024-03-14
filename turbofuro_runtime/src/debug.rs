@@ -20,6 +20,7 @@ pub enum DebugMessage {
         event: ExecutionEvent,
     },
     EndReport {
+        finished_at: u64,
         status: ExecutionStatus,
     },
 }
