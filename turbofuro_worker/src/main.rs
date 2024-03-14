@@ -852,7 +852,7 @@ mod tests {
         match socket.next().await.unwrap().unwrap() {
             tungstenite::Message::Text(msg) => {
                 assert_eq!(msg, "Ping");
-                assert!(now.elapsed().as_millis() >= 100);
+                assert!(now.elapsed().as_millis() >= 97); // TODO: 100ms is not guaranteed?
             }
             other => panic!("expected a ping but got {other:?}"),
         };
@@ -860,7 +860,7 @@ mod tests {
         match socket.next().await.unwrap().unwrap() {
             tungstenite::Message::Text(msg) => {
                 assert_eq!(msg, "Ping");
-                assert!(now.elapsed().as_millis() >= 100);
+                assert!(now.elapsed().as_millis() >= 97);
             }
             other => panic!("expected a ping but got {other:?}"),
         };

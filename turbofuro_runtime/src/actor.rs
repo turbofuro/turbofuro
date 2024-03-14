@@ -17,6 +17,7 @@ use crate::executor::DebuggerHandle;
 use crate::executor::Environment;
 use crate::executor::ExecutionContext;
 use crate::executor::ExecutionLog;
+use crate::executor::ExecutionMode;
 use crate::executor::ExecutionReport;
 use crate::executor::ExecutionStatus;
 use crate::executor::Function;
@@ -69,6 +70,14 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                             ExecutionStatus::Failed => {
                                 warn!(
                                     "{} handler failed, actor: {}. Execution log:\n{}",
+                                    handler,
+                                    actor.id,
+                                    serde_json::to_string(&log).unwrap()
+                                );
+                            }
+                            ExecutionStatus::Started => {
+                                warn!(
+                                    "{} handler returned started status, actor: {}. Execution log:\n{}",
                                     handler,
                                     actor.id,
                                     serde_json::to_string(&log).unwrap()
@@ -142,6 +151,14 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                             ExecutionStatus::Failed => {
                                 warn!(
                                     "ref/{} handler failed, actor: {}. Execution log:\n{}",
+                                    function_ref,
+                                    actor.id,
+                                    serde_json::to_string(&log).unwrap()
+                                );
+                            }
+                            ExecutionStatus::Started => {
+                                warn!(
+                                    "ref/{} handler returned started status, actor: {}. Execution log:\n{}",
                                     function_ref,
                                     actor.id,
                                     serde_json::to_string(&log).unwrap()
@@ -225,6 +242,14 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                                 ExecutionStatus::Failed => {
                                     warn!(
                                         "{} handler failed, actor: {}. Execution log:\n{}",
+                                        handler,
+                                        actor.id,
+                                        serde_json::to_string(&log).unwrap()
+                                    );
+                                }
+                                ExecutionStatus::Started => {
+                                    warn!(
+                                        "{} handler returned started status, actor: {}. Execution log:\n{}",
                                         handler,
                                         actor.id,
                                         serde_json::to_string(&log).unwrap()
@@ -377,7 +402,7 @@ impl Actor {
         // Build execution context
         let mut context = ExecutionContext {
             actor_id: self.get_id().to_owned(),
-            log: ExecutionLog::with_initial_storage(storage.clone()),
+            log: ExecutionLog::started_with_initial_storage(storage.clone()),
             storage,
             environment: self.environment.clone(),
             resources: &mut resources,
@@ -385,7 +410,7 @@ impl Actor {
             global: self.global.clone(),
             bubbling: false,
             references: HashMap::new(),
-            debugger: Some(debugger),
+            mode: ExecutionMode::Debug(debugger),
         };
 
         match execute(steps, &mut context).await {
@@ -400,6 +425,7 @@ impl Actor {
                 context.log
             }
             Err(e) => match e {
+                // Case where early return was called
                 ExecutionError::Return { .. } => {
                     self.state = context
                         .storage
@@ -465,7 +491,7 @@ impl Actor {
         // Build execution context
         let mut context = ExecutionContext {
             actor_id: self.get_id().to_owned(),
-            log: ExecutionLog::with_initial_storage(storage.clone()),
+            log: ExecutionLog::started_with_initial_storage(storage.clone()),
             storage,
             environment: self.environment.clone(),
             resources: &mut self.resources,
@@ -473,7 +499,7 @@ impl Actor {
             global: self.global.clone(),
             bubbling: false,
             references: HashMap::new(),
-            debugger: None,
+            mode: ExecutionMode::Probe, // TODO: Roll the dice or something to prefer fast mode
         };
 
         let body = match &local_function {

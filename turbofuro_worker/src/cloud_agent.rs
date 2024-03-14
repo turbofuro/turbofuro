@@ -12,8 +12,8 @@ use turbofuro_runtime::{
     actor::Actor,
     debug::DebugMessage,
     executor::{
-        Callee, DebuggerHandle, ExecutionEvent, ExecutionLog, Global, Import, Parameter, Step,
-        Steps,
+        Callee, DebuggerHandle, ExecutionEvent, ExecutionLog, ExecutionStatus, Global, Import,
+        Parameter, Step, Steps,
     },
     resources::ActorResources,
     ObjectBody, StorageValue,
@@ -58,6 +58,9 @@ pub enum OperatorCommand<'a> {
     },
     EndReport {
         id: String,
+        status: ExecutionStatus,
+        #[serde(rename = "finishedAt")]
+        finished_at: u64,
     },
     UpdateStats {
         os: &'static str,
@@ -104,7 +107,14 @@ fn wrap_debug_message(message: DebugMessage, id: String) -> OperatorCommand<'sta
             initial_storage,
         },
         DebugMessage::AppendEvent { event } => OperatorCommand::AppendReportEvent { id, event },
-        DebugMessage::EndReport => OperatorCommand::EndReport { id },
+        DebugMessage::EndReport {
+            status,
+            finished_at,
+        } => OperatorCommand::EndReport {
+            id,
+            status,
+            finished_at,
+        },
     }
 }
 
@@ -205,7 +215,7 @@ impl CloudAgent {
                                 parameters,
                                 environment_id,
                             } => {
-                                let (sender, mut receiver) = mpsc::channel::<DebugMessage>(16);
+                                let (sender, mut receiver) = mpsc::channel::<DebugMessage>(128);
 
                                 let debugger_handle = DebuggerHandle {
                                     sender,

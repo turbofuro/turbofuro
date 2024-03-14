@@ -114,7 +114,19 @@ pub async fn http_request<'a>(
             inner: e.to_string(),
         })?;
 
-    let response = CLIENT.execute(request).await.unwrap();
+    let response = match CLIENT
+        .execute(request)
+        .await
+        .map_err(|e| ExecutionError::StateInvalid {
+            message: format!("Failed to execute HTTP request: {}", e),
+            subject: HttpRequestToRespond::get_type().into(),
+            inner: e.to_string(),
+        }) {
+        Ok(response) => response,
+        Err(e) => {
+            return Err(e);
+        }
+    };
 
     let mut response_object: ObjectBody = HashMap::new();
     response_object.insert(

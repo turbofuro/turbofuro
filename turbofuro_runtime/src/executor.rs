@@ -39,6 +39,7 @@ use crate::actions::os;
 use crate::actions::postgres;
 use crate::actions::pubsub;
 use crate::actions::redis;
+use crate::actions::time;
 use crate::actions::wasm;
 use crate::actions::websocket;
 use crate::debug::DebugMessage;
@@ -294,7 +295,7 @@ impl ExecutionTest {
             self.global.clone(),
             self.environment.clone(),
             &mut self.resources,
-            None,
+            ExecutionMode::Probe,
         )
     }
 }
@@ -410,6 +411,16 @@ pub struct DebuggerHandle {
     pub sender: mpsc::Sender<DebugMessage>,
 }
 
+#[derive(Debug, Clone)]
+pub enum ExecutionMode {
+    /// Optimize for speed with minimal observability
+    Fast,
+    /// Collect execution events for later analysis with acceptable performance overhead
+    Probe,
+    /// Debug mode with live observability with the cost of performance overhead
+    Debug(DebuggerHandle),
+}
+
 #[derive(Debug)]
 pub struct ExecutionContext<'a> {
     pub actor_id: String,
@@ -427,7 +438,7 @@ pub struct ExecutionContext<'a> {
     pub resources: &'a mut ActorResources,
     pub environment: Arc<Environment>,
 
-    pub debugger: Option<DebuggerHandle>,
+    pub mode: ExecutionMode,
 }
 
 // TODO: Figure out proper error handling for such cases
@@ -454,7 +465,7 @@ impl<'a> ExecutionContext<'a> {
         global: Arc<Global>,
         environment: Arc<Environment>,
         resources: &'a mut ActorResources,
-        debugger: Option<DebuggerHandle>,
+        mode: ExecutionMode,
     ) -> Self {
         ExecutionContext {
             actor_id,
@@ -466,46 +477,94 @@ impl<'a> ExecutionContext<'a> {
             module,
             bubbling: false,
             references: HashMap::new(),
-            debugger,
+            mode,
         }
     }
 
-    pub fn report_event(&mut self, event: ExecutionEvent) {
-        if let Some(debugger) = &self.debugger {
-            handle_logging_error(debugger.sender.try_send(DebugMessage::AppendEvent {
-                event: event.clone(),
-            }))
+    fn report_verbose_event(&mut self, event: ExecutionEvent) {
+        match &self.mode {
+            ExecutionMode::Fast => {
+                // No-op
+            }
+            ExecutionMode::Probe => {
+                self.log.events.push(event);
+            }
+            ExecutionMode::Debug(debugger) => {
+                handle_logging_error(debugger.sender.try_send(DebugMessage::AppendEvent {
+                    event: event.clone(),
+                }));
+                self.log.events.push(event);
+            }
         }
-
-        self.log.events.push(event);
     }
 
     pub fn add_step_started(&mut self, id: &str) {
-        self.report_event(ExecutionEvent::StepStarted {
+        self.report_verbose_event(ExecutionEvent::StepStarted {
             id: id.to_owned(),
             timestamp: get_timestamp(),
         });
     }
 
     pub fn add_step_finished(&mut self, id: &str) {
-        self.report_event(ExecutionEvent::StepFinished {
+        self.report_verbose_event(ExecutionEvent::StepFinished {
             id: id.to_owned(),
             timestamp: get_timestamp(),
         });
+    }
+
+    pub fn add_enter_function(&mut self, function_id: String, initial_storage: ObjectBody) {
+        self.report_verbose_event(ExecutionEvent::EnterFunction {
+            function_id,
+            initial_storage,
+        });
+    }
+
+    pub fn add_leave_function(&mut self, function_id: String) {
+        self.report_verbose_event(ExecutionEvent::LeaveFunction { function_id });
     }
 
     pub fn add_error_thrown(&mut self, id: &str, error: ExecutionError) {
-        self.report_event(ExecutionEvent::ErrorThrown {
-            id: id.to_owned(),
-            error,
-            timestamp: get_timestamp(),
-        });
+        match &self.mode {
+            ExecutionMode::Fast => {
+                let event = ExecutionEvent::ErrorThrown {
+                    id: id.to_owned(),
+                    error,
+                    // Add snapshot so the user can see the state of the context when the error was thrown
+                    snapshot: Some(ContextSnapshot {
+                        storage: self.storage.clone(),
+                        references: self.references.clone(),
+                    }),
+                };
+                self.log.events.push(event);
+            }
+            ExecutionMode::Probe => {
+                let event = ExecutionEvent::ErrorThrown {
+                    id: id.to_owned(),
+                    error,
+                    // No need to add snapshot in probe mode as the user can retrieve the context using events
+                    snapshot: None,
+                };
+                self.log.events.push(event);
+            }
+            ExecutionMode::Debug(debugger) => {
+                let event = ExecutionEvent::ErrorThrown {
+                    id: id.to_owned(),
+                    error,
+                    // No need to add snapshot in probe mode as the user can retrieve the context using events
+                    snapshot: None,
+                };
+                handle_logging_error(debugger.sender.try_send(DebugMessage::AppendEvent {
+                    event: event.clone(),
+                }));
+                self.log.events.push(event);
+            }
+        }
     }
 
     pub fn start_report(&mut self) {
-        self.log = ExecutionLog::with_initial_storage(self.storage.clone());
+        self.log = ExecutionLog::started_with_initial_storage(self.storage.clone());
 
-        if let Some(debugger) = &self.debugger {
+        if let ExecutionMode::Debug(debugger) = &self.mode {
             handle_logging_error(debugger.sender.try_send(DebugMessage::StartReport {
                 started_at: self.log.started_at,
                 initial_storage: self.log.initial_storage.clone(),
@@ -513,9 +572,16 @@ impl<'a> ExecutionContext<'a> {
         }
     }
 
-    pub fn end_report(&mut self) {
-        if let Some(debugger) = &self.debugger {
-            handle_logging_error(debugger.sender.try_send(DebugMessage::EndReport));
+    pub fn end_report(&mut self, final_status: ExecutionStatus) {
+        let now = get_timestamp();
+        self.log.status = final_status;
+        self.log.finished_at = Some(now);
+
+        if let ExecutionMode::Debug(debugger) = &self.mode {
+            handle_logging_error(debugger.sender.try_send(DebugMessage::EndReport {
+                status: self.log.status.clone(),
+                finished_at: now,
+            }));
         }
     }
 
@@ -528,7 +594,7 @@ impl<'a> ExecutionContext<'a> {
         tel::save_to_storage(&selector, &mut self.storage, value.clone())
             .map_err(ExecutionError::from)?;
 
-        self.report_event(ExecutionEvent::StorageUpdated {
+        self.report_verbose_event(ExecutionEvent::StorageUpdated {
             id: id.to_string(),
             selector,
             value,
@@ -541,8 +607,12 @@ impl<'a> ExecutionContext<'a> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ExecutionStatus {
+    // Execution finished successfully
     Finished,
+    /// Execution was stopped unexpectedly by an error
     Failed,
+    /// Execution has been started but not finished yet
+    Started,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -552,6 +622,8 @@ pub struct ExecutionLog {
     pub initial_storage: ObjectBody,
     pub events: Vec<ExecutionEvent>,
     pub started_at: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub finished_at: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -572,6 +644,12 @@ pub struct ExecutionReport {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ContextSnapshot {
+    pub storage: ObjectBody,
+    pub references: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE", tag = "type")]
 pub enum ExecutionEvent {
     StepStarted {
@@ -585,7 +663,7 @@ pub enum ExecutionEvent {
     ErrorThrown {
         id: String,
         error: ExecutionError,
-        timestamp: u64,
+        snapshot: Option<ContextSnapshot>,
     },
     StorageUpdated {
         id: String,
@@ -607,20 +685,22 @@ impl Default for ExecutionLog {
     fn default() -> Self {
         ExecutionLog {
             events: Vec::new(),
-            status: ExecutionStatus::Finished,
+            status: ExecutionStatus::Started,
             initial_storage: HashMap::new(),
             started_at: get_timestamp(),
+            finished_at: None,
         }
     }
 }
 
 impl ExecutionLog {
-    pub fn with_initial_storage(storage: ObjectBody) -> Self {
+    pub fn started_with_initial_storage(storage: ObjectBody) -> Self {
         ExecutionLog {
-            status: ExecutionStatus::Finished,
+            status: ExecutionStatus::Started,
             initial_storage: storage,
             events: Vec::new(),
             started_at: get_timestamp(),
+            finished_at: None,
         }
     }
 }
@@ -640,6 +720,8 @@ async fn execute_native<'a>(
         "alarms/set_interval" => alarms::set_interval(context, parameters, step_id).await?,
         "alarms/cancel" => alarms::cancel_alarm(context, parameters, step_id).await?,
         "alarms/setup_cronjob" => alarms::setup_cronjob(context, parameters, step_id).await?,
+        "time/sleep" => time::sleep(context, parameters, step_id).await?,
+        "time/get_current_time" => time::get_current_time(context, parameters, step_id).await?,
         "actors/spawn" => actors::spawn_actor(context, parameters, step_id).await?,
         "os/run_command" => os::run_command(context, parameters, step_id).await?,
         "os/read_environment_variable" => {
@@ -736,6 +818,8 @@ async fn execute_function<'a>(
                     }
                 }
 
+                context.add_enter_function(function_id.to_owned(), initial_storage.clone());
+
                 let mut function_context = ExecutionContext {
                     actor_id: context.actor_id.clone(),
                     log: ExecutionLog::default(),
@@ -746,13 +830,8 @@ async fn execute_function<'a>(
                     module: module.clone(),
                     bubbling: false,
                     references: initial_references,
-                    debugger: context.debugger.clone(),
+                    mode: context.mode.clone(),
                 };
-
-                context.log.events.push(ExecutionEvent::EnterFunction {
-                    function_id: function_id.to_owned(),
-                    initial_storage: function_context.storage.clone(),
-                });
 
                 let returned_value = match execute_steps(body, &mut function_context).await {
                     Ok(_) => StorageValue::Null(None),
@@ -760,14 +839,13 @@ async fn execute_function<'a>(
                         ExecutionError::Return { value } => value,
                         e => {
                             context.log.events.append(&mut function_context.log.events);
+                            context.add_leave_function(function_id.to_owned());
                             return Err(e);
                         }
                     },
                 };
                 context.log.events.append(&mut function_context.log.events);
-                context.log.events.push(ExecutionEvent::LeaveFunction {
-                    function_id: function_id.to_owned(),
-                });
+                context.add_leave_function(function_id.to_owned());
 
                 if let Some(saver) = saver {
                     context.add_to_storage(step_id, saver, returned_value)?;
@@ -795,9 +873,6 @@ async fn execute_step<'a>(
     step_id: &str,
 ) -> Result<(), ExecutionError> {
     debug!("Step: {}", step_id);
-
-    context.add_step_started(step_id);
-
     match step {
         Step::Break { .. } => {
             return Err(ExecutionError::Break);
@@ -1014,8 +1089,6 @@ async fn execute_step<'a>(
             },
         },
     }
-
-    context.add_step_finished(step_id);
     Ok(())
 }
 
@@ -1025,19 +1098,28 @@ async fn execute_steps<'a>(
     context: &mut ExecutionContext<'a>,
 ) -> Result<(), ExecutionError> {
     for step in steps {
-        match execute_step(step, context, step.get_step_id()).await {
-            Ok(_) => {}
+        let step_id = step.get_step_id();
+        context.add_step_started(step_id);
+        match execute_step(step, context, step_id).await {
+            Ok(_) => {
+                context.add_step_finished(step_id);
+            }
             Err(e) => {
                 // Silence logging error that are in fact a exception
                 match &e {
-                    ExecutionError::Continue => {}
-                    ExecutionError::Break => {}
-                    ExecutionError::Return { .. } => {}
+                    ExecutionError::Continue => {
+                        context.add_step_finished(step.get_step_id());
+                    }
+                    ExecutionError::Break => {
+                        context.add_step_finished(step.get_step_id());
+                    }
+                    ExecutionError::Return { .. } => {
+                        context.add_step_finished(step.get_step_id());
+                    }
                     e => {
-                        if !context.bubbling {
-                            context.add_error_thrown(step.get_step_id(), e.clone());
-                            context.bubbling = true;
-                        }
+                        context.add_error_thrown(step.get_step_id(), e.clone());
+                        context.add_step_finished(step.get_step_id());
+                        context.bubbling = true;
                     }
                 }
                 return Err(e);
@@ -1065,11 +1147,11 @@ pub async fn execute<'a>(
 
     match execute_steps(steps, context).await {
         Ok(_) => {
-            context.end_report();
+            context.end_report(ExecutionStatus::Finished);
             Ok(())
         }
         Err(e) => {
-            context.end_report();
+            context.end_report(ExecutionStatus::Failed);
             Err(e)
         }
     }
@@ -1101,7 +1183,6 @@ mod test_executor {
             match e {
                 ExecutionEvent::StepStarted { timestamp, .. } => *timestamp = 0,
                 ExecutionEvent::StepFinished { timestamp, .. } => *timestamp = 0,
-                ExecutionEvent::ErrorThrown { timestamp, .. } => *timestamp = 0,
                 _ => {}
             }
         }
@@ -1143,7 +1224,7 @@ mod test_executor {
         let serialized = serde_json::to_value(&log).unwrap();
         let expected = json!(
             {
-                "status": "finished",
+                "status": "started",
                 "initialStorage": {},
                 "startedAt": log.started_at,
                 "events": [
