@@ -1,7 +1,7 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [package]
 name = "turbofuro_worker"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 license.workspace = true
 repository.workspace = true
@@ -18,7 +18,7 @@ path = "src/main.rs"
 
 [dependencies]
 axum = { version = "0.6.20", features = ["ws", "multipart"] }
-turbofuro_runtime = { path = "../turbofuro_runtime", version = "0.1.1" }
+turbofuro_runtime = { path = "../turbofuro_runtime", version = "0.1.2" }
 chrono = "0.4.23"
 hyper = { version = "0.14.23", features = ["full"] }
 log = "0.4.17"
