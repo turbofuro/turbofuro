@@ -13,12 +13,12 @@ use tracing::{debug, instrument};
 use crate::{
     actions::as_string,
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param, eval_saver_param},
+    evaluations::{eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Global, Parameter},
     resources::{RedisPool, Resource},
 };
 
-use super::get_optional_handler_from_parameters;
+use super::{get_optional_handler_from_parameters, store_value};
 
 fn redis_resource_not_found() -> ExecutionError {
     ExecutionError::MissingResource {
@@ -83,6 +83,7 @@ pub async fn low_level_command<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let connection_name_param = eval_optional_param_with_default(
         "name",
@@ -148,14 +149,7 @@ pub async fn low_level_command<'a>(
                 message: e.to_string(),
             })?;
 
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-    context.add_to_storage(step_id, selector, result.into())?;
-
+    store_value(store_as, context, step_id, result.into())?;
     Ok(())
 }
 

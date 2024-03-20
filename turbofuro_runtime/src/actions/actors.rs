@@ -2,12 +2,14 @@ use crate::{
     actions::{as_string, get_handlers_from_parameters},
     actor::{activate_actor, Actor, ActorCommand},
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param, eval_saver_param},
+    evaluations::{eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
     resources::{ActorLink, ActorResources, Resource},
 };
 use tel::{ObjectBody, StorageValue};
 use tracing::{debug, instrument};
+
+use super::store_value;
 
 fn actor_not_found() -> ExecutionError {
     ExecutionError::MissingResource {
@@ -20,18 +22,13 @@ pub async fn check_actor_exists<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let id_param = eval_param("id", parameters, &context.storage, &context.environment)?;
     let id = as_string(id_param, "id")?;
 
     let exists = { context.global.registry.actors.contains_key(&id) };
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-    context.add_to_storage(step_id, selector, exists.into())?;
+    store_value(store_as, context, step_id, exists.into())?;
     Ok(())
 }
 
@@ -40,6 +37,7 @@ pub async fn spawn_actor<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let state_param = eval_optional_param_with_default(
         "state",
@@ -71,15 +69,7 @@ pub async fn spawn_actor<'a>(
         .actors
         .insert(id.clone(), ActorLink(sender));
 
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-
-    context.add_to_storage(step_id, selector, id.into())?;
-
+    store_value(store_as, context, step_id, id.into())?;
     Ok(())
 }
 
@@ -159,18 +149,11 @@ pub async fn terminate<'a>(
 #[instrument(level = "trace", skip_all)]
 pub async fn get_actor_id<'a>(
     context: &mut ExecutionContext<'a>,
-    parameters: &Vec<Parameter>,
+    _parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-
-    context.add_to_storage(step_id, selector, context.actor_id.clone().into())?;
-
+    store_value(store_as, context, step_id, context.actor_id.clone().into())?;
     Ok(())
 }
 
@@ -185,8 +168,7 @@ mod tests {
         let mut t = ExecutionTest::default();
         let mut context = t.get_context();
 
-        let result =
-            get_actor_id(&mut context, &vec![Parameter::tel("saveAs", "id")], "test").await;
+        let result = get_actor_id(&mut context, &vec![], "test", Some("id")).await;
 
         assert!(result.is_ok());
         assert_eq!(
@@ -200,7 +182,7 @@ mod tests {
         let mut t = ExecutionTest::default();
         let mut context = t.get_context();
 
-        spawn_actor(&mut context, &vec![Parameter::tel("saveAs", "id")], "test")
+        spawn_actor(&mut context, &vec![], "test", Some("id"))
             .await
             .unwrap();
 
@@ -209,11 +191,9 @@ mod tests {
 
         check_actor_exists(
             &mut context,
-            &vec![
-                Parameter::tel("id", "id"),
-                Parameter::tel("saveAs", "exists"),
-            ],
+            &vec![Parameter::tel("id", "id")],
             "test",
+            Some("exists"),
         )
         .await
         .unwrap();
@@ -231,11 +211,9 @@ mod tests {
 
         check_actor_exists(
             &mut context,
-            &vec![
-                Parameter::tel("id", "id"),
-                Parameter::tel("saveAs", "exists"),
-            ],
+            &vec![Parameter::tel("id", "id")],
             "test",
+            Some("exists"),
         )
         .await
         .unwrap();

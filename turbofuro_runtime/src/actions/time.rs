@@ -1,12 +1,13 @@
 use crate::{
     errors::ExecutionError,
-    evaluations::{eval_param, eval_saver_param},
+    evaluations::eval_param,
     executor::{ExecutionContext, Parameter},
 };
 use chrono::Utc;
+use tel::StorageValue;
 use tracing::instrument;
 
-use super::as_integer;
+use super::{as_integer, store_value};
 
 #[instrument(level = "trace", skip_all)]
 pub async fn sleep<'a>(
@@ -45,22 +46,12 @@ pub async fn sleep<'a>(
 #[instrument(level = "trace", skip_all)]
 pub async fn get_current_time<'a>(
     context: &mut ExecutionContext<'a>,
-    parameters: &Vec<Parameter>,
+    _parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-
-    context.add_to_storage(
-        step_id,
-        selector,
-        (Utc::now().timestamp_millis() as f32).into(),
-    )?;
-
+    let value: StorageValue = (Utc::now().timestamp_millis() as f32).into();
+    store_value(store_as, context, step_id, value)?;
     Ok(())
 }
 
@@ -93,13 +84,9 @@ mod tests {
         let mut t = ExecutionTest::default();
         let mut context = t.get_context();
 
-        get_current_time(
-            &mut context,
-            &vec![Parameter::tel("saveAs", "time")],
-            "test",
-        )
-        .await
-        .unwrap();
+        get_current_time(&mut context, &vec![], "test", Some("time"))
+            .await
+            .unwrap();
 
         let time = eval("time", &context.storage, &context.environment).unwrap();
 

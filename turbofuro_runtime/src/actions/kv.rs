@@ -7,9 +7,11 @@ use tracing::instrument;
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{eval_param, eval_saver_param},
+    evaluations::eval_param,
     executor::{ExecutionContext, Parameter},
 };
+
+use super::store_value;
 
 static KV: Lazy<Arc<DashMap<String, StorageValue>>> = Lazy::new(|| Arc::new(DashMap::new()));
 
@@ -18,6 +20,7 @@ pub async fn read_from_store<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let key_param = eval_param("key", parameters, &context.storage, &context.environment)?;
     let key = key_param.to_string().map_err(ExecutionError::from)?;
@@ -27,14 +30,7 @@ pub async fn read_from_store<'a>(
         .map(|v| v.clone())
         .unwrap_or(StorageValue::Null(None));
 
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-
-    context.add_to_storage(step_id, selector, value)?;
+    store_value(store_as, context, step_id, value)?;
 
     Ok(())
 }
@@ -92,11 +88,9 @@ mod tests {
 
         read_from_store(
             &mut context,
-            &vec![
-                Parameter::tel("key", "\"test_key\""),
-                Parameter::tel("saveAs", "data"),
-            ],
+            &vec![Parameter::tel("key", "\"test_key\"")],
             "test",
+            Some("data"),
         )
         .await
         .unwrap();
@@ -119,11 +113,9 @@ mod tests {
 
         read_from_store(
             &mut context,
-            &vec![
-                Parameter::tel("key", "\"test_key\""),
-                Parameter::tel("saveAs", "data"),
-            ],
+            &vec![Parameter::tel("key", "\"test_key\"")],
             "test",
+            Some("data"),
         )
         .await
         .unwrap();

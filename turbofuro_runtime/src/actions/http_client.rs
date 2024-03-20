@@ -9,15 +9,13 @@ use tracing::{debug, info, instrument};
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{
-        eval_optional_param, eval_optional_param_with_default, eval_param, eval_saver_param,
-    },
+    evaluations::{eval_optional_param, eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
     http_utils::decode_text_with_encoding,
     resources::{HttpRequestToRespond, Resource},
 };
 
-use super::as_string;
+use super::{as_string, store_value};
 
 static USER_AGENT: &str = concat!("turbofuro/", env!("CARGO_PKG_VERSION"));
 
@@ -34,6 +32,7 @@ pub async fn http_request<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let url_param = eval_param("url", parameters, &context.storage, &context.environment)?;
     let url = as_string(url_param, "url")?;
@@ -195,14 +194,11 @@ pub async fn http_request<'a>(
         },
     }
 
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
+    store_value(
+        store_as,
+        context,
+        step_id,
+        StorageValue::Object(response_object),
     )?;
-
-    context.add_to_storage(step_id, selector, StorageValue::Object(response_object))?;
-
     Ok(())
 }

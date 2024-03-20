@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::Path};
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param, eval_saver_param},
+    evaluations::{eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
 };
 use tel::{describe, Description, StorageValue};
@@ -11,7 +11,7 @@ use wasi_common::pipe::{ReadPipe, WritePipe};
 use wasmtime::{Config, Engine, Linker, Module, Store};
 use wasmtime_wasi::{ambient_authority, tokio::WasiCtxBuilder};
 
-use super::as_string;
+use super::{as_string, store_value};
 
 #[derive(Clone)]
 struct WasmInstance {
@@ -39,6 +39,7 @@ pub async fn run_wasi(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let path = eval_param("path", parameters, &context.storage, &context.environment)?;
     let path = as_string(path, "path")?;
@@ -138,16 +139,10 @@ pub async fn run_wasi(
         .call_async(store, ())
         .await?;
 
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
     let data = stdout.try_into_inner().unwrap_or_default().into_inner();
     let data = String::from_utf8_lossy(&data).to_string();
 
-    context.add_to_storage(step_id, selector, data.into())?;
+    store_value(store_as, context, step_id, data.into())?;
 
     Ok(())
 }
@@ -198,9 +193,9 @@ mod test_wasm {
                 "#,
                 ),
                 Parameter::tel("input", r#""Test""#),
-                Parameter::tel("saveAs", "output"),
             ],
             "test",
+            Some("output"),
         )
         .await
         .unwrap();
