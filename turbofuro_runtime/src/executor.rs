@@ -132,6 +132,7 @@ pub enum Step {
         id: String,
         callee: Callee,
         parameters: Vec<Parameter>,
+        #[serde(rename = "storeAs")]
         store_as: Option<String>,
     },
     DefineFunction {
