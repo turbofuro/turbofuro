@@ -8,7 +8,7 @@ use deadpool_redis::{Config, Runtime};
 use futures_util::StreamExt;
 use redis::FromRedisValue;
 use tel::{describe, Description, ObjectBody, StorageValue};
-use tracing::{debug, instrument};
+use tracing::{debug, error, instrument};
 
 use crate::{
     actions::as_string,
@@ -381,7 +381,7 @@ async fn setup_pubsub_coordinator(
             tokio::select! {
                 msg = stream.next() => {
                     if msg.is_none() {
-                        break;
+                        continue;
                     }
                     let msg = msg.unwrap();
 
@@ -452,7 +452,12 @@ async fn setup_pubsub_coordinator(
                                             function_ref: function_ref.clone(),
                                         });
                                         if v.len() == 1 { // In case an empty array was left
-                                            pubsub.subscribe(channel).await.unwrap();
+                                            match pubsub.subscribe(channel).await {
+                                                Ok(_) => {}
+                                                Err(err) => {
+                                                    error!("Failed to subscribe to channel: {}", err);
+                                                }
+                                            }
                                         }
                                     }
                                     None => {
@@ -460,7 +465,12 @@ async fn setup_pubsub_coordinator(
                                             id: actor_id.clone(),
                                             function_ref: function_ref.clone(),
                                         }]);
-                                        pubsub.subscribe(channel).await.unwrap();
+                                        match pubsub.subscribe(channel).await {
+                                            Ok(_) => {}
+                                            Err(err) => {
+                                                error!("Failed to subscribe to channel (2): {}", err);
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -470,12 +480,22 @@ async fn setup_pubsub_coordinator(
                                         v.retain(|a| a.id != actor_id);
                                         if v.is_empty() {
                                             channels.remove(&channel);
-                                            pubsub.unsubscribe(channel).await.unwrap();
+                                            match pubsub.unsubscribe(channel).await {
+                                                Ok(_) => {}
+                                                Err(err) => {
+                                                    error!("Failed to unsubscribe from channel: {}", err);
+                                                }
+                                            }
                                         }
                                     }
                                     None => {
                                         debug!("Unsubscribe on channel without any actors, channel was: {}", channel);
-                                        pubsub.unsubscribe(channel).await.unwrap();
+                                        match pubsub.unsubscribe(channel).await {
+                                            Ok(_) => {}
+                                            Err(err) => {
+                                                error!("Failed to unsubscribe from channel (2): {}", err);
+                                            }
+                                        }
                                     }
                                 }
                             }
