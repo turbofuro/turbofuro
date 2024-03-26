@@ -132,6 +132,8 @@ pub enum Step {
         id: String,
         callee: Callee,
         parameters: Vec<Parameter>,
+        #[serde(rename = "storeAs")]
+        store_as: Option<String>,
     },
     DefineFunction {
         id: String,
@@ -709,43 +711,58 @@ async fn execute_native<'a>(
     native_id: &str,
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
+    store_as: Option<&str>,
     step_id: &str,
 ) -> Result<(), ExecutionError> {
+    let store_as = store_as.or_else(|| {
+        // TODO(pr0gramista)#saveAs: Remove this or_else block once the saveAs parameter is completely removed
+        parameters.iter().find_map(|p| match p {
+            Parameter::Tel { name, expression } if name == "saveAs" => Some(expression.as_str()),
+            _ => None,
+        })
+    });
+
     match native_id {
-        "wasm/run_wasi" => wasm::run_wasi(context, parameters, step_id).await?,
+        "wasm/run_wasi" => wasm::run_wasi(context, parameters, step_id, store_as).await?,
         "fs/open" => fs::open_file(context, parameters, step_id).await?,
         "fs/write_string" => fs::write_string(context, parameters, step_id).await?,
-        "fs/read_to_string" => fs::read_to_string(context, parameters, step_id).await?,
+        "fs/read_to_string" => fs::read_to_string(context, parameters, step_id, store_as).await?,
         "alarms/set_alarm" => alarms::set_alarm(context, parameters, step_id).await?,
         "alarms/set_interval" => alarms::set_interval(context, parameters, step_id).await?,
         "alarms/cancel" => alarms::cancel_alarm(context, parameters, step_id).await?,
         "alarms/setup_cronjob" => alarms::setup_cronjob(context, parameters, step_id).await?,
         "time/sleep" => time::sleep(context, parameters, step_id).await?,
-        "time/get_current_time" => time::get_current_time(context, parameters, step_id).await?,
-        "actors/spawn" => actors::spawn_actor(context, parameters, step_id).await?,
-        "os/run_command" => os::run_command(context, parameters, step_id).await?,
+        "time/get_current_time" => {
+            time::get_current_time(context, parameters, step_id, store_as).await?
+        }
+        "actors/spawn" => actors::spawn_actor(context, parameters, step_id, store_as).await?,
+        "os/run_command" => os::run_command(context, parameters, step_id, store_as).await?,
         "os/read_environment_variable" => {
-            os::read_environment_variable(context, parameters, step_id)?
+            os::read_environment_variable(context, parameters, step_id, store_as)?
         }
         "os/set_environment_variable" => {
             os::set_environment_variable(context, parameters, step_id)?
         }
         "actors/terminate" => actors::terminate(context, parameters, step_id).await?,
         "actors/send_command" => actors::send_command(context, parameters, step_id).await?,
-        "actors/get_actor_id" => actors::get_actor_id(context, parameters, step_id).await?,
-        "actors/check_actor_exists" => {
-            actors::check_actor_exists(context, parameters, step_id).await?
+        "actors/get_actor_id" => {
+            actors::get_actor_id(context, parameters, step_id, store_as).await?
         }
-        "http_client/request" => http_request(context, parameters, step_id).await?,
+        "actors/check_actor_exists" => {
+            actors::check_actor_exists(context, parameters, step_id, store_as).await?
+        }
+        "http_client/request" => http_request(context, parameters, step_id, store_as).await?,
         "http_server/setup_route" => setup_route(context, parameters, step_id).await?,
         "http_server/respond_with" => respond_with(context, parameters, step_id).await?,
         "http_server/respond_with_file_stream" => {
             respond_with_file_stream(context, parameters, step_id).await?
         }
         "postgres/get_connection" => postgres::get_connection(context, parameters, step_id).await?,
-        "postgres/query_one" => postgres::query_one(context, parameters, step_id).await?,
-        "postgres/query" => postgres::query(context, parameters, step_id).await?,
-        "redis/low_level" => redis::low_level_command(context, parameters, step_id).await?,
+        "postgres/query_one" => postgres::query_one(context, parameters, step_id, store_as).await?,
+        "postgres/query" => postgres::query(context, parameters, step_id, store_as).await?,
+        "redis/low_level" => {
+            redis::low_level_command(context, parameters, step_id, store_as).await?
+        }
         "redis/get_connection" => redis::get_connection(context, parameters, step_id).await?,
         "redis/subscribe" => redis::subscribe(context, parameters, step_id).await?,
         "redis/unsubscribe" => redis::unsubscribe(context, parameters, step_id).await?,
@@ -753,15 +770,17 @@ async fn execute_native<'a>(
         "websocket/send_message" => websocket::send_message(context, parameters, step_id).await?,
         "websocket/close" => websocket::close_websocket(context, parameters, step_id).await?,
         "kv/write" => kv::write_to_store(context, parameters, step_id).await?,
-        "kv/read" => kv::read_from_store(context, parameters, step_id).await?,
+        "kv/read" => kv::read_from_store(context, parameters, step_id, store_as).await?,
         "kv/delete" => kv::delete_from_store(context, parameters, step_id).await?,
-        "convert/parse_json" => convert::parse_json(context, parameters, step_id)?,
-        "convert/to_json" => convert::to_json(context, parameters, step_id)?,
-        "convert/parse_urlencoded" => convert::parse_urlencoded(context, parameters, step_id)?,
-        "convert/to_urlencoded" => convert::to_urlencoded(context, parameters, step_id)?,
-        "crypto/get_uuid_v4" => crypto::get_uuid_v4(context, parameters, step_id)?,
-        "crypto/get_uuid_v7" => crypto::get_uuid_v7(context, parameters, step_id)?,
-        "crypto/jwt_decode" => crypto::jwt_decode(context, parameters, step_id)?,
+        "convert/parse_json" => convert::parse_json(context, parameters, step_id, store_as)?,
+        "convert/to_json" => convert::to_json(context, parameters, step_id, store_as)?,
+        "convert/parse_urlencoded" => {
+            convert::parse_urlencoded(context, parameters, step_id, store_as)?
+        }
+        "convert/to_urlencoded" => convert::to_urlencoded(context, parameters, step_id, store_as)?,
+        "crypto/get_uuid_v4" => crypto::get_uuid_v4(context, parameters, step_id, store_as)?,
+        "crypto/get_uuid_v7" => crypto::get_uuid_v7(context, parameters, step_id, store_as)?,
+        "crypto/jwt_decode" => crypto::jwt_decode(context, parameters, step_id, store_as)?,
         "pubsub/publish" => pubsub::publish(context, parameters, step_id).await?,
         "pubsub/subscribe" => pubsub::subscribe(context, parameters, step_id).await?,
         "pubsub/unsubscribe" => pubsub::unsubscribe(context, parameters, step_id).await?,
@@ -779,6 +798,7 @@ async fn execute_function<'a>(
     function_id: &str,
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
+    store_as: Option<&str>,
     step_id: &str,
 ) -> Result<(), ExecutionError> {
     let function = module
@@ -798,11 +818,12 @@ async fn execute_function<'a>(
                 let mut initial_storage = HashMap::new();
                 let mut initial_references = HashMap::new();
 
-                let mut saver: Option<Selector> = None;
+                let mut parameter_saver: Option<Selector> = None; // TODO(pr0gramista)#saveAs: Remove once the saveAs parameter is completely removed
                 for parameter in parameters.iter() {
                     match parameter {
+                        // TODO(pr0gramista)#saveAs: Remove once the saveAs parameter is completely removed
                         Parameter::Tel { name, expression } if name == "saveAs" => {
-                            saver = Some(eval_saver(
+                            parameter_saver = Some(eval_saver(
                                 expression,
                                 &context.storage,
                                 &context.environment,
@@ -844,16 +865,23 @@ async fn execute_function<'a>(
                         }
                     },
                 };
+
                 context.log.events.append(&mut function_context.log.events);
                 context.add_leave_function(function_id.to_owned());
 
-                if let Some(saver) = saver {
-                    context.add_to_storage(step_id, saver, returned_value)?;
+                if let Some(expression) = store_as {
+                    let selector = eval_saver(expression, &context.storage, &context.environment)?;
+                    context.add_to_storage(step_id, selector, returned_value)?;
+                    return Ok(());
+                }
+
+                if let Some(saver) = parameter_saver {
+                    context.add_to_storage(step_id, saver, returned_value.clone())?;
                 }
                 Ok(())
             }
             Function::Native { id: _, native_id } => {
-                match execute_native(native_id, context, parameters, step_id).await {
+                match execute_native(native_id, context, parameters, store_as, step_id).await {
                     Ok(_) => Ok(()),
                     Err(e) => Err(e),
                 }
@@ -907,6 +935,7 @@ async fn execute_step<'a>(
             id: _,
             callee,
             parameters,
+            store_as,
         } => match callee {
             Callee::Local { function_id } => {
                 execute_function(
@@ -914,6 +943,7 @@ async fn execute_step<'a>(
                     function_id,
                     context,
                     parameters,
+                    store_as.as_deref(),
                     step_id,
                 )
                 .await?
@@ -925,7 +955,15 @@ async fn execute_step<'a>(
                 let module = context.module.imports.get(import_name).cloned();
 
                 if let Some(module) = module {
-                    execute_function(module, function_id, context, parameters, step_id).await?
+                    execute_function(
+                        module,
+                        function_id,
+                        context,
+                        parameters,
+                        store_as.as_deref(),
+                        step_id,
+                    )
+                    .await?
                 } else {
                     return Err(ExecutionError::UnresolvedImport {
                         import_name: import_name.to_owned(),

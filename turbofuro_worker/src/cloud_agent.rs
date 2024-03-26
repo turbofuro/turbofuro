@@ -337,6 +337,7 @@ impl CloudAgent {
             id: "debug".to_owned(),
             callee,
             parameters,
+            store_as: None,
         }];
 
         let resources = ActorResources::default();

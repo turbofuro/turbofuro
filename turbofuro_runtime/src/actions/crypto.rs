@@ -5,49 +5,33 @@ use uuid::Uuid;
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{eval_param, eval_saver_param},
+    evaluations::eval_param,
     executor::{ExecutionContext, Parameter},
 };
 
-use super::as_string;
+use super::{as_string, store_value};
 
 #[instrument(level = "trace", skip_all)]
 pub fn get_uuid_v4(
     context: &mut ExecutionContext<'_>,
-    parameters: &Vec<Parameter>,
+    _parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let id = Uuid::new_v4();
-
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-
-    context.add_to_storage(step_id, selector, id.to_string().into())?;
-
+    store_value(store_as, context, step_id, id.to_string().into())?;
     Ok(())
 }
 
 #[instrument(level = "trace", skip_all)]
 pub fn get_uuid_v7(
     context: &mut ExecutionContext<'_>,
-    parameters: &Vec<Parameter>,
+    _parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let id = Uuid::now_v7();
-
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-
-    context.add_to_storage(step_id, selector, id.to_string().into())?;
-
+    store_value(store_as, context, step_id, id.to_string().into())?;
     Ok(())
 }
 
@@ -56,6 +40,7 @@ pub fn jwt_decode(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let token = as_string(
         eval_param("token", parameters, &context.storage, &context.environment)?,
@@ -89,15 +74,7 @@ pub fn jwt_decode(
         message: e.to_string(),
     })?;
 
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-
-    context.add_to_storage(step_id, selector, token_data.claims)?;
-
+    store_value(store_as, context, step_id, token_data.claims)?;
     Ok(())
 }
 
@@ -116,11 +93,10 @@ mod test_jwt {
             &mut context,
             &vec![
                 Parameter::tel("token", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtZXNzYWdlIjoiSGVsbG8gV29ybGQiLCJleHAiOjQ1NTI1NTI1MjJ9.qRQDe--OzD0QanQeieeE-cJadvrPf7Gpck-fa4l78Ro\""),
-
-            Parameter::tel("secret", "\"secret\""),
-            Parameter::tel("saveAs", "token"),
+                Parameter::tel("secret", "\"secret\""),
             ],
-            "test"
+            "test",
+            Some("token")
         ).unwrap();
 
         assert_eq!(

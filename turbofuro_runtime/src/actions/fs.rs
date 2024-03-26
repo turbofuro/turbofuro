@@ -1,14 +1,16 @@
 use tel::StorageValue;
 use tokio::fs::OpenOptions;
-use tracing::{debug, instrument};
+use tracing::instrument;
 
 use crate::{
     actions::as_string,
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param, eval_saver_param},
+    evaluations::{eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
     resources::FileHandle,
 };
+
+use super::store_value;
 
 #[instrument(level = "trace", skip_all)]
 pub async fn open_file<'a>(
@@ -46,7 +48,7 @@ pub async fn open_file<'a>(
             });
         }
     };
-    debug!("Opening file: {}", path);
+
     let file = open_options
         .open(path)
         .await
@@ -62,6 +64,7 @@ pub async fn read_to_string<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     // Get path
     let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
@@ -71,16 +74,7 @@ pub async fn read_to_string<'a>(
         .await
         .map_err(ExecutionError::from)?;
 
-    debug!("Read to string: {}", path);
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-
-    context.add_to_storage(step_id, selector, data.into())?;
-
+    store_value(store_as, context, step_id, data.into())?;
     Ok(())
 }
 
@@ -104,7 +98,6 @@ pub async fn write_string<'a>(
     .to_string()
     .map_err(ExecutionError::from)?;
 
-    debug!("Writing string to file: {}", path);
     tokio::fs::write(path, content)
         .await
         .map_err(ExecutionError::from)?;
@@ -136,11 +129,9 @@ mod tests {
 
         read_to_string(
             &mut context,
-            &vec![
-                Parameter::tel("path", "\"test.txt\""),
-                Parameter::tel("saveAs", "data"),
-            ],
+            &vec![Parameter::tel("path", "\"test.txt\"")],
             "test",
+            Some("data"),
         )
         .await
         .unwrap();

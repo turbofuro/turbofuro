@@ -12,10 +12,12 @@ use uuid::Uuid;
 use crate::{
     actions::as_string,
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param, eval_saver_param},
+    evaluations::{eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
     resources::{PostgresPool, Resource},
 };
+
+use super::store_value;
 
 fn postgres_resource_not_found() -> ExecutionError {
     ExecutionError::MissingResource {
@@ -204,6 +206,7 @@ pub async fn query_one<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     // First parse parameters before we do any async stuff
     let connection_name_param = eval_optional_param_with_default(
@@ -273,15 +276,8 @@ pub async fn query_one<'a>(
                 stage: "query".into(),
             })?,
     )?;
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
 
-    context.add_to_storage(step_id, selector, value)?;
-
+    store_value(store_as, context, step_id, value)?;
     Ok(())
 }
 
@@ -290,6 +286,7 @@ pub async fn query<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     // First parse parameters before we do any async stuff
     let connection_name_param = eval_optional_param_with_default(
@@ -363,13 +360,6 @@ pub async fn query<'a>(
         StorageValue::Array(values)
     };
 
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-    context.add_to_storage(step_id, selector, value)?;
-
+    store_value(store_as, context, step_id, value)?;
     Ok(())
 }

@@ -3,17 +3,18 @@ use tracing::instrument;
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param, eval_saver_param},
+    evaluations::{eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
 };
 
-use super::as_string;
+use super::{as_string, store_value};
 
 #[instrument(level = "trace", skip_all)]
 pub async fn run_command(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let program = eval_param(
         "program",
@@ -68,15 +69,7 @@ pub async fn run_command(
         .collect(),
     );
 
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-
-    context.add_to_storage(step_id, selector, output)?;
-
+    store_value(store_as, context, step_id, output)?;
     Ok(())
 }
 
@@ -102,6 +95,7 @@ pub fn read_environment_variable(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let key = eval_param("key", parameters, &context.storage, &context.environment)?;
     let key = as_string(key, "key")?;
@@ -118,15 +112,7 @@ pub fn read_environment_variable(
         },
     }?;
 
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-
-    context.add_to_storage(step_id, selector, value)?;
-
+    store_value(store_as, context, step_id, value)?;
     Ok(())
 }
 
@@ -146,9 +132,9 @@ mod test_os {
             &vec![
                 Parameter::tel("program", "\"echo\""),
                 Parameter::tel("args", "[\"Hello World\"]"),
-                Parameter::tel("saveAs", "output"),
             ],
             "test",
+            Some("output"),
         )
         .await
         .unwrap();
@@ -172,11 +158,9 @@ mod test_os {
 
         read_environment_variable(
             &mut context,
-            &vec![
-                Parameter::tel("key", "\"TEST_VAR\""),
-                Parameter::tel("saveAs", "value"),
-            ],
+            &vec![Parameter::tel("key", "\"TEST_VAR\"")],
             "test",
+            Some("value"),
         )
         .unwrap();
 

@@ -3,17 +3,18 @@ use tracing::instrument;
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{eval_param, eval_saver_param},
+    evaluations::eval_param,
     executor::{ExecutionContext, Parameter},
 };
 
-use super::as_string;
+use super::{as_string, store_value};
 
 #[instrument(level = "trace", skip_all)]
 pub fn parse_json(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let json = eval_param("json", parameters, &context.storage, &context.environment)?;
     let json = as_string(json, "json")?;
@@ -25,15 +26,7 @@ pub fn parse_json(
             inner: e.to_string(),
         })?;
 
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-
-    context.add_to_storage(step_id, selector, parsed)?;
-
+    store_value(store_as, context, step_id, parsed)?;
     Ok(())
 }
 
@@ -42,6 +35,7 @@ pub fn to_json(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let value_param = eval_param("value", parameters, &context.storage, &context.environment)?;
 
@@ -52,15 +46,7 @@ pub fn to_json(
             inner: e.to_string(),
         })?;
 
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-
-    context.add_to_storage(step_id, selector, StorageValue::String(json))?;
-
+    store_value(store_as, context, step_id, json.into())?;
     Ok(())
 }
 
@@ -69,6 +55,7 @@ pub fn parse_urlencoded(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let urlencoded = eval_param(
         "urlencoded",
@@ -86,15 +73,7 @@ pub fn parse_urlencoded(
         }
     })?;
 
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-
-    context.add_to_storage(step_id, selector, parsed)?;
-
+    store_value(store_as, context, step_id, parsed)?;
     Ok(())
 }
 
@@ -103,6 +82,7 @@ pub fn to_urlencoded(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let value_param = eval_param("value", parameters, &context.storage, &context.environment)?;
 
@@ -114,15 +94,7 @@ pub fn to_urlencoded(
         }
     })?;
 
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-
-    context.add_to_storage(step_id, selector, StorageValue::String(json))?;
-
+    store_value(store_as, context, step_id, json.into())?;
     Ok(())
 }
 
@@ -142,11 +114,9 @@ mod test_convert {
 
         let result = parse_json(
             &mut context,
-            &vec![
-                Parameter::tel("json", r#""{\"test\":\"Hello World\"}""#),
-                Parameter::tel("saveAs", "obj"),
-            ],
+            &vec![Parameter::tel("json", r#""{\"test\":\"Hello World\"}""#)],
             "test",
+            Some("obj"),
         );
 
         assert!(result.is_ok());
@@ -168,11 +138,9 @@ mod test_convert {
 
         let result = to_json(
             &mut context,
-            &vec![
-                Parameter::tel("value", "{ message: \"Hello World\" }"),
-                Parameter::tel("saveAs", "json"),
-            ],
+            &vec![Parameter::tel("value", "{ message: \"Hello World\" }")],
             "test",
+            Some("json"),
         );
 
         assert!(result.is_ok());
@@ -189,11 +157,9 @@ mod test_convert {
 
         parse_urlencoded(
             &mut context,
-            &vec![
-                Parameter::tel("urlencoded", "\"message=Hello+World\""),
-                Parameter::tel("saveAs", "obj"),
-            ],
+            &vec![Parameter::tel("urlencoded", "\"message=Hello+World\"")],
             "test",
+            Some("obj"),
         )
         .unwrap();
 
@@ -215,11 +181,9 @@ mod test_convert {
 
         to_urlencoded(
             &mut context,
-            &vec![
-                Parameter::tel("value", "{ message: \"Hello World\" }"),
-                Parameter::tel("saveAs", "data"),
-            ],
+            &vec![Parameter::tel("value", "{ message: \"Hello World\" }")],
             "test",
+            Some("data"),
         )
         .unwrap();
 

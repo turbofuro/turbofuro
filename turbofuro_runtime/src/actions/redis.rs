@@ -8,17 +8,17 @@ use deadpool_redis::{Config, Runtime};
 use futures_util::StreamExt;
 use redis::FromRedisValue;
 use tel::{describe, Description, ObjectBody, StorageValue};
-use tracing::{debug, instrument};
+use tracing::{debug, error, instrument};
 
 use crate::{
     actions::as_string,
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param, eval_saver_param},
+    evaluations::{eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Global, Parameter},
     resources::{RedisPool, Resource},
 };
 
-use super::get_optional_handler_from_parameters;
+use super::{get_optional_handler_from_parameters, store_value};
 
 fn redis_resource_not_found() -> ExecutionError {
     ExecutionError::MissingResource {
@@ -83,6 +83,7 @@ pub async fn low_level_command<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let connection_name_param = eval_optional_param_with_default(
         "name",
@@ -148,14 +149,7 @@ pub async fn low_level_command<'a>(
                 message: e.to_string(),
             })?;
 
-    let selector = eval_saver_param(
-        "saveAs",
-        parameters,
-        &mut context.storage,
-        &context.environment,
-    )?;
-    context.add_to_storage(step_id, selector, result.into())?;
-
+    store_value(store_as, context, step_id, result.into())?;
     Ok(())
 }
 
@@ -387,7 +381,7 @@ async fn setup_pubsub_coordinator(
             tokio::select! {
                 msg = stream.next() => {
                     if msg.is_none() {
-                        break;
+                        continue;
                     }
                     let msg = msg.unwrap();
 
@@ -458,7 +452,12 @@ async fn setup_pubsub_coordinator(
                                             function_ref: function_ref.clone(),
                                         });
                                         if v.len() == 1 { // In case an empty array was left
-                                            pubsub.subscribe(channel).await.unwrap();
+                                            match pubsub.subscribe(channel).await {
+                                                Ok(_) => {}
+                                                Err(err) => {
+                                                    error!("Failed to subscribe to channel: {}", err);
+                                                }
+                                            }
                                         }
                                     }
                                     None => {
@@ -466,7 +465,12 @@ async fn setup_pubsub_coordinator(
                                             id: actor_id.clone(),
                                             function_ref: function_ref.clone(),
                                         }]);
-                                        pubsub.subscribe(channel).await.unwrap();
+                                        match pubsub.subscribe(channel).await {
+                                            Ok(_) => {}
+                                            Err(err) => {
+                                                error!("Failed to subscribe to channel (2): {}", err);
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -476,12 +480,22 @@ async fn setup_pubsub_coordinator(
                                         v.retain(|a| a.id != actor_id);
                                         if v.is_empty() {
                                             channels.remove(&channel);
-                                            pubsub.unsubscribe(channel).await.unwrap();
+                                            match pubsub.unsubscribe(channel).await {
+                                                Ok(_) => {}
+                                                Err(err) => {
+                                                    error!("Failed to unsubscribe from channel: {}", err);
+                                                }
+                                            }
                                         }
                                     }
                                     None => {
                                         debug!("Unsubscribe on channel without any actors, channel was: {}", channel);
-                                        pubsub.unsubscribe(channel).await.unwrap();
+                                        match pubsub.unsubscribe(channel).await {
+                                            Ok(_) => {}
+                                            Err(err) => {
+                                                error!("Failed to unsubscribe from channel (2): {}", err);
+                                            }
+                                        }
                                     }
                                 }
                             }
