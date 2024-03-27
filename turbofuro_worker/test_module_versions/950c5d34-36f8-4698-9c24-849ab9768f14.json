@@ -50,16 +50,6 @@
             "type": "array",
             "strict": true
           }
-        },
-        {
-          "name": "saveAs",
-          "optional": false,
-          "description": "Storage location where to save the standard output.",
-          "type": "tel",
-          "typeDef": {
-            "tag": "selector",
-            "strict": true
-          }
         }
       ],
       "nativeId": "wasm/run_wasi",

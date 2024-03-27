@@ -9,7 +9,7 @@
       "parameters": [
         {
           "name": "timeout",
-          "optional": true,
+          "optional": false,
           "description": "Milliseconds to wait before calling the alarm handler.",
           "type": "tel",
           "typeDef": {
@@ -50,7 +50,7 @@
         {
           "name": "interval",
           "type": "tel",
-          "optional": true,
+          "optional": false,
           "description": "Milliseconds between alarm handler calls.",
           "typeDef": {
             "tag": "simple",

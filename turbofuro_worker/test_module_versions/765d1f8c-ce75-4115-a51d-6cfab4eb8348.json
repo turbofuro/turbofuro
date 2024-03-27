@@ -28,16 +28,6 @@
             "type": "string",
             "strict": true
           }
-        },
-        {
-          "name": "saveAs",
-          "type": "tel",
-          "optional": false,
-          "description": "Storage location where to save the value",
-          "typeDef": {
-            "tag": "selector",
-            "strict": true
-          }
         }
       ],
       "nativeId": "crypto/jwt_decode",
@@ -49,18 +39,7 @@
       "id": "get_uuid_v4",
       "name": "Get UUID v4",
       "description": "Generates a random UUID v4 and saves it to the specified location. UUID is generated using secure random number generator.",
-      "parameters": [
-        {
-          "name": "saveAs",
-          "optional": false,
-          "type": "tel",
-          "description": "Storage location where to save the newly created UUID",
-          "typeDef": {
-            "tag": "selector",
-            "strict": true
-          }
-        }
-      ],
+      "parameters": [],
       "nativeId": "crypto/get_uuid_v4",
       "exported": true,
       "annotations": []
@@ -70,18 +49,7 @@
       "id": "get_uuid_v7",
       "name": "Get UUID v7",
       "description": "Generates a random UUID v7 and saves it to the specified location. UUID is generated using secure random number generator.",
-      "parameters": [
-        {
-          "name": "saveAs",
-          "type": "tel",
-          "optional": false,
-          "description": "Storage location where to save the newly created UUID",
-          "typeDef": {
-            "tag": "selector",
-            "strict": true
-          }
-        }
-      ],
+      "parameters": [],
       "nativeId": "crypto/get_uuid_v7",
       "exported": true,
       "annotations": []

@@ -5,7 +5,7 @@
       "type": "defineNativeFunction",
       "id": "request",
       "name": "Send HTTP request",
-      "description": "Sends HTTP or HTTPS request to a given URL. Method, data and additional headers can be specified. Response will be saved to storage to key specified in [saveAs] parameter.",
+      "description": "Sends HTTP or HTTPS request to a given URL. Method, data and additional headers can be specified.",
       "parameters": [
         {
           "name": "method",
@@ -85,16 +85,6 @@
           "optional": true,
           "description": "Request body",
           "type": "tel"
-        },
-        {
-          "name": "saveAs",
-          "optional": true,
-          "description": "Saver key to save the response to",
-          "type": "tel",
-          "typeDef": {
-            "tag": "selector",
-            "strict": true
-          }
         }
       ],
       "nativeId": "http_client/request",

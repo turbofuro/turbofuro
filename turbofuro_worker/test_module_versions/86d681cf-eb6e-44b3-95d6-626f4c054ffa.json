@@ -28,16 +28,6 @@
             "type": "array",
             "strict": true
           }
-        },
-        {
-          "type": "tel",
-          "name": "saveAs",
-          "optional": true,
-          "description": "Storage location where to save the output containing status, stdout and stderr",
-          "typeDef": {
-            "tag": "selector",
-            "strict": true
-          }
         }
       ],
       "nativeId": "os/run_command",
@@ -58,16 +48,6 @@
           "typeDef": {
             "tag": "simple",
             "type": "string",
-            "strict": true
-          }
-        },
-        {
-          "type": "tel",
-          "name": "saveAs",
-          "optional": true,
-          "description": "Storage location where to save the value of the environment variable",
-          "typeDef": {
-            "tag": "selector",
             "strict": true
           }
         }
