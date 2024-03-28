@@ -9,6 +9,24 @@ Predictable expression language with familiar syntax. You can embed TEL in your 
 - Compiles to WebAssembly and is available as [npm package](https://www.npmjs.com/package/@turbofuro/tel-wasm)
 - Value and store (assignment like) expressions
 
+## Getting Started
+Download repository from [GitHub](https://github.com/turbofuro/turbofuro). You will find the TEL implementation in the `tel` folder. The `tel-wasm` folder contains the WebAssembly bindings.
+
+### Building WebAssembly
+Go to `tel-wasm` folder and run the following command:
+```bash
+wasm-pack build --scope turbofuro
+```
+The build will be in the `pkg` folder.
+
+## Running example
+There is also an Vite+React example of how to use WASM build in the `example` folder. You can run it with the following command:
+```bash
+npm install
+npm run dev
+```
+Note: You need to build WASM before running the example.
+
 ## Contributing
 We welcome all contributions with 💛 
 

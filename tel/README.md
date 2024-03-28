@@ -19,6 +19,14 @@ wasm-pack build --scope turbofuro
 ```
 The build will be in the `pkg` folder.
 
+## Running example
+There is also an Vite+React example of how to use WASM build in the `example` folder. You can run it with the following command:
+```bash
+npm install
+npm run dev
+```
+Note: You need to build WASM before running the example.
+
 ## Contributing
 We welcome all contributions with 💛 
 
