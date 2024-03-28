@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use tel::describe;
 use tel::ObjectBody;
 use tel::StorageValue;
 use tokio::sync::mpsc;
@@ -402,7 +403,9 @@ impl Actor {
         // Build execution context
         let mut context = ExecutionContext {
             actor_id: self.get_id().to_owned(),
-            log: ExecutionLog::started_with_initial_storage(storage.clone()),
+            log: ExecutionLog::started_with_initial_storage(
+                StorageValue::Object(storage.clone()).into(),
+            ),
             storage,
             environment: self.environment.clone(),
             resources: &mut resources,
@@ -491,7 +494,9 @@ impl Actor {
         // Build execution context
         let mut context = ExecutionContext {
             actor_id: self.get_id().to_owned(),
-            log: ExecutionLog::started_with_initial_storage(storage.clone()),
+            log: ExecutionLog::started_with_initial_storage(describe(StorageValue::Object(
+                storage.clone(),
+            ))),
             storage,
             environment: self.environment.clone(),
             resources: &mut self.resources,

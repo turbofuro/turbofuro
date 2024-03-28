@@ -9,7 +9,7 @@ mod operators;
 pub use description::describe;
 pub use description::evaluate_description;
 pub use description::evaluate_selector_description;
-pub use description::save_to_storage_description;
+pub use description::store_description;
 pub use description::Description;
 pub use description::ObjectDescription;
 pub use description::SelectorDescription;
@@ -1288,9 +1288,11 @@ pub enum SelectorPart {
     Null,
 }
 
+/// A selector is a list of parts that can be used to point to a place in a storage
+/// It can be a simple identifier, an object's attribute, a array slice or a null value (write to nothing like in /dev/null)
 pub type Selector = Vec<SelectorPart>;
 
-pub fn evaluate_saver(
+pub fn evaluate_selector(
     expr: Spanned<Expr>,
     storage: &HashMap<String, StorageValue>,
     environment: &HashMap<String, StorageValue>,
@@ -1299,12 +1301,12 @@ pub fn evaluate_saver(
         Expr::Null => Ok(vec![SelectorPart::Null]),
         Expr::Identifier(iden) => Ok(vec![SelectorPart::Identifier(iden)]),
         Expr::Attribute(expr, attr) => {
-            let mut selectors = evaluate_saver(*expr, storage, environment)?;
+            let mut selectors = evaluate_selector(*expr, storage, environment)?;
             selectors.push(SelectorPart::Attribute(attr));
             Ok(selectors)
         }
         Expr::Slice(expr, slice_expr) => {
-            let mut selectors = evaluate_saver(*expr, storage, environment)?;
+            let mut selectors = evaluate_selector(*expr, storage, environment)?;
             let value = evaluate_value(*slice_expr, storage, environment)?;
             selectors.push(SelectorPart::Slice(value));
             Ok(selectors)
@@ -1319,9 +1321,9 @@ pub fn evaluate_saver(
             match value {
                 StorageValue::Boolean(b) => {
                     if b {
-                        Ok(evaluate_saver(*then, storage, environment)?)
+                        Ok(evaluate_selector(*then, storage, environment)?)
                     } else {
-                        Ok(evaluate_saver(*otherwise, storage, environment)?)
+                        Ok(evaluate_selector(*otherwise, storage, environment)?)
                     }
                 }
                 _ => Err(TelError::UnsupportedOperation {
@@ -1341,7 +1343,7 @@ enum ContextStorage<'a> {
     Array(&'a mut Vec<StorageValue>),
 }
 
-pub fn save_to_storage(
+pub fn store_value(
     selectors: &Vec<SelectorPart>,
     storage: &mut HashMap<String, StorageValue>,
     value: StorageValue,

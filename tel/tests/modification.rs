@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use serde_json::json;
-use tel::{evaluate_saver, evaluate_value, parse, save_to_storage, StorageValue};
+use tel::{evaluate_selector, evaluate_value, parse, store_value, StorageValue};
 
 #[test]
 fn test_modification_cases() {
@@ -51,9 +51,9 @@ fn test_modification_cases() {
         let environment: HashMap<String, StorageValue> = serde_json::from_value(env_json).unwrap();
 
         let selector =
-            evaluate_saver(modifier_result.expr.unwrap(), &storage, &environment).unwrap();
+            evaluate_selector(modifier_result.expr.unwrap(), &storage, &environment).unwrap();
 
-        save_to_storage(
+        store_value(
             &selector,
             &mut storage,
             tel::StorageValue::String("hello".to_string()),

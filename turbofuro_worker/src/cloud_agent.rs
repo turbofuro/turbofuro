@@ -16,7 +16,7 @@ use turbofuro_runtime::{
         Parameter, Step, Steps,
     },
     resources::ActorResources,
-    ObjectBody, StorageValue,
+    Description, ObjectBody, StorageValue,
 };
 
 use crate::{
@@ -50,7 +50,7 @@ pub enum OperatorCommand<'a> {
         #[serde(rename = "startedAt")]
         started_at: u64,
         #[serde(rename = "initialStorage")]
-        initial_storage: ObjectBody,
+        initial_storage: Description,
     },
     AppendReportEvent {
         id: String,

@@ -47,7 +47,7 @@ use crate::debug::ExecutionLoggerHandle;
 use crate::debug::LoggerMessage;
 use crate::errors::ExecutionError;
 use crate::evaluations::eval;
-use crate::evaluations::eval_saver;
+use crate::evaluations::eval_selector;
 use crate::resources::{ActorResources, ResourceRegistry};
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -517,7 +517,7 @@ impl<'a> ExecutionContext<'a> {
     pub fn add_enter_function(&mut self, function_id: String, initial_storage: ObjectBody) {
         self.report_verbose_event(ExecutionEvent::EnterFunction {
             function_id,
-            initial_storage,
+            initial_storage: describe(tel::StorageValue::Object(initial_storage)),
         });
     }
 
@@ -564,7 +564,9 @@ impl<'a> ExecutionContext<'a> {
     }
 
     pub fn start_report(&mut self) {
-        self.log = ExecutionLog::started_with_initial_storage(self.storage.clone());
+        self.log = ExecutionLog::started_with_initial_storage(describe(StorageValue::Object(
+            self.storage.clone(),
+        )));
 
         if let ExecutionMode::Debug(debugger) = &self.mode {
             handle_logging_error(debugger.sender.try_send(DebugMessage::StartReport {
@@ -593,13 +595,13 @@ impl<'a> ExecutionContext<'a> {
         selector: Vec<SelectorPart>,
         value: StorageValue,
     ) -> Result<(), ExecutionError> {
-        tel::save_to_storage(&selector, &mut self.storage, value.clone())
+        tel::store_value(&selector, &mut self.storage, value.clone())
             .map_err(ExecutionError::from)?;
 
         self.report_verbose_event(ExecutionEvent::StorageUpdated {
             id: id.to_string(),
             selector,
-            value,
+            value: describe(value),
         });
 
         Ok(())
@@ -621,7 +623,7 @@ pub enum ExecutionStatus {
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionLog {
     pub status: ExecutionStatus,
-    pub initial_storage: ObjectBody,
+    pub initial_storage: Description,
     pub events: Vec<ExecutionEvent>,
     pub started_at: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -670,12 +672,12 @@ pub enum ExecutionEvent {
     StorageUpdated {
         id: String,
         selector: Selector,
-        value: StorageValue,
+        value: Description,
     },
     #[serde(rename_all = "camelCase")]
     EnterFunction {
         function_id: String,
-        initial_storage: ObjectBody,
+        initial_storage: Description,
     },
     #[serde(rename_all = "camelCase")]
     LeaveFunction {
@@ -688,7 +690,9 @@ impl Default for ExecutionLog {
         ExecutionLog {
             events: Vec::new(),
             status: ExecutionStatus::Started,
-            initial_storage: HashMap::new(),
+            initial_storage: Description::Object {
+                value: HashMap::new(),
+            },
             started_at: get_timestamp(),
             finished_at: None,
         }
@@ -696,10 +700,10 @@ impl Default for ExecutionLog {
 }
 
 impl ExecutionLog {
-    pub fn started_with_initial_storage(storage: ObjectBody) -> Self {
+    pub fn started_with_initial_storage(initial_storage: Description) -> Self {
         ExecutionLog {
             status: ExecutionStatus::Started,
-            initial_storage: storage,
+            initial_storage,
             events: Vec::new(),
             started_at: get_timestamp(),
             finished_at: None,
@@ -823,7 +827,7 @@ async fn execute_function<'a>(
                     match parameter {
                         // TODO(pr0gramista)#saveAs: Remove once the saveAs parameter is completely removed
                         Parameter::Tel { name, expression } if name == "saveAs" => {
-                            parameter_saver = Some(eval_saver(
+                            parameter_saver = Some(eval_selector(
                                 expression,
                                 &context.storage,
                                 &context.environment,
@@ -870,7 +874,8 @@ async fn execute_function<'a>(
                 context.add_leave_function(function_id.to_owned());
 
                 if let Some(expression) = store_as {
-                    let selector = eval_saver(expression, &context.storage, &context.environment)?;
+                    let selector =
+                        eval_selector(expression, &context.storage, &context.environment)?;
                     context.add_to_storage(step_id, selector, returned_value)?;
                     return Ok(());
                 }
@@ -927,7 +932,7 @@ async fn execute_step<'a>(
         }
         Step::Assign { value, to, .. } => {
             let value = eval(value, &context.storage, &context.environment)?;
-            let selector = eval_saver(to, &context.storage, &context.environment)?;
+            let selector = eval_selector(to, &context.storage, &context.environment)?;
 
             context.add_to_storage(step_id, selector, value)?;
         }
@@ -991,7 +996,7 @@ async fn execute_step<'a>(
             item,
             body,
         } => {
-            let selector = eval_saver(item, &context.storage, &context.environment)?;
+            let selector = eval_selector(item, &context.storage, &context.environment)?;
             let value = eval(items, &context.storage, &context.environment)?;
 
             match value {
@@ -1252,7 +1257,7 @@ mod test_executor {
         log.events.push(ExecutionEvent::StorageUpdated {
             id: "1".to_owned(),
             selector: vec![SelectorPart::Identifier("test".to_owned())],
-            value: StorageValue::Number(22.0),
+            value: describe(StorageValue::Number(22.0)),
         });
         log.events.push(ExecutionEvent::StepFinished {
             id: "1".to_owned(),
@@ -1271,7 +1276,10 @@ mod test_executor {
                     "type": "STORAGE_UPDATED",
                     "id": "1",
                     "selector": [{ "identifier": "test" }],
-                    "value": 22
+                    "value": {
+                        "type": "numberValue",
+                        "value": 22
+                    }
                   },
                   { "type": "STEP_FINISHED", "id": "1", "timestamp": 110 }
                 ]
@@ -1279,7 +1287,7 @@ mod test_executor {
 
         );
 
-        assert_eq!(serialized, expected,);
+        assert_eq!(serialized, expected);
     }
 
     #[test]

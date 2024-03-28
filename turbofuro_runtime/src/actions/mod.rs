@@ -4,7 +4,7 @@ use tel::{describe, Description, StorageValue};
 
 use crate::{
     errors::ExecutionError,
-    evaluations::eval_saver,
+    evaluations::eval_selector,
     executor::{ExecutionContext, Parameter},
 };
 
@@ -31,7 +31,7 @@ pub fn store_value(
     value: StorageValue,
 ) -> Result<(), ExecutionError> {
     if let Some(expression) = store_as {
-        let selector = eval_saver(expression, &context.storage, &context.environment)?;
+        let selector = eval_selector(expression, &context.storage, &context.environment)?;
         context.add_to_storage(step_id, selector, value)?;
     }
     Ok(())

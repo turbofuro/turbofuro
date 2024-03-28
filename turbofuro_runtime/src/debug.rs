@@ -1,6 +1,6 @@
 use crate::executor::{ExecutionEvent, ExecutionReport, ExecutionStatus};
 use serde::{Deserialize, Serialize};
-use tel::ObjectBody;
+use tel::Description;
 use tokio::sync::mpsc::Sender;
 
 #[derive(Debug, Clone)]
@@ -14,7 +14,7 @@ pub type ExecutionLoggerHandle = Sender<LoggerMessage>;
 pub enum DebugMessage {
     StartReport {
         started_at: u64,
-        initial_storage: ObjectBody,
+        initial_storage: Description,
     },
     AppendEvent {
         event: ExecutionEvent,
