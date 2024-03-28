@@ -1268,7 +1268,10 @@ mod test_executor {
         let expected = json!(
             {
                 "status": "started",
-                "initialStorage": {},
+                "initialStorage": {
+                    "type": "object",
+                    "value": {}
+                },
                 "startedAt": log.started_at,
                 "events": [
                   { "type": "STEP_STARTED", "id": "1", "timestamp": 100 },
