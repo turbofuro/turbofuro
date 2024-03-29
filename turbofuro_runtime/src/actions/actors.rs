@@ -28,7 +28,7 @@ pub async fn check_actor_exists<'a>(
     let id = as_string(id_param, "id")?;
 
     let exists = { context.global.registry.actors.contains_key(&id) };
-    store_value(store_as, context, step_id, exists.into())?;
+    store_value(store_as, context, step_id, exists.into()).await?;
     Ok(())
 }
 
@@ -69,7 +69,7 @@ pub async fn spawn_actor<'a>(
         .actors
         .insert(id.clone(), ActorLink(sender));
 
-    store_value(store_as, context, step_id, id.into())?;
+    store_value(store_as, context, step_id, id.into()).await?;
     Ok(())
 }
 
@@ -153,7 +153,7 @@ pub async fn get_actor_id<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    store_value(store_as, context, step_id, context.actor_id.clone().into())?;
+    store_value(store_as, context, step_id, context.actor_id.clone().into()).await?;
     Ok(())
 }
 

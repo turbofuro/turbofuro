@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::vec;
 use tel::describe;
 use tel::ObjectBody;
 use tel::StorageValue;
@@ -414,6 +415,7 @@ impl Actor {
             bubbling: false,
             references: HashMap::new(),
             mode: ExecutionMode::Debug(debugger),
+            loop_counts: vec![],
         };
 
         match execute(steps, &mut context).await {
@@ -505,6 +507,7 @@ impl Actor {
             bubbling: false,
             references: HashMap::new(),
             mode: ExecutionMode::Probe, // TODO: Roll the dice or something to prefer fast mode
+            loop_counts: vec![],
         };
 
         let body = match &local_function {

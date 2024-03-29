@@ -142,7 +142,7 @@ pub async fn run_wasi(
     let data = stdout.try_into_inner().unwrap_or_default().into_inner();
     let data = String::from_utf8_lossy(&data).to_string();
 
-    store_value(store_as, context, step_id, data.into())?;
+    store_value(store_as, context, step_id, data.into()).await?;
 
     Ok(())
 }

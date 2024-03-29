@@ -12,31 +12,31 @@ use crate::{
 use super::{as_string, store_value};
 
 #[instrument(level = "trace", skip_all)]
-pub fn get_uuid_v4(
+pub async fn get_uuid_v4(
     context: &mut ExecutionContext<'_>,
     _parameters: &Vec<Parameter>,
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let id = Uuid::new_v4();
-    store_value(store_as, context, step_id, id.to_string().into())?;
+    store_value(store_as, context, step_id, id.to_string().into()).await?;
     Ok(())
 }
 
 #[instrument(level = "trace", skip_all)]
-pub fn get_uuid_v7(
+pub async fn get_uuid_v7(
     context: &mut ExecutionContext<'_>,
     _parameters: &Vec<Parameter>,
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let id = Uuid::now_v7();
-    store_value(store_as, context, step_id, id.to_string().into())?;
+    store_value(store_as, context, step_id, id.to_string().into()).await?;
     Ok(())
 }
 
 #[instrument(level = "trace", skip_all)]
-pub fn jwt_decode(
+pub async fn jwt_decode(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     step_id: &str,
@@ -74,7 +74,7 @@ pub fn jwt_decode(
         message: e.to_string(),
     })?;
 
-    store_value(store_as, context, step_id, token_data.claims)?;
+    store_value(store_as, context, step_id, token_data.claims).await?;
     Ok(())
 }
 
@@ -97,7 +97,7 @@ mod test_jwt {
             ],
             "test",
             Some("token")
-        ).unwrap();
+        ).await.unwrap();
 
         assert_eq!(
             eval("token.message", &context.storage, &context.environment).unwrap(),

@@ -1,9 +1,15 @@
-use tel::{ObjectBody, Selector, SelectorPart, StorageValue, TelError};
+use memoize::memoize;
+use tel::{ObjectBody, ParseResult, Selector, SelectorPart, StorageValue, TelError};
 
 use crate::{
     errors::ExecutionError,
     executor::{Environment, Parameter},
 };
+
+#[memoize]
+fn parse_memoized(expression: String) -> ParseResult {
+    tel::parse(&expression)
+}
 
 pub fn eval_param(
     parameter_name: &str,
@@ -89,7 +95,7 @@ pub fn eval(
     storage: &ObjectBody,
     environment: &Environment,
 ) -> Result<StorageValue, ExecutionError> {
-    let result = tel::parse(expression);
+    let result = parse_memoized(expression.to_owned());
     if !result.errors.is_empty() {
         return Err(TelError::ParseError {
             errors: result.errors,
@@ -110,7 +116,7 @@ pub fn eval_selector<'a>(
     storage: &'a ObjectBody,
     environment: &'a Environment,
 ) -> Result<Selector, ExecutionError> {
-    let result = tel::parse(expression);
+    let result = parse_memoized(expression.to_owned());
     if !result.errors.is_empty() {
         return Err(TelError::ParseError {
             errors: result.errors,

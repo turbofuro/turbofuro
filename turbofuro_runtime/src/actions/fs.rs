@@ -74,7 +74,7 @@ pub async fn read_to_string<'a>(
         .await
         .map_err(ExecutionError::from)?;
 
-    store_value(store_as, context, step_id, data.into())?;
+    store_value(store_as, context, step_id, data.into()).await?;
     Ok(())
 }
 

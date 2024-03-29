@@ -149,7 +149,7 @@ pub async fn low_level_command<'a>(
                 message: e.to_string(),
             })?;
 
-    store_value(store_as, context, step_id, result.into())?;
+    store_value(store_as, context, step_id, result.into()).await?;
     Ok(())
 }
 

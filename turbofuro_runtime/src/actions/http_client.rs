@@ -199,6 +199,7 @@ pub async fn http_request<'a>(
         context,
         step_id,
         StorageValue::Object(response_object),
-    )?;
+    )
+    .await?;
     Ok(())
 }

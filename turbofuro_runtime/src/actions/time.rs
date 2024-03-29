@@ -51,7 +51,7 @@ pub async fn get_current_time<'a>(
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let value: StorageValue = (Utc::now().timestamp_millis() as f32).into();
-    store_value(store_as, context, step_id, value)?;
+    store_value(store_as, context, step_id, value).await?;
     Ok(())
 }
 

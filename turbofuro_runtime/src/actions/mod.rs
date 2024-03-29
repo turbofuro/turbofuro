@@ -24,7 +24,7 @@ pub mod time;
 pub mod wasm;
 pub mod websocket;
 
-pub fn store_value(
+pub async fn store_value(
     store_as: Option<&str>,
     context: &mut ExecutionContext<'_>,
     step_id: &str,
@@ -32,7 +32,7 @@ pub fn store_value(
 ) -> Result<(), ExecutionError> {
     if let Some(expression) = store_as {
         let selector = eval_selector(expression, &context.storage, &context.environment)?;
-        context.add_to_storage(step_id, selector, value)?;
+        context.add_to_storage(step_id, selector, value).await?;
     }
     Ok(())
 }

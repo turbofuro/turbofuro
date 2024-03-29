@@ -682,9 +682,17 @@ impl Description {
 pub fn describe(value: StorageValue) -> Description {
     // TODO: Shall we take a reference instead?
     match value {
-        StorageValue::String(s) => Description::StringValue {
-            value: s.to_string(),
-        },
+        StorageValue::String(s) => {
+            if s.len() < 5000 {
+                Description::StringValue {
+                    value: s.to_string(),
+                }
+            } else {
+                Description::StringValue {
+                    value: s[..5000].to_string(),
+                }
+            }
+        }
         StorageValue::Number(f) => Description::NumberValue { value: f },
         StorageValue::Boolean(b) => Description::BooleanValue { value: b },
         StorageValue::Array(array) => {
