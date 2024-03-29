@@ -3058,7 +3058,7 @@ checksum = "14c39fd04924ca3a864207c66fc2cd7d22d7c016007f9ce846cbb9326331930a"
 
 [[package]]
 name = "tel"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "chumsky",
  "once_cell",
@@ -3467,7 +3467,7 @@ dependencies = [
 
 [[package]]
 name = "turbofuro_runtime"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -3517,7 +3517,7 @@ dependencies = [
 
 [[package]]
 name = "turbofuro_worker"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "anyhow",
  "async-recursion",
