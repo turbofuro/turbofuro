@@ -69,16 +69,6 @@
           }
         },
         {
-          "name": "saveAs",
-          "type": "tel",
-          "optional": false,
-          "description": "Storage location where to save the value",
-          "typeDef": {
-            "tag": "selector",
-            "strict": true
-          }
-        },
-        {
           "name": "name",
           "type": "tel",
           "optional": true,
@@ -125,16 +115,6 @@
           "typeDef": {
             "tag": "simple",
             "type": "array",
-            "strict": true
-          }
-        },
-        {
-          "name": "saveAs",
-          "type": "tel",
-          "optional": false,
-          "description": "Storage location where to save the value",
-          "typeDef": {
-            "tag": "selector",
             "strict": true
           }
         },

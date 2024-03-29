@@ -270,9 +270,9 @@ export type ParseResult = {
 };
 
 /**
- * @param {string} input
+ * @param input - TEL expression
  */
-export function parseWithMetadata(input: string): ParseResult;
+export function parse(input: string): ParseResult;
 
 export type EvaluationResult =
   | {
@@ -285,10 +285,10 @@ export type EvaluationResult =
     };
 
 /**
- * @param {string} expression
- * @param {any} storage
- * @param {any} environment
- * @returns {any}
+ * @param expression - TEL expression
+ * @param storage - Storage object
+ * @param environment - Environment object
+ * @returns Result object
  */
 export function evaluateValue(
   expression: string,
@@ -301,14 +301,14 @@ export type DescriptionEvaluationResult = {
 };
 
 /**
- * @param {any} storageValue
+ * @param value - Storage value
  */
-export function describe(storageValue: any): Description;
+export function describe(value: any): Description;
 
 /**
- * @param {string} expression
- * @param {any} storage
- * @param {any} environment
+ * @param expression - TEL selector expression
+ * @param storage - Storage description object
+ * @param environment - Environment description object
  */
 export function evaluateDescription(
   expression: string,
@@ -316,7 +316,7 @@ export function evaluateDescription(
   environment: Record<string, Description>,
 ): DescriptionEvaluationResult;
 
-export type DescriptionSaverBranch =
+export type DescriptionStoreBranch =
   | {
       type: 'ok';
       storage: Record<string, Description>;
@@ -326,30 +326,41 @@ export type DescriptionSaverBranch =
       error: TelError;
     };
 
-export type DescriptionSaverResult = {
-  branches: DescriptionSaverBranch[];
+export type DescriptionStoreResult = {
+  branches: DescriptionStoreBranch[];
 };
 
 /**
- * @param {string} expression
- * @param {any} storage
- * @param {any} environment
- * @returns {any}
+ * @param expression - TEL selector expression
+ * @param storage - Storage description object
+ * @param environment - Environment description object
+ * @returns - Result object with possible branches
  */
-export function evaluateSaverDescription(
+export function predictStore(
   expression: string,
   storage: Record<string, Description>,
   environment: Record<string, Description>,
   value: Description,
-): DescriptionSaverResult;
+): DescriptionStoreResult;
 
 /**
- * @param {array} TEL selector
- * @param {any} storage - storage object
- * @param {any} value - value that is being added
- * @returns {any}
+ * @param selector - selector
+ * @param storage - Storage description object
+ * @returns - New described storage object
  */
-export function saveToStorage(selector: any, storage: any, value: any): any;
+export function storeDescription(
+  selector: any[],
+  storage: Record<string, Description>,
+  value: Description,
+): Record<string, Description>;
+
+/**
+ * @param selector - selector
+ * @param storage - Storage object
+ * @param value - value that is being added
+ * @returns - New storage object
+ */
+export function storeValue(selector: any[], storage: Record<string, any>, value: any): Record<string, any>;
 "#;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -370,19 +381,18 @@ pub struct DescriptionEvaluationResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
-pub enum DescriptionSaverBranch {
+pub enum DescriptionStoreBranch {
     Ok { storage: ObjectDescription },
     Error { error: TelError },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
-pub struct DescriptionSaverResult {
-    pub branches: Vec<DescriptionSaverBranch>,
+pub struct DescriptionStoreResult {
+    pub branches: Vec<DescriptionStoreBranch>,
 }
 
-#[wasm_bindgen(skip_typescript, js_name = parseWithMetadata)]
+#[wasm_bindgen(skip_typescript, js_name = parse)]
 pub fn parse(input: &str) -> JsValue {
     let result = tel::parse(input);
     serialize(&result).expect("Could not serialize ParseResult")
@@ -390,11 +400,10 @@ pub fn parse(input: &str) -> JsValue {
 
 #[wasm_bindgen(skip_typescript, js_name = describe)]
 pub fn describe(storage_value: JsValue) -> JsValue {
-    let storage_value: StorageValue = serde_wasm_bindgen::from_value(storage_value)
-        .expect("Could not deserialize described storage");
+    let storage_value: StorageValue =
+        serde_wasm_bindgen::from_value(storage_value).expect("Could not deserialize StorageValue");
 
     let result: Description = tel::describe(storage_value);
-
     serialize(&result).expect("Could not serialize Description")
 }
 
@@ -423,8 +432,8 @@ pub fn evaluate_description(input: &str, storage: JsValue, environment: JsValue)
     serialize(&result).expect("Could not serialize DescriptionEvaluationResult")
 }
 
-#[wasm_bindgen(skip_typescript, js_name = evaluateSaverDescription)]
-pub fn evaluate_saver_description(
+#[wasm_bindgen(skip_typescript, js_name = predictStore)]
+pub fn predict_store(
     input: &str,
     storage: JsValue,
     environment: JsValue,
@@ -438,33 +447,29 @@ pub fn evaluate_saver_description(
         serde_wasm_bindgen::from_value(value).expect("Could not deserialize described value");
 
     let parse_result = tel::parse(input);
-    let result: DescriptionSaverResult = match parse_result.expr {
+    let result: DescriptionStoreResult = match parse_result.expr {
         Some(expr) => {
             let selector = tel::evaluate_selector_description(expr, &storage, &environment);
-            let mut branches: Vec<DescriptionSaverBranch> = vec![];
+            let mut branches: Vec<DescriptionStoreBranch> = vec![];
             for selector in selector.into_iter() {
                 match selector {
                     SelectorDescription::Static { selector } => {
                         let mut storage = storage.clone();
-                        match tel::save_to_storage_description(
-                            &selector,
-                            &mut storage,
-                            value.clone(),
-                        ) {
-                            Ok(()) => branches.push(DescriptionSaverBranch::Ok { storage }),
-                            Err(error) => branches.push(DescriptionSaverBranch::Error { error }),
+                        match tel::store_description(&selector, &mut storage, value.clone()) {
+                            Ok(()) => branches.push(DescriptionStoreBranch::Ok { storage }),
+                            Err(error) => branches.push(DescriptionStoreBranch::Error { error }),
                         }
                     }
                     SelectorDescription::Error { error } => {
-                        branches.push(DescriptionSaverBranch::Error { error })
+                        branches.push(DescriptionStoreBranch::Error { error })
                     }
                     SelectorDescription::Unknown => {}
                 }
             }
-            DescriptionSaverResult { branches }
+            DescriptionStoreResult { branches }
         }
-        None => DescriptionSaverResult {
-            branches: vec![DescriptionSaverBranch::Error {
+        None => DescriptionStoreResult {
+            branches: vec![DescriptionStoreBranch::Error {
                 error: TelError::ParseError {
                     errors: parse_result.errors,
                 },
@@ -472,7 +477,7 @@ pub fn evaluate_saver_description(
         },
     };
 
-    serialize(&result).expect("Could not serialize DescriptionSaverResult")
+    serialize(&result).expect("Could not serialize DescriptionStoreResult")
 }
 
 #[wasm_bindgen(skip_typescript, js_name = evaluateValue)]
@@ -509,8 +514,8 @@ pub fn evaluate_value(input: &str, storage: JsValue, environment: JsValue) -> Js
     serialize(&result).expect("Could not serialize EvaluationResult")
 }
 
-#[wasm_bindgen(skip_typescript, js_name = saveToStorage)]
-pub fn save_to_storage(selector: JsValue, storage: JsValue, value: JsValue) -> JsValue {
+#[wasm_bindgen(skip_typescript, js_name = storeValue)]
+pub fn store_value(selector: JsValue, storage: JsValue, value: JsValue) -> JsValue {
     let selector: Selector =
         serde_wasm_bindgen::from_value(selector).expect("Could not deserialize selector");
     let mut storage: ObjectBody =
@@ -518,9 +523,24 @@ pub fn save_to_storage(selector: JsValue, storage: JsValue, value: JsValue) -> J
     let value: StorageValue =
         serde_wasm_bindgen::from_value(value).expect("Could not deserialize value");
 
-    match tel::save_to_storage(&selector, &mut storage, value) {
+    match tel::store_value(&selector, &mut storage, value) {
         Ok(()) => serialize(&storage).expect("Could not serialize new storage"),
-        Err(error) => serialize(&error).expect("Could not save to storage"),
+        Err(error) => serialize(&error).expect("Could not serialize error"),
+    }
+}
+
+#[wasm_bindgen(skip_typescript, js_name = storeDescription)]
+pub fn store_description(selector: JsValue, storage: JsValue, value: JsValue) -> JsValue {
+    let selector: Selector =
+        serde_wasm_bindgen::from_value(selector).expect("Could not deserialize selector");
+    let mut storage: ObjectDescription =
+        serde_wasm_bindgen::from_value(storage).expect("Could not deserialize storage");
+    let value: Description =
+        serde_wasm_bindgen::from_value(value).expect("Could not deserialize described value");
+
+    match tel::store_description(&selector, &mut storage, value) {
+        Ok(()) => serialize(&storage).expect("Could not serialize new storage"),
+        Err(error) => serialize(&error).expect("Could not serialize error"),
     }
 }
 

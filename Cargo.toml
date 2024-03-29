@@ -11,4 +11,4 @@ keywords = ["visual", "language", "worker", "web"]
 [workspace]
 resolver = "2"
 
-members = ["tel", "tel-web", "turbofuro_worker", "turbofuro_runtime"]
+members = ["tel", "tel-wasm", "turbofuro_worker", "turbofuro_runtime"]

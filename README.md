@@ -30,7 +30,9 @@ cargo run -- --config test_config.json
 ```
 
 ## Contributing
-We welcome all contributions with 💛 Feel free to create issues including those with feature suggestions. If you want to help, but not sure how, reach out to [@pr0gramista](https://github.com/pr0gramista) (Twitter/LinkedIn/email) directly.
+We welcome all contributions with 💛 
+
+Feel free to create issues including those with feature suggestions. If you want to help, but not sure how, reach out to [@pr0gramista](https://github.com/pr0gramista) (Twitter/LinkedIn/email) directly.
 
 ## License
 Turbofuro Worker is licensed under [Apache-2.0](https://opensource.org/license/apache-2-0/).

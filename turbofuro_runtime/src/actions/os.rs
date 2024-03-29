@@ -69,12 +69,12 @@ pub async fn run_command(
         .collect(),
     );
 
-    store_value(store_as, context, step_id, output)?;
+    store_value(store_as, context, step_id, output).await?;
     Ok(())
 }
 
 #[instrument(level = "trace", skip_all)]
-pub fn set_environment_variable(
+pub async fn set_environment_variable(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     _step_id: &str,
@@ -91,7 +91,7 @@ pub fn set_environment_variable(
 }
 
 #[instrument(level = "trace", skip_all)]
-pub fn read_environment_variable(
+pub async fn read_environment_variable(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     step_id: &str,
@@ -112,7 +112,7 @@ pub fn read_environment_variable(
         },
     }?;
 
-    store_value(store_as, context, step_id, value)?;
+    store_value(store_as, context, step_id, value).await?;
     Ok(())
 }
 
@@ -162,6 +162,7 @@ mod test_os {
             "test",
             Some("value"),
         )
+        .await
         .unwrap();
 
         assert_eq!(
@@ -183,6 +184,7 @@ mod test_os {
             ],
             "test",
         )
+        .await
         .unwrap();
 
         assert_eq!(std::env::var("TEST_VAR").unwrap(), "Test Value");

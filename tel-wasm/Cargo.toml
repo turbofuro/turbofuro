@@ -1,8 +1,12 @@
 [package]
-name = "tel-web"
-version = "0.1.0"
+name = "tel-wasm"
+version = "0.1.4"
 edition = "2018"
 publish = false
+authors = ["Bartosz Wiśniewski <kontakt@pr0gramista.pl>"]
+repository = "https://github.com/turbofuro/turbofuro"
+license = "Apache-2.0"
+description = "WebAssembly build of TEL"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

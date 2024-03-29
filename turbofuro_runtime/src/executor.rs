@@ -18,7 +18,7 @@ use tel::Selector;
 use tel::SelectorPart;
 use tel::StorageValue;
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::error::TrySendError;
+use tokio::sync::mpsc::error::SendTimeoutError;
 use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 use tracing::info;
@@ -47,7 +47,7 @@ use crate::debug::ExecutionLoggerHandle;
 use crate::debug::LoggerMessage;
 use crate::errors::ExecutionError;
 use crate::evaluations::eval;
-use crate::evaluations::eval_saver;
+use crate::evaluations::eval_selector;
 use crate::resources::{ActorResources, ResourceRegistry};
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -441,19 +441,20 @@ pub struct ExecutionContext<'a> {
     pub environment: Arc<Environment>,
 
     pub mode: ExecutionMode,
+    pub loop_counts: Vec<(String, u64)>,
 }
 
 // TODO: Figure out proper error handling for such cases
-fn handle_logging_error(result: Result<(), TrySendError<DebugMessage>>) {
+fn handle_logging_error(result: Result<(), SendTimeoutError<DebugMessage>>) {
     match result {
         Ok(_) => {
             // No-op
         }
         Err(e) => match e {
-            mpsc::error::TrySendError::Full(_) => {
-                warn!("Logging channel is full")
+            SendTimeoutError::Timeout(_) => {
+                warn!("Logging channel send timeout")
             }
-            mpsc::error::TrySendError::Closed(_) => {
+            SendTimeoutError::Closed(_) => {
                 warn!("Logging channel is closed")
             }
         },
@@ -480,52 +481,91 @@ impl<'a> ExecutionContext<'a> {
             bubbling: false,
             references: HashMap::new(),
             mode,
+            loop_counts: vec![],
         }
     }
 
-    fn report_verbose_event(&mut self, event: ExecutionEvent) {
+    async fn report_verbose_event(&mut self, event: ExecutionEvent) {
         match &self.mode {
             ExecutionMode::Fast => {
                 // No-op
             }
             ExecutionMode::Probe => {
-                self.log.events.push(event);
+                let lc = self.loop_counts.last().map(|(_id, c)| c);
+                if let Some(lc) = lc {
+                    if lc < &10 {
+                        self.log.events.push(event);
+                    }
+                } else {
+                    self.log.events.push(event);
+                }
             }
             ExecutionMode::Debug(debugger) => {
-                handle_logging_error(debugger.sender.try_send(DebugMessage::AppendEvent {
-                    event: event.clone(),
-                }));
-                self.log.events.push(event);
+                let lc = self.loop_counts.last().map(|(_id, c)| c);
+                if let Some(lc) = lc {
+                    // info!("Loop count: {}", lc);
+                    if lc < &10 {
+                        handle_logging_error(
+                            debugger
+                                .sender
+                                .send_timeout(
+                                    DebugMessage::AppendEvent {
+                                        event: event.clone(),
+                                    },
+                                    std::time::Duration::from_secs(5),
+                                )
+                                .await,
+                        );
+                        self.log.events.push(event);
+                    }
+                } else {
+                    handle_logging_error(
+                        debugger
+                            .sender
+                            .send_timeout(
+                                DebugMessage::AppendEvent {
+                                    event: event.clone(),
+                                },
+                                std::time::Duration::from_secs(5),
+                            )
+                            .await,
+                    );
+                    self.log.events.push(event);
+                }
             }
         }
     }
 
-    pub fn add_step_started(&mut self, id: &str) {
+    pub async fn add_step_started(&mut self, id: &str) {
         self.report_verbose_event(ExecutionEvent::StepStarted {
             id: id.to_owned(),
             timestamp: get_timestamp(),
-        });
+        })
+        .await;
     }
 
-    pub fn add_step_finished(&mut self, id: &str) {
+    pub async fn add_step_finished(&mut self, id: &str) {
         self.report_verbose_event(ExecutionEvent::StepFinished {
             id: id.to_owned(),
             timestamp: get_timestamp(),
-        });
+        })
+        .await;
     }
 
-    pub fn add_enter_function(&mut self, function_id: String, initial_storage: ObjectBody) {
+    pub async fn add_enter_function(&mut self, function_id: String, initial_storage: ObjectBody) {
         self.report_verbose_event(ExecutionEvent::EnterFunction {
             function_id,
-            initial_storage,
-        });
+            initial_storage: describe(tel::StorageValue::Object(initial_storage)),
+        })
+        .await;
     }
 
-    pub fn add_leave_function(&mut self, function_id: String) {
-        self.report_verbose_event(ExecutionEvent::LeaveFunction { function_id });
+    pub async fn add_leave_function(&mut self, function_id: String) {
+        self.report_verbose_event(ExecutionEvent::LeaveFunction { function_id })
+            .await;
     }
 
-    pub fn add_error_thrown(&mut self, id: &str, error: ExecutionError) {
+    pub async fn add_error_thrown(&mut self, id: &str, error: ExecutionError) {
         match &self.mode {
             ExecutionMode::Fast => {
                 let event = ExecutionEvent::ErrorThrown {
@@ -555,52 +595,79 @@ impl<'a> ExecutionContext<'a> {
                     // No need to add snapshot in probe mode as the user can retrieve the context using events
                     snapshot: None,
                 };
-                handle_logging_error(debugger.sender.try_send(DebugMessage::AppendEvent {
-                    event: event.clone(),
-                }));
+                handle_logging_error(
+                    debugger
+                        .sender
+                        .send_timeout(
+                            DebugMessage::AppendEvent {
+                                event: event.clone(),
+                            },
+                            std::time::Duration::from_secs(5),
+                        )
+                        .await,
+                );
                 self.log.events.push(event);
             }
         }
     }
 
-    pub fn start_report(&mut self) {
-        self.log = ExecutionLog::started_with_initial_storage(self.storage.clone());
+    pub async fn start_report(&mut self) {
+        self.log = ExecutionLog::started_with_initial_storage(describe(StorageValue::Object(
+            self.storage.clone(),
+        )));
 
         if let ExecutionMode::Debug(debugger) = &self.mode {
-            handle_logging_error(debugger.sender.try_send(DebugMessage::StartReport {
-                started_at: self.log.started_at,
-                initial_storage: self.log.initial_storage.clone(),
-            }));
+            handle_logging_error(
+                debugger
+                    .sender
+                    .send_timeout(
+                        DebugMessage::StartReport {
+                            started_at: self.log.started_at,
+                            initial_storage: self.log.initial_storage.clone(),
+                        },
+                        std::time::Duration::from_secs(5),
+                    )
+                    .await,
+            );
         }
     }
 
-    pub fn end_report(&mut self, final_status: ExecutionStatus) {
+    pub async fn end_report(&mut self, final_status: ExecutionStatus) {
         let now = get_timestamp();
         self.log.status = final_status;
         self.log.finished_at = Some(now);
 
         if let ExecutionMode::Debug(debugger) = &self.mode {
-            handle_logging_error(debugger.sender.try_send(DebugMessage::EndReport {
-                status: self.log.status.clone(),
-                finished_at: now,
-            }));
+            handle_logging_error(
+                debugger
+                    .sender
+                    .send_timeout(
+                        DebugMessage::EndReport {
+                            status: self.log.status.clone(),
+                            finished_at: now,
+                        },
+                        std::time::Duration::from_secs(5),
+                    )
+                    .await,
+            );
         }
     }
 
-    pub fn add_to_storage(
+    pub async fn add_to_storage(
         &mut self,
         id: &str,
         selector: Vec<SelectorPart>,
         value: StorageValue,
     ) -> Result<(), ExecutionError> {
-        tel::save_to_storage(&selector, &mut self.storage, value.clone())
+        tel::store_value(&selector, &mut self.storage, value.clone())
             .map_err(ExecutionError::from)?;
 
         self.report_verbose_event(ExecutionEvent::StorageUpdated {
             id: id.to_string(),
             selector,
-            value,
-        });
+            value: describe(value),
+        })
+        .await;
 
         Ok(())
     }
@@ -621,7 +688,7 @@ pub enum ExecutionStatus {
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionLog {
     pub status: ExecutionStatus,
-    pub initial_storage: ObjectBody,
+    pub initial_storage: Description,
     pub events: Vec<ExecutionEvent>,
     pub started_at: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -670,12 +737,12 @@ pub enum ExecutionEvent {
     StorageUpdated {
         id: String,
         selector: Selector,
-        value: StorageValue,
+        value: Description,
     },
     #[serde(rename_all = "camelCase")]
     EnterFunction {
         function_id: String,
-        initial_storage: ObjectBody,
+        initial_storage: Description,
     },
     #[serde(rename_all = "camelCase")]
     LeaveFunction {
@@ -688,7 +755,9 @@ impl Default for ExecutionLog {
         ExecutionLog {
             events: Vec::new(),
             status: ExecutionStatus::Started,
-            initial_storage: HashMap::new(),
+            initial_storage: Description::Object {
+                value: HashMap::new(),
+            },
             started_at: get_timestamp(),
             finished_at: None,
         }
@@ -696,10 +765,10 @@ impl Default for ExecutionLog {
 }
 
 impl ExecutionLog {
-    pub fn started_with_initial_storage(storage: ObjectBody) -> Self {
+    pub fn started_with_initial_storage(initial_storage: Description) -> Self {
         ExecutionLog {
             status: ExecutionStatus::Started,
-            initial_storage: storage,
+            initial_storage,
             events: Vec::new(),
             started_at: get_timestamp(),
             finished_at: None,
@@ -738,10 +807,10 @@ async fn execute_native<'a>(
         "actors/spawn" => actors::spawn_actor(context, parameters, step_id, store_as).await?,
         "os/run_command" => os::run_command(context, parameters, step_id, store_as).await?,
         "os/read_environment_variable" => {
-            os::read_environment_variable(context, parameters, step_id, store_as)?
+            os::read_environment_variable(context, parameters, step_id, store_as).await?
         }
         "os/set_environment_variable" => {
-            os::set_environment_variable(context, parameters, step_id)?
+            os::set_environment_variable(context, parameters, step_id).await?
         }
         "actors/terminate" => actors::terminate(context, parameters, step_id).await?,
         "actors/send_command" => actors::send_command(context, parameters, step_id).await?,
@@ -772,15 +841,17 @@ async fn execute_native<'a>(
         "kv/write" => kv::write_to_store(context, parameters, step_id).await?,
         "kv/read" => kv::read_from_store(context, parameters, step_id, store_as).await?,
         "kv/delete" => kv::delete_from_store(context, parameters, step_id).await?,
-        "convert/parse_json" => convert::parse_json(context, parameters, step_id, store_as)?,
-        "convert/to_json" => convert::to_json(context, parameters, step_id, store_as)?,
+        "convert/parse_json" => convert::parse_json(context, parameters, step_id, store_as).await?,
+        "convert/to_json" => convert::to_json(context, parameters, step_id, store_as).await?,
         "convert/parse_urlencoded" => {
-            convert::parse_urlencoded(context, parameters, step_id, store_as)?
+            convert::parse_urlencoded(context, parameters, step_id, store_as).await?
         }
-        "convert/to_urlencoded" => convert::to_urlencoded(context, parameters, step_id, store_as)?,
-        "crypto/get_uuid_v4" => crypto::get_uuid_v4(context, parameters, step_id, store_as)?,
-        "crypto/get_uuid_v7" => crypto::get_uuid_v7(context, parameters, step_id, store_as)?,
-        "crypto/jwt_decode" => crypto::jwt_decode(context, parameters, step_id, store_as)?,
+        "convert/to_urlencoded" => {
+            convert::to_urlencoded(context, parameters, step_id, store_as).await?
+        }
+        "crypto/get_uuid_v4" => crypto::get_uuid_v4(context, parameters, step_id, store_as).await?,
+        "crypto/get_uuid_v7" => crypto::get_uuid_v7(context, parameters, step_id, store_as).await?,
+        "crypto/jwt_decode" => crypto::jwt_decode(context, parameters, step_id, store_as).await?,
         "pubsub/publish" => pubsub::publish(context, parameters, step_id).await?,
         "pubsub/subscribe" => pubsub::subscribe(context, parameters, step_id).await?,
         "pubsub/unsubscribe" => pubsub::unsubscribe(context, parameters, step_id).await?,
@@ -823,7 +894,7 @@ async fn execute_function<'a>(
                     match parameter {
                         // TODO(pr0gramista)#saveAs: Remove once the saveAs parameter is completely removed
                         Parameter::Tel { name, expression } if name == "saveAs" => {
-                            parameter_saver = Some(eval_saver(
+                            parameter_saver = Some(eval_selector(
                                 expression,
                                 &context.storage,
                                 &context.environment,
@@ -839,7 +910,9 @@ async fn execute_function<'a>(
                     }
                 }
 
-                context.add_enter_function(function_id.to_owned(), initial_storage.clone());
+                context
+                    .add_enter_function(function_id.to_owned(), initial_storage.clone())
+                    .await;
 
                 let mut function_context = ExecutionContext {
                     actor_id: context.actor_id.clone(),
@@ -852,6 +925,7 @@ async fn execute_function<'a>(
                     bubbling: false,
                     references: initial_references,
                     mode: context.mode.clone(),
+                    loop_counts: vec![],
                 };
 
                 let returned_value = match execute_steps(body, &mut function_context).await {
@@ -860,23 +934,28 @@ async fn execute_function<'a>(
                         ExecutionError::Return { value } => value,
                         e => {
                             context.log.events.append(&mut function_context.log.events);
-                            context.add_leave_function(function_id.to_owned());
+                            context.add_leave_function(function_id.to_owned()).await;
                             return Err(e);
                         }
                     },
                 };
 
                 context.log.events.append(&mut function_context.log.events);
-                context.add_leave_function(function_id.to_owned());
+                context.add_leave_function(function_id.to_owned()).await;
 
                 if let Some(expression) = store_as {
-                    let selector = eval_saver(expression, &context.storage, &context.environment)?;
-                    context.add_to_storage(step_id, selector, returned_value)?;
+                    let selector =
+                        eval_selector(expression, &context.storage, &context.environment)?;
+                    context
+                        .add_to_storage(step_id, selector, returned_value)
+                        .await?;
                     return Ok(());
                 }
 
                 if let Some(saver) = parameter_saver {
-                    context.add_to_storage(step_id, saver, returned_value.clone())?;
+                    context
+                        .add_to_storage(step_id, saver, returned_value.clone())
+                        .await?;
                 }
                 Ok(())
             }
@@ -892,6 +971,142 @@ async fn execute_function<'a>(
             id: function_id.to_owned(),
         })
     }
+}
+
+async fn for_each_inner<'a>(
+    context: &mut ExecutionContext<'a>,
+    step_id: &str,
+    value: StorageValue,
+    selector: Vec<SelectorPart>,
+    body: &Steps,
+) -> Result<(), ExecutionError> {
+    match value {
+        StorageValue::Array(arr) => {
+            for item in arr {
+                if let Some((_id, c)) = context.loop_counts.last_mut() {
+                    *c += 1;
+                }
+                context
+                    .add_to_storage(step_id, selector.clone(), item)
+                    .await?;
+
+                match execute_steps(body, context).await {
+                    Ok(_) => {}
+                    Err(e) => match e {
+                        ExecutionError::Break => {
+                            break;
+                        }
+                        ExecutionError::Continue => {
+                            continue;
+                        }
+                        e => {
+                            return Err(e);
+                        }
+                    },
+                }
+            }
+        }
+        StorageValue::Object(obj) => {
+            for (key, value) in obj {
+                if let Some((_id, c)) = context.loop_counts.last_mut() {
+                    *c += 1;
+                }
+                context
+                    .add_to_storage(
+                        step_id,
+                        selector.clone(),
+                        StorageValue::Object(vec![(key.clone(), value)].into_iter().collect()),
+                    )
+                    .await?;
+
+                match execute_steps(body, context).await {
+                    Ok(_) => {}
+                    Err(e) => match e {
+                        ExecutionError::Break => {
+                            break;
+                        }
+                        ExecutionError::Continue => {
+                            continue;
+                        }
+                        e => {
+                            return Err(e);
+                        }
+                    },
+                }
+            }
+        }
+        StorageValue::String(s) => {
+            for c in s.chars() {
+                if let Some((_id, c)) = context.loop_counts.last_mut() {
+                    *c += 1;
+                }
+                context
+                    .add_to_storage(
+                        step_id,
+                        selector.clone(),
+                        StorageValue::String(c.to_string()),
+                    )
+                    .await?;
+
+                match execute_steps(body, context).await {
+                    Ok(_) => {}
+                    Err(e) => match e {
+                        ExecutionError::Break => {
+                            break;
+                        }
+                        ExecutionError::Continue => {
+                            continue;
+                        }
+                        e => {
+                            return Err(e);
+                        }
+                    },
+                }
+            }
+        }
+        v => {
+            return Err(ExecutionError::ParameterTypeMismatch {
+                name: "items".to_string(),
+                expected: Description::Union {
+                    of: vec![
+                        Description::new_base_type("array"),
+                        Description::new_base_type("string"),
+                        Description::new_base_type("object"),
+                    ],
+                },
+                actual: describe(v),
+            });
+        }
+    };
+
+    Ok(())
+}
+
+async fn while_inner<'a>(
+    context: &mut ExecutionContext<'a>,
+    condition: &str,
+    body: &Steps,
+) -> Result<(), ExecutionError> {
+    while eval(condition, &context.storage, &context.environment)? == StorageValue::Boolean(true) {
+        if let Some((_id, c)) = context.loop_counts.last_mut() {
+            *c += 1;
+        }
+        match execute_steps(body, context).await {
+            Ok(_) => {}
+            Err(e) => match e {
+                ExecutionError::Break => {
+                    break;
+                }
+                ExecutionError::Continue => {
+                    continue;
+                }
+                e => {
+                    return Err(e);
+                }
+            },
+        }
+    }
+    Ok(())
 }
 
 #[async_recursion]
@@ -927,9 +1142,9 @@ async fn execute_step<'a>(
         }
         Step::Assign { value, to, .. } => {
             let value = eval(value, &context.storage, &context.environment)?;
-            let selector = eval_saver(to, &context.storage, &context.environment)?;
+            let selector = eval_selector(to, &context.storage, &context.environment)?;
 
-            context.add_to_storage(step_id, selector, value)?;
+            context.add_to_storage(step_id, selector, value).await?;
         }
         Step::Call {
             id: _,
@@ -986,121 +1201,32 @@ async fn execute_step<'a>(
             }
         }
         Step::ForEach {
-            id: _,
+            id,
             items,
             item,
             body,
         } => {
-            let selector = eval_saver(item, &context.storage, &context.environment)?;
+            let selector = eval_selector(item, &context.storage, &context.environment)?;
             let value = eval(items, &context.storage, &context.environment)?;
 
-            match value {
-                StorageValue::Array(arr) => {
-                    for item in arr {
-                        context.add_to_storage(step_id, selector.clone(), item)?;
+            let current_lc = context.loop_counts.last().map(|(_id, c)| c).unwrap_or(&0);
+            context.loop_counts.push((id.clone(), *current_lc / 4));
 
-                        match execute_steps(body, context).await {
-                            Ok(_) => {}
-                            Err(e) => match e {
-                                ExecutionError::Break => {
-                                    break;
-                                }
-                                ExecutionError::Continue => {
-                                    continue;
-                                }
-                                e => {
-                                    return Err(e);
-                                }
-                            },
-                        }
-                    }
-                }
-                StorageValue::Object(obj) => {
-                    for (key, value) in obj {
-                        context.add_to_storage(
-                            step_id,
-                            selector.clone(),
-                            StorageValue::Object(vec![(key.clone(), value)].into_iter().collect()),
-                        )?;
-
-                        match execute_steps(body, context).await {
-                            Ok(_) => {}
-                            Err(e) => match e {
-                                ExecutionError::Break => {
-                                    break;
-                                }
-                                ExecutionError::Continue => {
-                                    continue;
-                                }
-                                e => {
-                                    return Err(e);
-                                }
-                            },
-                        }
-                    }
-                }
-                StorageValue::String(s) => {
-                    for c in s.chars() {
-                        context.add_to_storage(
-                            step_id,
-                            selector.clone(),
-                            StorageValue::String(c.to_string()),
-                        )?;
-
-                        match execute_steps(body, context).await {
-                            Ok(_) => {}
-                            Err(e) => match e {
-                                ExecutionError::Break => {
-                                    break;
-                                }
-                                ExecutionError::Continue => {
-                                    continue;
-                                }
-                                e => {
-                                    return Err(e);
-                                }
-                            },
-                        }
-                    }
-                }
-                v => {
-                    return Err(ExecutionError::ParameterTypeMismatch {
-                        name: "items".to_string(),
-                        expected: Description::Union {
-                            of: vec![
-                                Description::new_base_type("array"),
-                                Description::new_base_type("string"),
-                                Description::new_base_type("object"),
-                            ],
-                        },
-                        actual: describe(v),
-                    });
-                }
-            }
+            let result = for_each_inner(context, step_id, value, selector, body).await;
+            context.loop_counts.pop();
+            result?
         }
         Step::While {
-            id: _,
+            id,
             condition,
             body,
         } => {
-            while eval(condition, &context.storage, &context.environment)?
-                == StorageValue::Boolean(true)
-            {
-                match execute_steps(body, context).await {
-                    Ok(_) => {}
-                    Err(e) => match e {
-                        ExecutionError::Break => {
-                            break;
-                        }
-                        ExecutionError::Continue => {
-                            continue;
-                        }
-                        e => {
-                            return Err(e);
-                        }
-                    },
-                }
-            }
+            let current_lc = context.loop_counts.last().map(|(_id, c)| c).unwrap_or(&0);
+            context.loop_counts.push((id.clone(), *current_lc / 4));
+
+            let result = while_inner(context, condition, body).await;
+            context.loop_counts.pop();
+            result?
         }
         Step::Try { id, body, catch } => match execute_steps(body, context).await {
             Ok(_) => {}
@@ -1117,11 +1243,13 @@ async fn execute_step<'a>(
                 e => {
                     let serialized = serde_json::to_value(&e).unwrap();
 
-                    context.add_to_storage(
-                        id,
-                        vec![SelectorPart::Identifier("error".to_owned())],
-                        serde_json::from_value(serialized).unwrap(),
-                    )?;
+                    context
+                        .add_to_storage(
+                            id,
+                            vec![SelectorPart::Identifier("error".to_owned())],
+                            serde_json::from_value(serialized).unwrap(),
+                        )
+                        .await?;
                     execute_steps(catch, context).await?;
                 }
             },
@@ -1137,26 +1265,28 @@ async fn execute_steps<'a>(
 ) -> Result<(), ExecutionError> {
     for step in steps {
         let step_id = step.get_step_id();
-        context.add_step_started(step_id);
+        context.add_step_started(step_id).await;
         match execute_step(step, context, step_id).await {
             Ok(_) => {
-                context.add_step_finished(step_id);
+                context.add_step_finished(step_id).await;
             }
             Err(e) => {
                 // Silence logging error that are in fact a exception
                 match &e {
                     ExecutionError::Continue => {
-                        context.add_step_finished(step.get_step_id());
+                        context.add_step_finished(step.get_step_id()).await;
                     }
                     ExecutionError::Break => {
-                        context.add_step_finished(step.get_step_id());
+                        context.add_step_finished(step.get_step_id()).await;
                     }
                     ExecutionError::Return { .. } => {
-                        context.add_step_finished(step.get_step_id());
+                        context.add_step_finished(step.get_step_id()).await;
                     }
                     e => {
-                        context.add_error_thrown(step.get_step_id(), e.clone());
-                        context.add_step_finished(step.get_step_id());
+                        context
+                            .add_error_thrown(step.get_step_id(), e.clone())
+                            .await;
+                        context.add_step_finished(step.get_step_id()).await;
                         context.bubbling = true;
                     }
                 }
@@ -1181,15 +1311,15 @@ pub async fn execute<'a>(
         serde_json::to_string_pretty(&context.environment.variables).unwrap()
     );
 
-    context.start_report();
+    context.start_report().await;
 
     match execute_steps(steps, context).await {
         Ok(_) => {
-            context.end_report(ExecutionStatus::Finished);
+            context.end_report(ExecutionStatus::Finished).await;
             Ok(())
         }
         Err(e) => {
-            context.end_report(ExecutionStatus::Failed);
+            context.end_report(ExecutionStatus::Failed).await;
             Err(e)
         }
     }
@@ -1252,7 +1382,7 @@ mod test_executor {
         log.events.push(ExecutionEvent::StorageUpdated {
             id: "1".to_owned(),
             selector: vec![SelectorPart::Identifier("test".to_owned())],
-            value: StorageValue::Number(22.0),
+            value: describe(StorageValue::Number(22.0)),
         });
         log.events.push(ExecutionEvent::StepFinished {
             id: "1".to_owned(),
@@ -1263,7 +1393,10 @@ mod test_executor {
         let expected = json!(
             {
                 "status": "started",
-                "initialStorage": {},
+                "initialStorage": {
+                    "type": "object",
+                    "value": {}
+                },
                 "startedAt": log.started_at,
                 "events": [
                   { "type": "STEP_STARTED", "id": "1", "timestamp": 100 },
@@ -1271,7 +1404,10 @@ mod test_executor {
                     "type": "STORAGE_UPDATED",
                     "id": "1",
                     "selector": [{ "identifier": "test" }],
-                    "value": 22
+                    "value": {
+                        "type": "numberValue",
+                        "value": 22
+                    }
                   },
                   { "type": "STEP_FINISHED", "id": "1", "timestamp": 110 }
                 ]
@@ -1279,7 +1415,7 @@ mod test_executor {
 
         );
 
-        assert_eq!(serialized, expected,);
+        assert_eq!(serialized, expected);
     }
 
     #[test]

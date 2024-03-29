@@ -1,9 +1,15 @@
-use tel::{ObjectBody, Selector, SelectorPart, StorageValue, TelError};
+use memoize::memoize;
+use tel::{ObjectBody, ParseResult, Selector, SelectorPart, StorageValue, TelError};
 
 use crate::{
     errors::ExecutionError,
     executor::{Environment, Parameter},
 };
+
+#[memoize]
+fn parse_memoized(expression: String) -> ParseResult {
+    tel::parse(&expression)
+}
 
 pub fn eval_param(
     parameter_name: &str,
@@ -64,7 +70,7 @@ pub fn eval_optional_param_with_default(
     }
 }
 
-pub fn eval_saver_param(
+pub fn eval_selector_param(
     parameter_name: &str,
     parameters: &Vec<Parameter>,
     storage: &mut ObjectBody,
@@ -74,7 +80,7 @@ pub fn eval_saver_param(
         match parameter {
             Parameter::Tel { name, expression } => {
                 if name == parameter_name {
-                    return eval_saver(expression, storage, environment);
+                    return eval_selector(expression, storage, environment);
                 }
             }
             Parameter::FunctionRef { .. } => unimplemented!(),
@@ -89,7 +95,7 @@ pub fn eval(
     storage: &ObjectBody,
     environment: &Environment,
 ) -> Result<StorageValue, ExecutionError> {
-    let result = tel::parse(expression);
+    let result = parse_memoized(expression.to_owned());
     if !result.errors.is_empty() {
         return Err(TelError::ParseError {
             errors: result.errors,
@@ -105,12 +111,12 @@ pub fn eval(
     Ok(evaluated)
 }
 
-pub fn eval_saver<'a>(
+pub fn eval_selector<'a>(
     expression: &str,
     storage: &'a ObjectBody,
     environment: &'a Environment,
 ) -> Result<Selector, ExecutionError> {
-    let result = tel::parse(expression);
+    let result = parse_memoized(expression.to_owned());
     if !result.errors.is_empty() {
         return Err(TelError::ParseError {
             errors: result.errors,
@@ -120,8 +126,8 @@ pub fn eval_saver<'a>(
     let expr = result.expr.ok_or(ExecutionError::Unknown {
         message: "No expression".into(),
     })?;
-    let evaluated =
-        tel::evaluate_saver(expr, storage, &environment.variables).map_err(ExecutionError::from)?;
+    let evaluated = tel::evaluate_selector(expr, storage, &environment.variables)
+        .map_err(ExecutionError::from)?;
 
     Ok(evaluated)
 }

@@ -30,7 +30,7 @@ pub async fn read_from_store<'a>(
         .map(|v| v.clone())
         .unwrap_or(StorageValue::Null(None));
 
-    store_value(store_as, context, step_id, value)?;
+    store_value(store_as, context, step_id, value).await?;
 
     Ok(())
 }

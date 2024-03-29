@@ -4,7 +4,7 @@ use tel::{describe, Description, StorageValue};
 
 use crate::{
     errors::ExecutionError,
-    evaluations::eval_saver,
+    evaluations::eval_selector,
     executor::{ExecutionContext, Parameter},
 };
 
@@ -24,15 +24,15 @@ pub mod time;
 pub mod wasm;
 pub mod websocket;
 
-pub fn store_value(
+pub async fn store_value(
     store_as: Option<&str>,
     context: &mut ExecutionContext<'_>,
     step_id: &str,
     value: StorageValue,
 ) -> Result<(), ExecutionError> {
     if let Some(expression) = store_as {
-        let selector = eval_saver(expression, &context.storage, &context.environment)?;
-        context.add_to_storage(step_id, selector, value)?;
+        let selector = eval_selector(expression, &context.storage, &context.environment)?;
+        context.add_to_storage(step_id, selector, value).await?;
     }
     Ok(())
 }

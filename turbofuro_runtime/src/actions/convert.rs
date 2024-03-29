@@ -10,7 +10,7 @@ use crate::{
 use super::{as_string, store_value};
 
 #[instrument(level = "trace", skip_all)]
-pub fn parse_json(
+pub async fn parse_json(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     step_id: &str,
@@ -26,12 +26,12 @@ pub fn parse_json(
             inner: e.to_string(),
         })?;
 
-    store_value(store_as, context, step_id, parsed)?;
+    store_value(store_as, context, step_id, parsed).await?;
     Ok(())
 }
 
 #[instrument(level = "trace", skip_all)]
-pub fn to_json(
+pub async fn to_json(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     step_id: &str,
@@ -46,12 +46,12 @@ pub fn to_json(
             inner: e.to_string(),
         })?;
 
-    store_value(store_as, context, step_id, json.into())?;
+    store_value(store_as, context, step_id, json.into()).await?;
     Ok(())
 }
 
 #[instrument(level = "trace", skip_all)]
-pub fn parse_urlencoded(
+pub async fn parse_urlencoded(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     step_id: &str,
@@ -73,12 +73,12 @@ pub fn parse_urlencoded(
         }
     })?;
 
-    store_value(store_as, context, step_id, parsed)?;
+    store_value(store_as, context, step_id, parsed).await?;
     Ok(())
 }
 
 #[instrument(level = "trace", skip_all)]
-pub fn to_urlencoded(
+pub async fn to_urlencoded(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
     step_id: &str,
@@ -94,7 +94,7 @@ pub fn to_urlencoded(
         }
     })?;
 
-    store_value(store_as, context, step_id, json.into())?;
+    store_value(store_as, context, step_id, json.into()).await?;
     Ok(())
 }
 
@@ -117,7 +117,8 @@ mod test_convert {
             &vec![Parameter::tel("json", r#""{\"test\":\"Hello World\"}""#)],
             "test",
             Some("obj"),
-        );
+        )
+        .await;
 
         assert!(result.is_ok());
         assert_eq!(
@@ -141,7 +142,8 @@ mod test_convert {
             &vec![Parameter::tel("value", "{ message: \"Hello World\" }")],
             "test",
             Some("json"),
-        );
+        )
+        .await;
 
         assert!(result.is_ok());
         assert_eq!(
@@ -161,6 +163,7 @@ mod test_convert {
             "test",
             Some("obj"),
         )
+        .await
         .unwrap();
 
         assert_eq!(
@@ -185,6 +188,7 @@ mod test_convert {
             "test",
             Some("data"),
         )
+        .await
         .unwrap();
 
         assert_eq!(

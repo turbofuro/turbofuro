@@ -23,16 +23,6 @@
           "name": "onMessage",
           "optional": false,
           "description": "Function to be called when message is received"
-        },
-        {
-          "type": "tel",
-          "name": "saveAs",
-          "optional": false,
-          "description": "Storage location where to save the actor ID",
-          "typeDef": {
-            "tag": "selector",
-            "strict": true
-          }
         }
       ],
       "nativeId": "actors/spawn",
@@ -67,18 +57,7 @@
       "id": "get_actor_id",
       "name": "Retrieve actor ID",
       "description": "Retrieves ID of the current actor. Useful for debugging or to allow other actors to send messages to this actor.",
-      "parameters": [
-        {
-          "name": "saveAs",
-          "optional": false,
-          "description": "Storage location where to save the actor ID",
-          "typeDef": {
-            "tag": "selector",
-            "strict": true
-          },
-          "type": "tel"
-        }
-      ],
+      "parameters": [],
       "nativeId": "actors/get_actor_id",
       "exported": true,
       "annotations": []

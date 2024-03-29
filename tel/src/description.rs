@@ -1,5 +1,6 @@
 use crate::{Expr, Selector, SelectorPart, Spanned, StorageValue, TelError};
 use once_cell::sync::Lazy;
+use serde::Serializer;
 use serde_derive::{Deserialize, Serialize};
 use std::{collections::HashMap, vec};
 
@@ -21,6 +22,7 @@ pub enum Description {
         value: String,
     },
     NumberValue {
+        #[serde(serialize_with = "serialize_number")]
         value: f64,
     },
     BooleanValue {
@@ -50,6 +52,29 @@ pub enum Description {
     },
     Unknown,
     Any,
+}
+
+impl From<StorageValue> for Description {
+    fn from(item: StorageValue) -> Self {
+        describe(item)
+    }
+}
+
+/// Custom serializer for StorageValue::Number
+///
+/// Serializes as i64 if no fractional part, otherwise as f64
+/// mimics the behavior of ECMAScript Number type
+pub fn serialize_number<S>(num: &f64, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    if num.fract() == 0.0 {
+        // Serialize as i64 if no fractional part
+        serializer.serialize_i64(*num as i64)
+    } else {
+        // Serialize as f64 otherwise
+        serializer.serialize_f64(*num)
+    }
 }
 
 static OPERATORS: Lazy<HashMap<String, Description>> = Lazy::new(|| {
@@ -651,14 +676,23 @@ impl Description {
     }
 }
 
-/**
- * Provides literal description of a value.
- *
- * This is the entry to further type inference.
- */
+/// Describes a storage value
+///
+/// This function will return a description of the value.
 pub fn describe(value: StorageValue) -> Description {
+    // TODO: Shall we take a reference instead?
     match value {
-        StorageValue::String(s) => Description::StringValue { value: s },
+        StorageValue::String(s) => {
+            if s.len() < 5000 {
+                Description::StringValue {
+                    value: s.to_string(),
+                }
+            } else {
+                Description::StringValue {
+                    value: s[..5000].to_string(),
+                }
+            }
+        }
         StorageValue::Number(f) => Description::NumberValue { value: f },
         StorageValue::Boolean(b) => Description::BooleanValue { value: b },
         StorageValue::Array(array) => {
@@ -685,7 +719,7 @@ pub fn describe(value: StorageValue) -> Description {
             }
         }
         StorageValue::Object(object) => {
-            let mut descriptions = HashMap::new();
+            let mut descriptions: HashMap<String, Description> = HashMap::new();
             for (key, value) in object {
                 descriptions.insert(key, describe(value));
             }
@@ -1091,7 +1125,7 @@ enum ContextStorage<'a> {
     SimpleArray(&'a mut Box<Description>),
 }
 
-pub fn save_to_storage_description(
+pub fn store_description(
     selectors: &Vec<SelectorPart>,
     storage: &mut HashMap<String, Description>,
     value: Description,
@@ -1387,13 +1421,13 @@ mod test_description {
         )
     }
 
-    fn apply(
-        input: &str,
+    fn evaluate_and_store(
+        selector_expression: &str,
         value: Description,
         storage: &mut ObjectDescription,
         environment: &HashMap<String, Description>,
     ) {
-        let result = parse(input);
+        let result = parse(selector_expression);
 
         if let Some(expr) = result.expr {
             let mut selector = evaluate_selector_description(expr, storage, environment);
@@ -1402,7 +1436,7 @@ mod test_description {
             let selector = selector.remove(0);
             match selector {
                 SelectorDescription::Static { selector } => {
-                    save_to_storage_description(&selector, storage, value).unwrap();
+                    store_description(&selector, storage, value).unwrap();
                 }
                 _ => {
                     panic!("Should not happen");
@@ -1412,11 +1446,11 @@ mod test_description {
     }
 
     #[test]
-    fn test_save_description() {
+    fn test_store_description() {
         let mut storage = HashMap::new();
         let environment = HashMap::new();
 
-        apply(
+        evaluate_and_store(
             "test",
             describe(storage_value!({ "a": 4 })),
             &mut storage,
@@ -1428,18 +1462,18 @@ mod test_description {
     }
 
     #[test]
-    fn test_save_description2() {
+    fn test_store_description2() {
         let mut storage = HashMap::new();
         let environment = HashMap::new();
 
-        apply(
+        evaluate_and_store(
             "test",
             describe(storage_value!({ "a": 4 })),
             &mut storage,
             &environment,
         );
 
-        apply(
+        evaluate_and_store(
             "test.a",
             describe(StorageValue::Number(6.0)),
             &mut storage,

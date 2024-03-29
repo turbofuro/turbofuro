@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::vec;
+use tel::describe;
 use tel::ObjectBody;
 use tel::StorageValue;
 use tokio::sync::mpsc;
@@ -402,7 +404,9 @@ impl Actor {
         // Build execution context
         let mut context = ExecutionContext {
             actor_id: self.get_id().to_owned(),
-            log: ExecutionLog::started_with_initial_storage(storage.clone()),
+            log: ExecutionLog::started_with_initial_storage(
+                StorageValue::Object(storage.clone()).into(),
+            ),
             storage,
             environment: self.environment.clone(),
             resources: &mut resources,
@@ -411,6 +415,7 @@ impl Actor {
             bubbling: false,
             references: HashMap::new(),
             mode: ExecutionMode::Debug(debugger),
+            loop_counts: vec![],
         };
 
         match execute(steps, &mut context).await {
@@ -491,7 +496,9 @@ impl Actor {
         // Build execution context
         let mut context = ExecutionContext {
             actor_id: self.get_id().to_owned(),
-            log: ExecutionLog::started_with_initial_storage(storage.clone()),
+            log: ExecutionLog::started_with_initial_storage(describe(StorageValue::Object(
+                storage.clone(),
+            ))),
             storage,
             environment: self.environment.clone(),
             resources: &mut self.resources,
@@ -500,6 +507,7 @@ impl Actor {
             bubbling: false,
             references: HashMap::new(),
             mode: ExecutionMode::Probe, // TODO: Roll the dice or something to prefer fast mode
+            loop_counts: vec![],
         };
 
         let body = match &local_function {

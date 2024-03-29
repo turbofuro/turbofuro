@@ -1,0 +1,36 @@
+{
+  "handlers": {},
+  "instructions": [
+    {
+      "type": "defineNativeFunction",
+      "id": "sleep",
+      "name": "Sleep",
+      "description": "Sleep for a specified amount of time.",
+      "parameters": [
+        {
+          "name": "milliseconds",
+          "optional": false,
+          "description": "Milliseconds to sleep, must be a positive integer.",
+          "type": "tel"
+        }
+      ],
+      "nativeId": "time/sleep",
+      "exported": true,
+      "annotations": []
+    },
+    {
+      "type": "defineNativeFunction",
+      "id": "get_current_time",
+      "name": "Get current time",
+      "description": "Gets the current time.",
+      "parameters": [],
+      "nativeId": "time/get_current_time",
+      "exported": true,
+      "annotations": []
+    }
+  ],
+  "imports": {},
+  "description": "Time related functions.",
+  "moduleId": "f4fe017a-301d-4c00-9a0b-dd269a275dcb",
+  "id": "f4fe017a-301d-4c00-9a0b-dd269a275dcb"
+}

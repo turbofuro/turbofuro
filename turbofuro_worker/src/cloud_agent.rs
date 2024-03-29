@@ -7,7 +7,7 @@ use serde_json::Value;
 use tokio::sync::mpsc;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
-use tracing::{debug, info, warn};
+use tracing::{debug, info, instrument, warn};
 use turbofuro_runtime::{
     actor::Actor,
     debug::DebugMessage,
@@ -16,7 +16,7 @@ use turbofuro_runtime::{
         Parameter, Step, Steps,
     },
     resources::ActorResources,
-    ObjectBody, StorageValue,
+    Description, ObjectBody, StorageValue,
 };
 
 use crate::{
@@ -50,7 +50,7 @@ pub enum OperatorCommand<'a> {
         #[serde(rename = "startedAt")]
         started_at: u64,
         #[serde(rename = "initialStorage")]
-        initial_storage: ObjectBody,
+        initial_storage: Description,
     },
     AppendReportEvent {
         id: String,
@@ -134,6 +134,7 @@ impl CloudAgent {
             .await
             .map_err(|e| CloudAgentError::WebSocketError { error: e })?;
         let (mut write, mut read) = ws_stream.split();
+        let mut write = write.buffer(16);
 
         info!("Cloud agent: Connected to operator");
 
@@ -215,7 +216,7 @@ impl CloudAgent {
                                 parameters,
                                 environment_id,
                             } => {
-                                let (sender, mut receiver) = mpsc::channel::<DebugMessage>(128);
+                                let (sender, mut receiver) = mpsc::channel::<DebugMessage>(16);
 
                                 let debugger_handle = DebuggerHandle {
                                     sender,
@@ -287,6 +288,7 @@ impl CloudAgent {
         Ok(())
     }
 
+    #[instrument(level = "info", skip_all)]
     async fn perform_run(
         &mut self,
         _id: String,

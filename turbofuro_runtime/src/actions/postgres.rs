@@ -277,7 +277,7 @@ pub async fn query_one<'a>(
             })?,
     )?;
 
-    store_value(store_as, context, step_id, value)?;
+    store_value(store_as, context, step_id, value).await?;
     Ok(())
 }
 
@@ -360,6 +360,6 @@ pub async fn query<'a>(
         StorageValue::Array(values)
     };
 
-    store_value(store_as, context, step_id, value)?;
+    store_value(store_as, context, step_id, value).await?;
     Ok(())
 }

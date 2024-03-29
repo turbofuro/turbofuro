@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import * as tel from "./tel";
+import { useEffect, useState } from "react";
+import * as tel from "@turbofuro/tel-wasm";
 
 export function useDebounce<T>(value: T, delay?: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -50,7 +50,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      const parsed = tel.parseWithMetadata(debouncedExpression);
+      const parsed = tel.parse(debouncedExpression);
       setParsed(parsed);
 
       const result = tel.evaluateValue(
@@ -62,9 +62,13 @@ export default function App() {
       setResult(result);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
+      console.error(err);
       setResult({
         type: "error",
-        message: err.message,
+        error: {
+          code: "PARSE_ERROR",
+          errors: [],
+        },
       });
     }
   }, [debouncedExpression, debouncedStorage, debouncedEnvironment]);
