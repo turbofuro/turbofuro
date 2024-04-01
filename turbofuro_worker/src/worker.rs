@@ -700,23 +700,31 @@ impl Worker {
     }
 
     pub async fn start(&mut self) -> Result<Router, WorkerError> {
-        // Let's fetch environment
-        let environment = {
-            self.environment_resolver
-                .lock()
-                .await
-                .get_environment(&self.config.environment_id)
-                .instrument(info_span!("get_environment"))
-                .await
-        };
-
-        let environment = Arc::new(match environment {
-            Ok(environment) => environment,
-            Err(e) => {
-                error!("Could not fetch environment: {:?}", e);
+        let environment: Environment = match &self.config.environment_id {
+            Some(id) => {
+                // Let's fetch environment
+                match self
+                    .environment_resolver
+                    .lock()
+                    .await
+                    .get_environment(id)
+                    .instrument(info_span!("get_environment"))
+                    .await
+                {
+                    Ok(environment) => environment,
+                    Err(e) => {
+                        error!("Could not fetch environment: {:?}", e);
+                        Environment::new("empty".into())
+                    }
+                }
+            }
+            None => {
+                info!("No environment specified in the config, using empty environment");
                 Environment::new("empty".into())
             }
-        });
+        };
+
+        let environment = Arc::new(environment);
 
         let modules = {
             futures_util::stream::iter(self.config.modules.iter().map(|m| {

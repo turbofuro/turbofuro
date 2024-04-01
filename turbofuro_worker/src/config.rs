@@ -53,7 +53,7 @@ impl Default for WorkerSettings {
 pub struct Configuration {
     pub id: String,
     pub modules: Vec<ModuleSpec>,
-    pub environment_id: String,
+    pub environment_id: Option<String>,
     #[serde(default)]
     pub settings: WorkerSettings,
 }

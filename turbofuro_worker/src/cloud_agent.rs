@@ -133,7 +133,7 @@ impl CloudAgent {
         let (ws_stream, _) = connect_async(url)
             .await
             .map_err(|e| CloudAgentError::WebSocketError { error: e })?;
-        let (mut write, mut read) = ws_stream.split();
+        let (write, mut read) = ws_stream.split();
         let mut write = write.buffer(16);
 
         info!("Cloud agent: Connected to operator");
