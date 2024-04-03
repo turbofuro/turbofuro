@@ -843,16 +843,16 @@ mod tests {
         let addr = server.local_addr();
         tokio::spawn(server);
 
+        let now = tokio::time::Instant::now();
         let (mut socket, _response) =
             tokio_tungstenite::connect_async(format!("ws://{addr}/interval"))
                 .await
                 .unwrap();
-        let now = tokio::time::Instant::now();
 
         match socket.next().await.unwrap().unwrap() {
             tungstenite::Message::Text(msg) => {
                 assert_eq!(msg, "Ping");
-                assert!(now.elapsed().as_millis() >= 97); // TODO: 100ms is not guaranteed?
+                assert!(now.elapsed().as_millis() >= 100);
             }
             other => panic!("expected a ping but got {other:?}"),
         };
@@ -860,7 +860,7 @@ mod tests {
         match socket.next().await.unwrap().unwrap() {
             tungstenite::Message::Text(msg) => {
                 assert_eq!(msg, "Ping");
-                assert!(now.elapsed().as_millis() >= 97);
+                assert!(now.elapsed().as_millis() >= 100);
             }
             other => panic!("expected a ping but got {other:?}"),
         };
