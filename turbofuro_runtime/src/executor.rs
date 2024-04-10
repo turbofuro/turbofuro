@@ -339,6 +339,7 @@ pub struct Global {
     pub modules: RwLock<Vec<Arc<CompiledModule>>>,
     pub registry: ResourceRegistry,
     pub execution_logger: ExecutionLoggerHandle,
+    pub environment: RwLock<Environment>,
     pub pub_sub: Mutex<HashMap<String, tokio::sync::broadcast::Sender<StorageValue>>>,
 }
 
@@ -348,6 +349,7 @@ pub struct GlobalBuilder {
     registry: ResourceRegistry,
     execution_logger: ExecutionLoggerHandle,
     pub_sub: HashMap<String, tokio::sync::broadcast::Sender<StorageValue>>,
+    environment: Environment,
 }
 
 impl Default for GlobalBuilder {
@@ -363,6 +365,7 @@ impl GlobalBuilder {
             registry: ResourceRegistry::default(),
             execution_logger: create_console_logger(),
             pub_sub: HashMap::new(),
+            environment: Environment::new("empty".to_owned()),
         }
     }
 
@@ -373,6 +376,11 @@ impl GlobalBuilder {
 
     pub fn registry(mut self, registry: ResourceRegistry) -> Self {
         self.registry = registry;
+        self
+    }
+
+    pub fn environment(mut self, environment: Environment) -> Self {
+        self.environment = environment;
         self
     }
 
@@ -396,6 +404,7 @@ impl GlobalBuilder {
             registry: self.registry,
             execution_logger: self.execution_logger,
             pub_sub: self.pub_sub.into(),
+            environment: RwLock::new(self.environment),
         }
     }
 }
