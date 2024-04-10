@@ -12,8 +12,8 @@ use turbofuro_runtime::{
     actor::Actor,
     debug::DebugMessage,
     executor::{
-        Callee, DebuggerHandle, ExecutionEvent, ExecutionLog, ExecutionStatus, Global, Import,
-        Parameter, Step, Steps,
+        Callee, DebuggerHandle, Environment, ExecutionEvent, ExecutionLog, ExecutionStatus, Global,
+        Import, Parameter, Step, Steps,
     },
     resources::ActorResources,
     Description, ObjectBody, StorageValue,
@@ -44,6 +44,13 @@ pub enum OperatorCommand<'a> {
     ReportDiagnostic {
         id: String,
         details: Value,
+    },
+    ReportTaskCompleted {
+        id: String,
+    },
+    ReportTaskFailed {
+        id: String,
+        error: AppError,
     },
     StartReport {
         id: String,
@@ -79,8 +86,7 @@ pub enum CloudAgentCommand {
         module_version: ModuleVersion,
         callee: Callee,
         parameters: Vec<Parameter>,
-        environment_id: String,
-        // machine_id: String
+        environment_id: Option<String>,
     },
     UpdateConfiguration {
         id: String,
@@ -122,13 +128,23 @@ impl CloudAgent {
     pub async fn start(mut self) -> Result<(), CloudAgentError> {
         info!("Cloud agent: Starting {}", self.name);
 
+        // Let's build the url
+        let query_params = serde_urlencoded::to_string([
+            ("token", self.cloud_options.token.clone()),
+            ("name", self.cloud_options.name.clone()),
+        ])
+        .map_err(|_| CloudAgentError::InvalidOperatorUrl {
+            url: self.cloud_options.operator_url.clone(),
+        })?;
         let url_string = format!(
-            "{}/server?token={}",
-            self.cloud_options.operator_url, self.cloud_options.token
+            "{}/server?{}",
+            self.cloud_options.operator_url, query_params,
         );
         let url = Url::parse(&url_string).map_err(|_| CloudAgentError::InvalidOperatorUrl {
             url: url_string.clone(),
         })?;
+        drop(query_params);
+        drop(url_string);
 
         let (ws_stream, _) = connect_async(url)
             .await
@@ -217,7 +233,6 @@ impl CloudAgent {
                                 environment_id,
                             } => {
                                 let (sender, mut receiver) = mpsc::channel::<DebugMessage>(16);
-
                                 let debugger_handle = DebuggerHandle {
                                     sender,
                                     id: id.clone(),
@@ -247,8 +262,7 @@ impl CloudAgent {
                                     debug!("Cloud agent: Debug writer finished");
                                 });
 
-                                // TODO: Report app errors
-                                let _result = self
+                                match self
                                     .perform_run(
                                         id.clone(),
                                         module_version,
@@ -257,7 +271,49 @@ impl CloudAgent {
                                         environment_id,
                                         debugger_handle,
                                     )
-                                    .await;
+                                    .await
+                                {
+                                    Ok(_) => {
+                                        match debug_writer
+                                            .send(Message::Text(
+                                                serde_json::to_string(
+                                                    &OperatorCommand::ReportTaskCompleted { id },
+                                                )
+                                                .expect(
+                                                    "Failed to serialize report task completed",
+                                                ),
+                                            ))
+                                            .await
+                                        {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                warn!("Cloud agent: Failed to send task completed: {}", e);
+                                            }
+                                        }
+                                    }
+                                    Err(error) => {
+                                        match debug_writer
+                                            .send(Message::Text(
+                                                serde_json::to_string(
+                                                    &OperatorCommand::ReportTaskFailed {
+                                                        id,
+                                                        error,
+                                                    },
+                                                )
+                                                .expect("Failed to serialize task failed"),
+                                            ))
+                                            .await
+                                        {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                warn!(
+                                                    "Cloud agent: Failed to send task failed: {}",
+                                                    e
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
                             }
                             CloudAgentCommand::UpdateConfiguration { id: _ } => {
                                 debug!("Cloud agent: Received configuration update command");
@@ -295,17 +351,20 @@ impl CloudAgent {
         module_version: ModuleVersion,
         callee: Callee,
         parameters: Vec<Parameter>,
-        environment_id: String,
+        environment_id: Option<String>,
         debugger_handle: DebuggerHandle,
     ) -> Result<ExecutionLog, AppError> {
-        let environment = self
-            .environment_resolver
-            .lock()
-            .await
-            .get_environment(&environment_id)
-            .await?;
-
         let global = self.global.clone();
+        let environment: Environment = match environment_id {
+            Some(environment_id) => {
+                self.environment_resolver
+                    .lock()
+                    .await
+                    .get_environment(&environment_id)
+                    .await?
+            }
+            None => self.global.environment.read().await.clone(),
+        };
         let module_version_resolver = self.module_version_resolver.clone();
 
         // Resolve module version for each import
@@ -374,7 +433,7 @@ mod test_cloud_agent {
             callee: Callee::Local {
                 function_id: "main".to_owned(),
             },
-            environment_id: "123".to_string(),
+            environment_id: Some("123".to_string()),
             parameters: vec![],
         };
 

@@ -724,6 +724,11 @@ impl Worker {
             }
         };
 
+        // Update global environment
+        {
+            let mut e = self.global.environment.write().await;
+            *e = environment.clone()
+        }
         let environment = Arc::new(environment);
 
         let modules = {
