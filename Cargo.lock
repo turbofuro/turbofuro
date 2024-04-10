@@ -3517,7 +3517,7 @@ dependencies = [
 
 [[package]]
 name = "turbofuro_worker"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "anyhow",
  "async-recursion",
