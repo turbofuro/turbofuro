@@ -74,8 +74,38 @@ pub async fn http_request<'a>(
     let body_param =
         eval_optional_param("body", parameters, &context.storage, &context.environment)?;
     if let Some(body_param) = body_param {
-        request_builder =
-            request_builder.body(body_param.to_string().map_err(ExecutionError::from)?);
+        match body_param {
+            StorageValue::String(data) => {
+                request_builder = request_builder.body(data);
+            }
+            StorageValue::Number(data) => {
+                request_builder = request_builder.body(data.to_string());
+            }
+            StorageValue::Boolean(data) => {
+                request_builder = request_builder.body(data.to_string());
+            }
+            StorageValue::Array(arr) => {
+                let serialized =
+                    serde_json::to_string(&arr).map_err(|e| ExecutionError::ParameterInvalid {
+                        name: "body".to_string(),
+                        message: format!("Failed to serialize array: {}", e),
+                    })?;
+                request_builder = request_builder.body(serialized);
+                request_builder = request_builder.header("Content-Type", "application/json");
+            }
+            StorageValue::Object(obj) => {
+                let serialized =
+                    serde_json::to_string(&obj).map_err(|e| ExecutionError::ParameterInvalid {
+                        name: "body".to_string(),
+                        message: format!("Failed to serialize object: {}", e),
+                    })?;
+                request_builder = request_builder.body(serialized);
+                request_builder = request_builder.header("Content-Type", "application/json");
+            }
+            StorageValue::Null(_) => {
+                // Do nothing
+            }
+        }
     }
 
     let headers_param = eval_optional_param_with_default(
