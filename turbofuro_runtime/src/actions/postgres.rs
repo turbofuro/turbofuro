@@ -1,5 +1,6 @@
+use chrono::{DateTime, Utc};
 use deadpool_postgres::{Config, Runtime};
-use std::collections::HashMap;
+use std::{collections::HashMap, time::SystemTime};
 use tel::{describe, Description, StorageValue};
 use tokio_postgres::{
     types::{IsNull, ToSql, Type},
@@ -95,12 +96,12 @@ fn parse_row(row: Row) -> Result<StorageValue, ExecutionError> {
         let t = c.type_();
         match *t {
             Type::INT4 => {
-                let v: f64 = row.get(i);
-                result.insert(c.name().to_owned(), StorageValue::Number(v));
+                let v: i32 = row.get(i);
+                result.insert(c.name().to_owned(), StorageValue::Number(v.into()));
             }
             Type::INT8 => {
-                let v: f64 = row.get(i);
-                result.insert(c.name().to_owned(), StorageValue::Number(v));
+                let v: i64 = row.get(i);
+                result.insert(c.name().to_owned(), StorageValue::Number(v as f64));
             }
             Type::FLOAT4 => {
                 let v: f64 = row.get(i);
@@ -121,6 +122,17 @@ fn parse_row(row: Row) -> Result<StorageValue, ExecutionError> {
             Type::BOOL => {
                 let v: bool = row.get(i);
                 result.insert(c.name().to_owned(), StorageValue::Boolean(v));
+            }
+            Type::TIMESTAMPTZ => {
+                let v: SystemTime = row.get(i);
+                result.insert(
+                    c.name().to_owned(),
+                    StorageValue::Number(
+                        v.duration_since(SystemTime::UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis() as f64,
+                    ),
+                );
             }
             Type::JSONB => {
                 let v: serde_json::Value = row.get(i);
@@ -188,16 +200,35 @@ impl ToSql for QueryArgument {
             StorageValue::String(s) => match ty {
                 &Type::TEXT => s.to_sql_checked(&Type::TEXT, out),
                 &Type::VARCHAR => s.to_sql_checked(&Type::VARCHAR, out),
+                &Type::TIMESTAMPTZ => {
+                    let dt = chrono::DateTime::parse_from_rfc3339(s)
+                        .map_err(|e| e.to_string())?
+                        .with_timezone(&chrono::Utc);
+                    SystemTime::from(dt).to_sql_checked(&Type::TIMESTAMPTZ, out)
+                }
                 &Type::UUID => Uuid::parse_str(s)
                     .map_err(|e| e.to_string())?
                     .to_sql_checked(&Type::UUID, out),
-                t => {
-                    error!("Postgres: Unsupported type {:?}", t);
-                    s.to_sql_checked(t, out)
-                }
+                t => s.to_sql_checked(t, out),
             },
-            StorageValue::Number(f) => f.to_sql_checked(ty, out),
+            StorageValue::Number(f) => match ty {
+                &Type::INT4 => f.to_sql_checked(&Type::INT4, out),
+                &Type::INT8 => f.to_sql_checked(&Type::INT8, out),
+                &Type::FLOAT4 => f.to_sql_checked(&Type::FLOAT4, out),
+                &Type::FLOAT8 => f.to_sql_checked(&Type::FLOAT8, out),
+                &Type::TIMESTAMPTZ => {
+                    match chrono::NaiveDateTime::from_timestamp_millis(*f as i64) {
+                        Some(dt) => {
+                            let dt: DateTime<Utc> = chrono::DateTime::from_utc(dt, chrono::Utc);
+                            SystemTime::from(dt).to_sql_checked(&Type::TIMESTAMPTZ, out)
+                        }
+                        None => Err("Could not convert timestamp".into()),
+                    }
+                }
+                t => f.to_sql_checked(t, out),
+            },
             StorageValue::Boolean(b) => b.to_sql_checked(ty, out),
+            // TODO: Check that the field is a JSON type
             StorageValue::Array(a) => serde_json::to_value(a).unwrap().to_sql(ty, out),
             StorageValue::Object(obj) => serde_json::to_value(obj).unwrap().to_sql(ty, out),
             StorageValue::Null(_) => Ok(IsNull::Yes),
