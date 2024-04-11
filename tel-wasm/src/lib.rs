@@ -102,6 +102,7 @@ export type Description =
     }
   | {
       type: 'array';
+      length?: number;
       itemType: Description;
     }
   | {

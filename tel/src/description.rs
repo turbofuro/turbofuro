@@ -636,6 +636,62 @@ impl Description {
                 if value.starts_with("https://") || value.starts_with("http://") {
                     return Description::new_base_type("string.url");
                 }
+
+                // Check if it's a UUID
+                if value.len() == 36
+                    && value.chars().nth(8) == Some('-')
+                    && value.chars().nth(13) == Some('-')
+                    && value.chars().nth(18) == Some('-')
+                    && value.chars().nth(23) == Some('-')
+                {
+                    return Description::new_base_type("string.uuid");
+                }
+
+                // Check if it's a date
+                if value.len() == 10
+                    && value.chars().nth(4) == Some('-')
+                    && value.chars().nth(7) == Some('-')
+                {
+                    return Description::new_base_type("string.date");
+                }
+
+                // Check if it's a time
+                if value.len() == 8
+                    && value.chars().nth(2) == Some(':')
+                    && value.chars().nth(5) == Some(':')
+                {
+                    return Description::new_base_type("string.time");
+                }
+
+                // Check if it's a datetime
+                if value.len() == 19
+                    && value.chars().nth(4) == Some('-')
+                    && value.chars().nth(7) == Some('-')
+                    && value.chars().nth(10) == Some('T')
+                    && value.chars().nth(13) == Some(':')
+                    && value.chars().nth(16) == Some(':')
+                {
+                    return Description::new_base_type("string.datetime");
+                }
+
+                // Check if it's a duration
+                if value.len() > 2
+                    && value.ends_with('s')
+                    && value.chars().nth(value.len() - 2) == Some('m')
+                {
+                    return Description::new_base_type("string.duration");
+                }
+
+                // Check if it's a number
+                if value.parse::<f64>().is_ok() {
+                    return Description::new_base_type("string.number");
+                }
+
+                // Check if it's a boolean
+                if value == "true" || value == "false" {
+                    return Description::new_base_type("string.boolean");
+                }
+
                 Description::new_base_type("string")
             }
             Description::BooleanValue { value: _ } => Description::new_base_type("boolean"),
@@ -699,11 +755,30 @@ pub fn describe(value: StorageValue) -> Description {
             let length = array.len();
 
             // TODO: Make this limit smarter
-            if length > 12 {
-                let mut item_description = Description::Unknown;
+            if length > 30 {
+                let mut item_description = Description::Union { of: vec![] };
+                // Gather descriptions which for many items will be much smaller
                 for item in array {
                     item_description = merge(item_description, describe(item));
                 }
+
+                // Further compression
+                // We will get rid of individual values in favor of base types
+                item_description = match item_description {
+                    Description::Union { of } => {
+                        if of.len() > 12 {
+                            let mut item_description = Description::Union { of: vec![] };
+                            for item in of {
+                                item_description = merge(item_description, item.to_base());
+                            }
+                            item_description
+                        } else {
+                            Description::Union { of }
+                        }
+                    }
+                    b => b,
+                };
+
                 Description::Array {
                     length: Some(length),
                     item_type: Box::new(item_description),
@@ -731,40 +806,35 @@ pub fn describe(value: StorageValue) -> Description {
     }
 }
 
+fn add_to_union(mut descriptions: Vec<Description>, description: Description) -> Description {
+    for item in descriptions.iter_mut() {
+        if item == &description {
+            return Description::Union { of: descriptions };
+        }
+    }
+    descriptions.push(description);
+    Description::Union { of: descriptions }
+}
+
+fn add_to_union_mut(descriptions: &mut Vec<Description>, description: Description) {
+    for item in descriptions.iter_mut() {
+        if item == &description {
+            return;
+        }
+    }
+    descriptions.push(description);
+}
+
 pub fn merge(a: Description, b: Description) -> Description {
     match (a, b) {
-        (Description::Union { of: a }, Description::Union { of: b }) => {
-            let mut descriptions = Vec::new();
-            for item in a {
-                descriptions.push(item);
+        (Description::Union { of: a }, Description::Union { of: mut b }) => {
+            for item_a in a.into_iter() {
+                add_to_union_mut(&mut b, item_a);
             }
-            for item in b {
-                descriptions.push(item);
-            }
-            descriptions.dedup();
-
-            // TODO: Compression
-
-            Description::Union { of: descriptions }
+            Description::Union { of: b }
         }
-        (Description::Union { of: a }, b) => {
-            let mut descriptions = Vec::new();
-            for item in a {
-                descriptions.push(item);
-            }
-            descriptions.push(b);
-            descriptions.dedup();
-            Description::Union { of: descriptions }
-        }
-        (a, Description::Union { of: b }) => {
-            let mut descriptions = Vec::new();
-            descriptions.push(a);
-            for item in b {
-                descriptions.push(item);
-            }
-            descriptions.dedup();
-            Description::Union { of: descriptions }
-        }
+        (Description::Union { of: a }, b) => add_to_union(a, b),
+        (a, Description::Union { of: b }) => add_to_union(b, a),
         (a, b) => {
             if a == b {
                 return a;
