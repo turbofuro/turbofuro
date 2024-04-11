@@ -95,12 +95,16 @@ fn parse_row(row: Row) -> Result<StorageValue, ExecutionError> {
         let t = c.type_();
         match *t {
             Type::INT4 => {
-                let v: i32 = row.get(i);
-                result.insert(c.name().to_owned(), StorageValue::Number(v.into()));
+                let v: f64 = row.get(i);
+                result.insert(c.name().to_owned(), StorageValue::Number(v));
+            }
+            Type::INT8 => {
+                let v: f64 = row.get(i);
+                result.insert(c.name().to_owned(), StorageValue::Number(v));
             }
             Type::FLOAT4 => {
-                let v: f32 = row.get(i);
-                result.insert(c.name().to_owned(), StorageValue::Number(v.into()));
+                let v: f64 = row.get(i);
+                result.insert(c.name().to_owned(), StorageValue::Number(v));
             }
             Type::FLOAT8 => {
                 let v: f64 = row.get(i);
