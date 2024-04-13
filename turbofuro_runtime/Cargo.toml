@@ -59,8 +59,8 @@ wasmtime = { version = "15.0.1", features = ["all-arch"] }
 wasmtime-wasi = { version = "15.0.1", features = ["tokio", "wasi-tokio"] }
 wasi-common = "15.0.1"
 postgres = "0.19.7"
-cron = "0.12.0"
 memoize = "0.4.2"
+croner = "2.0.4"
 
 [dev-dependencies]
 tower = { version = "0.4", features = ["util"] }

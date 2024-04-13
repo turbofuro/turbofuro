@@ -5,10 +5,9 @@ use crate::{
     executor::{ExecutionContext, Global, Parameter},
     resources::{Cancellation, CancellationSubject},
 };
-use chrono::Utc;
-use cron::Schedule;
+use chrono::Local;
+use croner::Cron;
 use std::{
-    str::FromStr,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -269,56 +268,67 @@ async fn run_cronjob_inner(
     actor_id: String,
     data: StorageValue,
     function_ref: Option<String>,
-    schedule: Schedule,
+    cron: Cron,
 ) {
-    while let Some(schedule) = schedule.upcoming(Utc).next() {
-        // Sleep until next schedule
-        let now = Utc::now();
-        let duration = schedule - now;
+    loop {
+        let now = Local::now();
+        match cron.find_next_occurrence(&now, false) {
+            Ok(next) => {
+                // Sleep until next schedule
+                let duration = next - now;
+                let duration = match duration.to_std() {
+                    Ok(dur) => dur,
+                    Err(e) => {
+                        warn!(
+                            "Cronjob on actor {:?} is in the past, skipping. Error was {:?}",
+                            actor_id, e
+                        );
+                        continue;
+                    }
+                };
 
-        if duration.num_milliseconds() < 0 {
-            // Schedule is in the past (?), skip
-            warn!("Cronjob with schedule {:?} is in the past", schedule);
-            continue;
-        }
-        let duration = duration.to_std().unwrap();
-        tokio::time::sleep(duration).await;
+                tokio::time::sleep(duration).await;
 
-        let messenger = {
-            global
-                .registry
-                .actors
-                .get(&actor_id)
-                .map(|r| r.value().0.clone())
-        };
+                let messenger = {
+                    global
+                        .registry
+                        .actors
+                        .get(&actor_id)
+                        .map(|r| r.value().0.clone())
+                };
 
-        // Send message
-        if let Some(messenger) = messenger {
-            let mut storage = ObjectBody::new();
-            storage.insert("message".to_owned(), data.clone());
+                // Send message
+                if let Some(messenger) = messenger {
+                    let mut storage = ObjectBody::new();
+                    storage.insert("message".to_owned(), data.clone());
 
-            if let Some(ref function_ref) = function_ref {
-                messenger
-                    .send(ActorCommand::RunFunctionRef {
-                        function_ref: function_ref.clone(),
-                        storage,
-                        sender: None,
-                    })
-                    .await
-                    .unwrap();
-            } else {
-                messenger
-                    .send(ActorCommand::Run {
-                        handler: "onMessage".to_owned(),
-                        storage,
-                        sender: None,
-                    })
-                    .await
-                    .unwrap();
+                    if let Some(ref function_ref) = function_ref {
+                        messenger
+                            .send(ActorCommand::RunFunctionRef {
+                                function_ref: function_ref.clone(),
+                                storage,
+                                sender: None,
+                            })
+                            .await
+                            .unwrap();
+                    } else {
+                        messenger
+                            .send(ActorCommand::Run {
+                                handler: "onMessage".to_owned(),
+                                storage,
+                                sender: None,
+                            })
+                            .await
+                            .unwrap();
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("Could not find next schedule: {}", e);
+                break;
             }
         }
     }
-    warn!("Cronjob with schedule {:?} has no upcoming date", schedule);
 }
 
 #[instrument(level = "trace", skip_all)]
@@ -342,14 +352,26 @@ pub async fn setup_cronjob<'a>(
         StorageValue::Null(None),
     )?;
     let function_ref = get_optional_handler_from_parameters("onSchedule", parameters);
-    let schedule =
-        Schedule::from_str(schedule.as_str()).map_err(|e| ExecutionError::ParameterInvalid {
-            name: "schedule".to_owned(),
-            message: format!("Could not parse {} as a CRON expression", e),
-        })?;
+
+    let cron =
+        Cron::new(schedule.as_str())
+            .parse()
+            .map_err(|e| ExecutionError::ParameterInvalid {
+                name: "schedule".to_owned(),
+                message: format!("Could not parse {} as a CRON expression", e),
+            })?;
 
     let actor_id = context.actor_id.clone();
     let global = context.global.clone();
+
+    // Before we start the cronjob, let's take a look if it makes sense to start it
+    let now = Local::now();
+    if let Err(err) = cron.find_next_occurrence(&now, false) {
+        return Err(ExecutionError::ParameterInvalid {
+            name: "schedule".to_owned(),
+            message: format!("Could not find next schedule: {}", err),
+        });
+    }
 
     let alarm_id = ALARM_ID.fetch_add(1, Ordering::AcqRel);
 
@@ -362,7 +384,7 @@ pub async fn setup_cronjob<'a>(
                 actor_id,
                 data,
                 function_ref,
-                schedule
+                cron
             ) => {
                 debug!("Cronjob finished");
             }
