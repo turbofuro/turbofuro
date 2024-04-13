@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use deadpool_postgres::{Config, Runtime};
 use std::{collections::HashMap, time::SystemTime};
 use tel::{describe, Description, StorageValue};
@@ -6,7 +5,7 @@ use tokio_postgres::{
     types::{IsNull, ToSql, Type},
     NoTls, Row,
 };
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, instrument, warn};
 use url::Url;
 use uuid::Uuid;
 
@@ -216,15 +215,10 @@ impl ToSql for QueryArgument {
                 &Type::INT8 => f.to_sql_checked(&Type::INT8, out),
                 &Type::FLOAT4 => f.to_sql_checked(&Type::FLOAT4, out),
                 &Type::FLOAT8 => f.to_sql_checked(&Type::FLOAT8, out),
-                &Type::TIMESTAMPTZ => {
-                    match chrono::NaiveDateTime::from_timestamp_millis(*f as i64) {
-                        Some(dt) => {
-                            let dt: DateTime<Utc> = chrono::DateTime::from_utc(dt, chrono::Utc);
-                            SystemTime::from(dt).to_sql_checked(&Type::TIMESTAMPTZ, out)
-                        }
-                        None => Err("Could not convert timestamp".into()),
-                    }
-                }
+                &Type::TIMESTAMPTZ => match chrono::DateTime::from_timestamp_millis(*f as i64) {
+                    Some(dt) => SystemTime::from(dt).to_sql_checked(&Type::TIMESTAMPTZ, out),
+                    None => Err("Could not convert timestamp".into()),
+                },
                 t => f.to_sql_checked(t, out),
             },
             StorageValue::Boolean(b) => b.to_sql_checked(ty, out),
