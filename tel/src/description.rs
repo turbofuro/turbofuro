@@ -726,7 +726,13 @@ impl Description {
                     Description::new_base_type("array.empty")
                 }
             }
-            Description::NumberValue { value: _ } => Description::new_base_type("number"),
+            Description::NumberValue { value } => {
+                if value.fract() == 0.0 {
+                    Description::new_base_type("number.integer")
+                } else {
+                    Description::new_base_type("number")
+                }
+            }
             d => d.clone(),
         }
     }
