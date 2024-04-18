@@ -392,14 +392,18 @@ async fn main() {
 mod tests {
     use super::*;
     use crate::module_version_resolver::FileSystemModuleVersionResolver;
+    use axum::body::{to_bytes, Bytes};
+    use axum::response::Response;
     use axum::{
         body::Body,
         http::{Request, StatusCode},
         Router,
     };
     use futures_util::{SinkExt, StreamExt};
-    use http::Method;
+    use http_body_util::BodyExt;
+    use hyper::Method;
     use serde_json::{json, Value};
+    use std::future::IntoFuture;
     use std::net::{Ipv4Addr, SocketAddr};
     use tokio::time::timeout;
     use tokio_tungstenite::tungstenite;
@@ -425,6 +429,19 @@ mod tests {
         );
 
         worker.start().await.unwrap()
+    }
+
+    async fn get_body(response: Response) -> Bytes {
+        response.into_body().collect().await.unwrap().to_bytes()
+    }
+
+    async fn start_test_server(app: Router) -> SocketAddr {
+        let listener = tokio::net::TcpListener::bind(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)))
+            .await
+            .unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(axum::serve(listener, app).into_future());
+        addr
     }
 
     #[tokio::test]
@@ -471,7 +488,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = get_body(response).await;
         assert_eq!(&body[..], b"Hello World!");
     }
 
@@ -491,7 +508,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = get_body(response).await;
         let body: StorageValue = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(
@@ -528,7 +545,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = get_body(response).await;
         let body: StorageValue = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(
@@ -567,7 +584,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = get_body(response).await;
         let body: StorageValue = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(
@@ -592,7 +609,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = get_body(response).await;
         let body: StorageValue = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(
@@ -604,11 +621,7 @@ mod tests {
     #[tokio::test]
     async fn echo_websocket() {
         let app = get_test_app().await;
-
-        let server = axum::Server::bind(&SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)))
-            .serve(app.into_make_service());
-        let addr = server.local_addr();
-        tokio::spawn(server);
+        let addr = start_test_server(app).await;
 
         let (mut socket, _response) =
             tokio_tungstenite::connect_async(format!("ws://{addr}/echo_ws"))
@@ -641,10 +654,7 @@ mod tests {
     #[tokio::test]
     async fn test_http_to_ws() {
         let app = get_test_app().await;
-        let server = axum::Server::bind(&SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)))
-            .serve(app.into_make_service());
-        let addr = server.local_addr();
-        tokio::spawn(server);
+        let addr = start_test_server(app).await;
         let (mut socket, _response) = timeout(
             Duration::from_secs(1),
             tokio_tungstenite::connect_async(format!("ws://{addr}/http-to-ws-socket")),
@@ -685,7 +695,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = get_body(response).await;
         let body: StorageValue = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(
@@ -722,10 +732,7 @@ mod tests {
     #[tokio::test]
     async fn test_actor_demo() {
         let app = get_test_app().await;
-        let server = axum::Server::bind(&SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)))
-            .serve(app.into_make_service());
-        let addr = server.local_addr();
-        tokio::spawn(server);
+        let addr = start_test_server(app).await;
 
         let response: Value = timeout(
             Duration::from_secs(1),
@@ -803,7 +810,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = get_body(response).await;
         let body: StorageValue = serde_json::from_slice(&body).unwrap();
         assert_eq!(
             body,
@@ -829,7 +836,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = get_body(response).await;
         let text = String::from_utf8(body.to_vec()).unwrap();
         assert_eq!(text, "Hey after 1s");
     }
@@ -837,11 +844,7 @@ mod tests {
     #[tokio::test]
     async fn test_interval_with_ws() {
         let app = get_test_app().await;
-
-        let server = axum::Server::bind(&SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)))
-            .serve(app.into_make_service());
-        let addr = server.local_addr();
-        tokio::spawn(server);
+        let addr = start_test_server(app).await;
 
         let now = tokio::time::Instant::now();
         let (mut socket, _response) =

@@ -1,10 +1,6 @@
 use std::{collections::HashMap, vec};
 
-use axum::{
-    body::{Full, HttpBody, StreamBody},
-    response::Response,
-};
-use http_body::Empty;
+use axum::{body::Body, response::Response};
 use tel::{describe, Description, StorageValue};
 use tokio_util::io::ReaderStream;
 use tracing::instrument;
@@ -86,41 +82,29 @@ pub async fn respond_with<'a>(
                 } else {
                     response_builder = response_builder.header("Content-Type", "text/plain");
                 }
-                Full::from(s)
-                    .map_err(|_| axum::Error::new("error"))
-                    .boxed_unsync()
+                Body::new(s)
             }
             StorageValue::Number(i) => {
                 response_builder = response_builder.header("Content-Type", "application/json");
                 let text = serde_json::to_string(&i).unwrap();
-                Full::from(text)
-                    .map_err(|_| axum::Error::new("error"))
-                    .boxed_unsync()
+                Body::new(text)
             }
             StorageValue::Boolean(b) => {
                 response_builder = response_builder.header("Content-Type", "application/json");
                 let text = serde_json::to_string(&b).unwrap();
-                Full::from(text)
-                    .map_err(|_| axum::Error::new("error"))
-                    .boxed_unsync()
+                Body::new(text)
             }
             StorageValue::Array(arr) => {
                 response_builder = response_builder.header("Content-Type", "application/json");
                 let text = serde_json::to_string(&arr).unwrap();
-                Full::from(text)
-                    .map_err(|_| axum::Error::new("error"))
-                    .boxed_unsync()
+                Body::new(text)
             }
             StorageValue::Object(obj) => {
                 response_builder = response_builder.header("Content-Type", "application/json");
                 let text = serde_json::to_string(&obj).unwrap();
-                Full::from(text)
-                    .map_err(|_| axum::Error::new("error"))
-                    .boxed_unsync()
+                Body::new(text)
             }
-            StorageValue::Null(_) => Empty::new()
-                .map_err(|_| axum::Error::new("error"))
-                .boxed_unsync(),
+            StorageValue::Null(_) => Body::empty(),
         };
 
         let headers_param = eval_optional_param_with_default(
@@ -210,7 +194,7 @@ pub async fn respond_with_file_stream<'a>(
         // convert the `AsyncRead` into a `Stream`
         let stream = ReaderStream::new(file.0);
         // convert the `Stream` into an `axum::body::HttpBody`
-        let body = StreamBody::new(stream);
+        let body = Body::from_stream(stream);
 
         let headers_param = eval_optional_param_with_default(
             "headers",
@@ -252,7 +236,7 @@ pub async fn respond_with_file_stream<'a>(
         .pop()
         .ok_or(http_resource_not_found())?;
 
-    let (response, receiver) = HttpResponse::new_file_stream(response);
+    let (response, receiver) = HttpResponse::new(response);
     http_request_to_respond
         .0
         .send(response)

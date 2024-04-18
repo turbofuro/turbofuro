@@ -1,6 +1,6 @@
 use std::{collections::HashMap, time::Duration};
 
-use http::{header, Method};
+use hyper::{header, Method};
 use mime::{Mime, TEXT_PLAIN};
 use once_cell::sync::Lazy;
 use reqwest::Client;

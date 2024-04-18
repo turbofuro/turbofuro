@@ -1,4 +1,4 @@
-use axum::{body::StreamBody, extract::ws::Message, response::Response};
+use axum::{extract::ws::Message, response::Response};
 use dashmap::DashMap;
 use serde_derive::{Deserialize, Serialize};
 use tel::StorageValue;
@@ -118,10 +118,6 @@ impl RegisteringRouter {
 #[derive(Debug)]
 pub enum HttpResponse {
     Normal(Response, oneshot::Sender<Result<(), ExecutionError>>),
-    FileStream(
-        Response<StreamBody<tokio_util::io::ReaderStream<tokio::fs::File>>>,
-        oneshot::Sender<Result<(), ExecutionError>>,
-    ),
     WebSocket(oneshot::Sender<Result<(), ExecutionError>>),
 }
 
@@ -129,14 +125,6 @@ impl HttpResponse {
     pub fn new(response: Response) -> (Self, oneshot::Receiver<Result<(), ExecutionError>>) {
         let (responder, receiver) = oneshot::channel();
         let http_response = HttpResponse::Normal(response, responder);
-        (http_response, receiver)
-    }
-
-    pub fn new_file_stream(
-        response: Response<StreamBody<tokio_util::io::ReaderStream<tokio::fs::File>>>,
-    ) -> (Self, oneshot::Receiver<Result<(), ExecutionError>>) {
-        let (responder, receiver) = oneshot::channel();
-        let http_response = HttpResponse::FileStream(response, responder);
         (http_response, receiver)
     }
 
