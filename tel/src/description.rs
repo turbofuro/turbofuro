@@ -1479,9 +1479,33 @@ mod test_description {
             description.to_base(),
             Description::Array {
                 item_type: Box::new(Description::BaseType {
-                    field_type: "string".to_owned()
+                    field_type: "string.alphanumeric".to_owned()
                 }),
                 length: Some(3)
+            }
+        )
+    }
+
+    #[test]
+    fn test_detects_url() {
+        let description = describe("https://turbofuro.com".into()).to_base();
+
+        assert_eq!(
+            description,
+            Description::BaseType {
+                field_type: "string.url".to_owned()
+            }
+        )
+    }
+
+    #[test]
+    fn test_detects_uuid() {
+        let description = describe("e65ebda2-aa4a-4eab-8f6e-de1fe87d98ba".into()).to_base();
+
+        assert_eq!(
+            description,
+            Description::BaseType {
+                field_type: "string.uuid".to_owned()
             }
         )
     }
