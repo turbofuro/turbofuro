@@ -822,16 +822,30 @@ impl Worker {
 
             let handle = axum_server::Handle::new();
 
-            axum_server::bind(addr)
-                .handle(handle.clone())
+            // Start shutdown listener
+            let listener_handle = handle.clone();
+            tokio::spawn(async move {
+                match shutdown_receiver.await {
+                    Ok(_) => {
+                        listener_handle.graceful_shutdown(Some(Duration::from_secs(15)));
+                    }
+                    Err(err) => {
+                        error!("Error receiving shutdown signal: {:?}", err);
+                    }
+                }
+            });
+
+            // Start HTTP server
+            match axum_server::bind(addr)
+                .handle(handle)
                 .serve(router.into_make_service())
                 .await
-                .unwrap();
-
-            tokio::spawn(async move {
-                shutdown_receiver.await.ok();
-                handle.graceful_shutdown(Some(Duration::from_secs(15)));
-            });
+            {
+                Ok(_) => {}
+                Err(e) => {
+                    error!("HTTP server startup error: {:?}", e);
+                }
+            }
 
             shutdown_completed_sender.send(()).unwrap();
         });
