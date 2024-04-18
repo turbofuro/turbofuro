@@ -462,10 +462,10 @@ async fn setup_pubsub_coordinator(
                     }
 
                 }
-                cmd = rx.recv() => {
+                msg = rx.recv() => {
                     drop(stream);
-                    if let Some(cmd) = cmd {
-                        match cmd {
+                    match msg {
+                        Some(cmd) => match cmd {
                             RedisPubSubCoordinatorCommand::Subscribe { channel, actor_id, function_ref } => {
                                 match channels.get_mut(&channel) {
                                     Some(v) => {
@@ -521,6 +521,10 @@ async fn setup_pubsub_coordinator(
                                     }
                                 }
                             }
+                        }
+                        None => {
+                            // If all handles are dropped, we should stop the coordinator
+                            break;
                         }
                     }
                 }

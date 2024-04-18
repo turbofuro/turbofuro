@@ -187,7 +187,7 @@ impl ToSql for QueryArgument {
     where
         Self: Sized,
     {
-        String::accepts(ty) || f32::accepts(ty) || i32::accepts(ty) || bool::accepts(ty)
+        String::accepts(ty) || f64::accepts(ty) || i32::accepts(ty) || bool::accepts(ty)
     }
 
     fn to_sql_checked(
