@@ -163,46 +163,23 @@ impl PartialOrd for StorageValue {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match self {
             StorageValue::String(a) => match other {
-                StorageValue::Number(_) => None,
                 StorageValue::String(b) => a.partial_cmp(b),
-                StorageValue::Boolean(_) => None,
-                StorageValue::Array(_) => todo!(),
-                StorageValue::Object(_) => todo!(),
-                StorageValue::Null(_) => None,
+                _ => None,
             },
             StorageValue::Number(a) => match other {
                 StorageValue::Number(b) => a.partial_cmp(b),
-                StorageValue::String(_) => None,
-                StorageValue::Boolean(_) => None,
-                StorageValue::Array(_) => todo!(),
-                StorageValue::Object(_) => todo!(),
-                StorageValue::Null(_) => None,
+                _ => None,
             },
-            StorageValue::Boolean(_) => match other {
-                StorageValue::Number(_) => None,
-                StorageValue::String(_) => None,
-                StorageValue::Boolean(_) => todo!(),
-                StorageValue::Array(_) => todo!(),
-                StorageValue::Object(_) => todo!(),
-                StorageValue::Null(_) => None,
+            StorageValue::Boolean(a) => match other {
+                StorageValue::Boolean(b) => a.partial_cmp(b),
+                _ => None,
             },
-            StorageValue::Array(_) => match other {
-                StorageValue::Number(_) => todo!(),
-                StorageValue::String(_) => todo!(),
-                StorageValue::Boolean(_) => todo!(),
-                StorageValue::Array(_) => todo!(),
-                StorageValue::Object(_) => todo!(),
-                StorageValue::Null(_) => None,
+            StorageValue::Array(_) => None,
+            StorageValue::Object(_) => None,
+            StorageValue::Null(b) => match other {
+                StorageValue::Null(_) => b.partial_cmp(&None),
+                _ => None,
             },
-            StorageValue::Object(_) => match other {
-                StorageValue::Number(_) => todo!(),
-                StorageValue::String(_) => todo!(),
-                StorageValue::Boolean(_) => todo!(),
-                StorageValue::Array(_) => todo!(),
-                StorageValue::Object(_) => todo!(),
-                StorageValue::Null(_) => None,
-            },
-            StorageValue::Null(_) => todo!(),
         }
     }
 }
