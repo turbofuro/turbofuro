@@ -3,6 +3,7 @@ use once_cell::sync::Lazy;
 use serde::Serializer;
 use serde_derive::{Deserialize, Serialize};
 use std::{collections::HashMap, vec};
+use url::Url;
 
 pub type ObjectDescription = HashMap<String, Description>;
 
@@ -633,10 +634,6 @@ impl Description {
         match self {
             Description::Null => self.clone(),
             Description::StringValue { value } => {
-                if value.starts_with("https://") || value.starts_with("http://") {
-                    return Description::new_base_type("string.url");
-                }
-
                 // Check if it's a UUID
                 if value.len() == 36
                     && value.chars().nth(8) == Some('-')
@@ -690,6 +687,14 @@ impl Description {
                 // Check if it's a boolean
                 if value == "true" || value == "false" {
                     return Description::new_base_type("string.boolean");
+                }
+
+                if value.chars().all(|c| c.is_alphanumeric()) {
+                    return Description::new_base_type("string.alphanumeric");
+                }
+
+                if value.parse::<Url>().is_ok() {
+                    return Description::new_base_type("string.url");
                 }
 
                 Description::new_base_type("string")
