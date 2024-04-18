@@ -1,12 +1,11 @@
 use std::{borrow::Cow, collections::HashMap};
 
 use axum::{
-    body::Bytes,
-    extract::{FromRequest, FromRequestParts, Path, Query},
+    body::{Body, Bytes},
+    extract::{FromRequest, FromRequestParts, Path, Query, Request},
 };
 use encoding_rs::{Encoding, UTF_8};
-use http::{header, HeaderMap, Method, Request};
-use hyper::Body;
+use hyper::{header, HeaderMap, Method};
 use tel::StorageValue;
 
 fn retrieve_content_type(headers: &HeaderMap) -> DetectedContentType {

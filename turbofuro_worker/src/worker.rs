@@ -5,6 +5,7 @@ use crate::environment_resolver::SharedEnvironmentResolver;
 use crate::module_version_resolver::SharedModuleVersionResolver;
 use crate::HttpServerOptions;
 use async_recursion::async_recursion;
+use axum::body::Body;
 use axum::extract::ws::WebSocket;
 use axum::extract::{State, WebSocketUpgrade};
 use axum::routing::MethodRouter;
@@ -16,7 +17,6 @@ use axum::{
 use axum::{Json, RequestExt};
 use futures_util::{SinkExt, StreamExt};
 use http::{HeaderValue, Request};
-use hyper::Body;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -40,6 +40,7 @@ use turbofuro_runtime::StorageValue;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::{debug, error, info, info_span, instrument, Instrument};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -517,15 +518,6 @@ async fn handle_request(
 
                     ws.on_upgrade(move |socket| handle_socket_with_errors(socket, sender))
                 }
-                HttpResponse::FileStream(response, responder) => {
-                    responder.send(Ok(())).unwrap();
-                    sender.send(ActorCommand::Terminate).await.map_err(|_| {
-                        AppError::from(ExecutionError::ActorCommandFailed {
-                            message: "Could not send terminate command to actor".to_owned(),
-                        })
-                    })?;
-                    response.into_response()
-                }
             };
 
             Ok(response)
@@ -827,13 +819,19 @@ impl Worker {
         tokio::spawn(async move {
             let addr = ([0, 0, 0, 0], http_server_options.port).into();
             info!("Starting HTTP server on {}", addr);
-            axum::Server::bind(&addr)
+
+            let handle = axum_server::Handle::new();
+
+            axum_server::bind(addr)
+                .handle(handle.clone())
                 .serve(router.into_make_service())
-                .with_graceful_shutdown(async {
-                    shutdown_receiver.await.ok();
-                })
                 .await
                 .unwrap();
+
+            tokio::spawn(async move {
+                shutdown_receiver.await.ok();
+                handle.graceful_shutdown(Some(Duration::from_secs(15)));
+            });
 
             shutdown_completed_sender.send(()).unwrap();
         });

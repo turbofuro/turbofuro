@@ -178,7 +178,7 @@ impl CloudAgent {
             loop {
                 interval.tick().await;
 
-                match {
+                let stats_write_result = {
                     debug!(
                         "Cloud agent: Sending stats {}",
                         serde_json::to_string(&OperatorCommand::UpdateStats {
@@ -199,7 +199,9 @@ impl CloudAgent {
                             .unwrap(),
                         ))
                         .await
-                } {
+                };
+
+                match stats_write_result {
                     Ok(_) => {}
                     Err(err) => {
                         // Quite simple cancellation - when WebSocket is closed, the write will fail and we will stop the loop
