@@ -319,17 +319,39 @@ impl RedisPubSubCoordinatorHandle {
         let (sender, receiver) = tokio::sync::oneshot::channel::<()>();
 
         let self_clone = self.clone();
-        let channel_canceler = channel.clone();
+        let channel_copy = channel.clone();
         tokio::spawn(async move {
-            let _ = receiver.await; // TODO: Handle error?
-            self_clone
+            match receiver.await {
+                Ok(_) => {
+                    debug!(
+                        "Cancellation received for Redis PubSub subscription on channel {}",
+                        channel_copy
+                    );
+                }
+                Err(_) => {
+                    debug!(
+                        "Cancellation sender dropped for Redis PubSub subscription on channel {}",
+                        channel_copy
+                    );
+                }
+            }
+
+            match self_clone
                 .tx
                 .send(RedisPubSubCoordinatorCommand::Unsubscribe {
-                    channel: channel_canceler,
+                    channel: channel_copy.clone(),
                     actor_id: actor_id.clone(),
                 })
                 .await
-                .unwrap();
+            {
+                Ok(_) => {}
+                Err(e) => {
+                    error!(
+                        "Failed to unsubscribe from Redis PubSub channel {}: {:?}",
+                        channel_copy, e
+                    );
+                }
+            }
         });
 
         Ok(Cancellation {

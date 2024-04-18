@@ -392,7 +392,7 @@ async fn main() {
 mod tests {
     use super::*;
     use crate::module_version_resolver::FileSystemModuleVersionResolver;
-    use axum::body::{to_bytes, Bytes};
+    use axum::body::Bytes;
     use axum::response::Response;
     use axum::{
         body::Body,

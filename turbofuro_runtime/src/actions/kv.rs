@@ -97,7 +97,7 @@ mod tests {
 
         assert_eq!(
             context.storage.get("data"),
-            Some(&StorageValue::Number(12.0)) // TODO: Fix once TEL integer support is added
+            Some(&StorageValue::Number(12.0))
         );
 
         delete_from_store(

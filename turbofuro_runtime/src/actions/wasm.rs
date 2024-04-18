@@ -124,7 +124,7 @@ pub async fn run_wasi(
         .build();
 
     let mut store = Store::new(&wasm.engine, wasi);
-    // TODO: Add actual fuel limit - this is just for testing
+    // TODO: Add ability to set fuel and async yield interval
     store.set_fuel(u64::MAX)?;
     store.fuel_async_yield_interval(Some(10000))?;
 

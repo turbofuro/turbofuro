@@ -119,13 +119,19 @@ pub fn run_configuration_fetcher(
 ) {
     tokio::spawn(async move {
         loop {
-            let new_config = fetch_configuration(&cloud_options).await.unwrap(); // TODO: Error handling
-            {
-                configuration_coordinator
-                    .update_configuration(new_config)
-                    .await
+            let result = fetch_configuration(&cloud_options).await;
+
+            match result {
+                Ok(new_config) => {
+                    configuration_coordinator
+                        .update_configuration(new_config)
+                        .await;
+                }
+                Err(e) => {
+                    warn!("Passive configuration fetch failed with error: {:?}", e);
+                }
             }
-            tokio::time::sleep(Duration::from_secs(3000)).await; // TODO: Increase this
+            tokio::time::sleep(Duration::from_secs(3000)).await; // 10 minutes
         }
     });
 }
