@@ -35,6 +35,7 @@ use crate::actions::http_server::respond_with;
 use crate::actions::http_server::respond_with_file_stream;
 use crate::actions::http_server::setup_route;
 use crate::actions::kv;
+use crate::actions::mustache;
 use crate::actions::os;
 use crate::actions::postgres;
 use crate::actions::pubsub;
@@ -864,6 +865,9 @@ async fn execute_native<'a>(
         "pubsub/publish" => pubsub::publish(context, parameters, step_id).await?,
         "pubsub/subscribe" => pubsub::subscribe(context, parameters, step_id).await?,
         "pubsub/unsubscribe" => pubsub::unsubscribe(context, parameters, step_id).await?,
+        "mustache/render_template" => {
+            mustache::render_template(context, parameters, step_id, store_as).await?
+        }
         id => {
             return Err(ExecutionError::Unsupported {
                 message: format!("Native function {} not found", id),

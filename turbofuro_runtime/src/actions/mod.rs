@@ -16,6 +16,7 @@ pub mod fs;
 pub mod http_client;
 pub mod http_server;
 pub mod kv;
+pub mod mustache;
 pub mod os;
 pub mod postgres;
 pub mod pubsub;
