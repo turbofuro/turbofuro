@@ -29,6 +29,12 @@ cd turbofuro_worker
 cargo run -- --config test_config.json
 ```
 
+#### Running with tokio-console
+The worker uses [Tokio][https://tokio.rs/] as a async runtime. You can run and connect to the worker with [tokio-console](https://github.com/tokio-rs/console) to inspect running tasks and resources.
+```
+RUSTFLAGS="--cfg tokio_unstable" cargo run -- --token XXX
+```
+
 ## Contributing
 We welcome all contributions with 💛 
 
