@@ -77,6 +77,21 @@ pub async fn get_connection<'a>(
         }
     })?;
 
+    // Test the connection
+    let conn = pool
+        .get()
+        .await
+        .map_err(|e| ExecutionError::PostgresError {
+            message: e.to_string(),
+            stage: "pool_test".into(),
+        })?;
+    conn.query("SELECT 1", &[])
+        .await
+        .map_err(|e| ExecutionError::PostgresError {
+            message: e.to_string(),
+            stage: "query".into(),
+        })?;
+
     debug!("Created Postgres connection pool: {}", name);
 
     // Put to the registry

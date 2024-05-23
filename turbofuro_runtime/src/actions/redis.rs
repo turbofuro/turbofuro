@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use crate::{
     actor::ActorCommand,
@@ -8,7 +8,8 @@ use deadpool_redis::{Config, Runtime};
 use futures_util::StreamExt;
 use redis::FromRedisValue;
 use tel::{describe, Description, ObjectBody, StorageValue};
-use tracing::{debug, error, instrument};
+use tokio::time::sleep;
+use tracing::{debug, error, instrument, warn};
 
 use crate::{
     actions::as_string,
@@ -56,7 +57,7 @@ pub async fn get_connection<'a>(
     }
 
     // If not let's create a connection pool
-    let config = Config::from_url(connection_string);
+    let config = Config::from_url(&connection_string);
     let pool =
         config
             .create_pool(Some(Runtime::Tokio1))
@@ -66,7 +67,21 @@ pub async fn get_connection<'a>(
 
     debug!("Created Redis connection pool: {}", name);
 
-    let coordinator_handle = setup_pubsub_coordinator(pool.clone(), context.global.clone()).await?;
+    let mut connection = pool.get().await.map_err(|e| ExecutionError::RedisError {
+        message: e.to_string(),
+    })?;
+
+    // Ping the connection to make sure it's working
+    let _: String = redis::cmd("PING")
+        .query_async(&mut connection)
+        .await
+        .map_err(|e| ExecutionError::RedisError {
+            message: e.to_string(),
+        })?;
+
+    // Setup the pubsub coordinator
+    let coordinator_handle =
+        setup_pubsub_coordinator(&connection_string, context.global.clone()).await?;
 
     // Put to the registry
     context
@@ -282,10 +297,12 @@ pub enum RedisPubSubCoordinatorCommand {
         channel: String,
         actor_id: String,
         function_ref: Option<String>,
+        sender: tokio::sync::oneshot::Sender<Result<(), ExecutionError>>,
     },
     Unsubscribe {
         channel: String,
         actor_id: String,
+        sender: tokio::sync::oneshot::Sender<Result<(), ExecutionError>>,
     },
 }
 
@@ -305,19 +322,27 @@ impl RedisPubSubCoordinatorHandle {
         actor_id: String,
         function_ref: Option<String>,
     ) -> Result<Cancellation, ExecutionError> {
+        let (sender, receiver) = tokio::sync::oneshot::channel::<Result<(), ExecutionError>>();
         self.tx
             .send(RedisPubSubCoordinatorCommand::Subscribe {
                 channel: channel.clone(),
                 actor_id: actor_id.clone(),
                 function_ref: function_ref.clone(),
+                sender,
             })
             .await
             .map_err(|e| ExecutionError::RedisError {
                 message: e.to_string(),
             })?;
 
-        let (sender, receiver) = tokio::sync::oneshot::channel::<()>();
+        receiver
+            .await
+            .map_err(|e| ExecutionError::RedisError {
+                message: e.to_string(),
+            })?
+            .map_err(|e| e.clone())?;
 
+        let (sender, receiver) = tokio::sync::oneshot::channel::<()>();
         let self_clone = self.clone();
         let channel_copy = channel.clone();
         tokio::spawn(async move {
@@ -336,15 +361,31 @@ impl RedisPubSubCoordinatorHandle {
                 }
             }
 
+            let (sender, receiver) = tokio::sync::oneshot::channel::<Result<(), ExecutionError>>();
             match self_clone
                 .tx
                 .send(RedisPubSubCoordinatorCommand::Unsubscribe {
                     channel: channel_copy.clone(),
                     actor_id: actor_id.clone(),
+                    sender,
                 })
                 .await
             {
-                Ok(_) => {}
+                Ok(_) => {
+                    match receiver.await.map_err(|e| ExecutionError::RedisError {
+                        message: e.to_string(),
+                    }) {
+                        Ok(_) => {
+                            debug!("Unsubscribed from Redis PubSub channel {}", channel_copy);
+                        }
+                        Err(e) => {
+                            error!(
+                                "Failed to unsubscribe from Redis PubSub channel {}: {:?}",
+                                channel_copy, e
+                            );
+                        }
+                    }
+                }
                 Err(e) => {
                     error!(
                         "Failed to unsubscribe from Redis PubSub channel {}: {:?}",
@@ -366,12 +407,22 @@ impl RedisPubSubCoordinatorHandle {
         channel: String,
         actor_id: String,
     ) -> Result<(), ExecutionError> {
+        let (sender, receiver) = tokio::sync::oneshot::channel::<Result<(), ExecutionError>>();
         self.tx
-            .send(RedisPubSubCoordinatorCommand::Unsubscribe { channel, actor_id })
+            .send(RedisPubSubCoordinatorCommand::Unsubscribe {
+                channel,
+                actor_id,
+                sender,
+            })
             .await
             .map_err(|e| ExecutionError::RedisError {
                 message: e.to_string(),
             })?;
+
+        receiver.await.map_err(|e| ExecutionError::RedisError {
+            message: e.to_string(),
+        })??;
+
         Ok(())
     }
 }
@@ -383,26 +434,49 @@ struct ActorSubscriber {
 }
 
 async fn setup_pubsub_coordinator(
-    redis_pool: deadpool_redis::Pool,
+    connection_string: &str,
     global: Arc<Global>,
 ) -> Result<RedisPubSubCoordinatorHandle, ExecutionError> {
-    let connection = deadpool_redis::Connection::take(redis_pool.get().await.map_err(|e| {
-        ExecutionError::RedisError {
-            message: e.to_string(),
-        }
-    })?);
-    let mut pubsub: redis::aio::PubSub = connection.into_pubsub();
+    // Let's establish a separate connection for the PubSub coordinator
+    // This is a limitation of the current Rust Redis client, but it's not a big deal
+    let client = redis::Client::open(connection_string).unwrap();
+    let mut pubsub = client.get_async_pubsub().await?;
 
     let (tx, mut rx) = tokio::sync::mpsc::channel::<RedisPubSubCoordinatorCommand>(100);
     tokio::spawn(async move {
-        // Channel -> list of actors
-        let mut channels: HashMap<String, Vec<ActorSubscriber>> = HashMap::new();
+        // Map of channels to list of actors
+        let mut channels = HashMap::<String, Vec<ActorSubscriber>>::new();
 
         loop {
             let mut stream = pubsub.on_message();
             tokio::select! {
                 msg = stream.next() => {
                     if msg.is_none() {
+                        // This probably means our connection was closed
+                        match client.get_async_pubsub().await {
+                            Ok(connection) => {
+                                // Ok we got a new connection, let's re-assign it
+                                drop(stream);
+                                pubsub = connection;
+
+                                // Re-subscribe
+                                for (channel, i) in channels.iter() {
+                                    warn!("Re-subscribing to channel {:?} {:?}", channel, i);
+                                    match pubsub.subscribe(channel).await {
+                                        Ok(_) => {
+                                            debug!("Re-subscribed to channel {}", channel);
+                                        }
+                                        Err(err) => {
+                                            warn!("Failed to re-subscribe to channel: {}", err);
+                                        }
+                                    }
+                                }
+                            },
+                            Err(e) => {
+                                 warn!("Failed to reconnect to Redis PubSub: {}", e);
+                                 sleep(Duration::from_secs(5)).await; // Wait 5 seconds before retrying
+                            }
+                        }
                         continue;
                     }
                     let msg = msg.unwrap();
@@ -466,7 +540,7 @@ async fn setup_pubsub_coordinator(
                     drop(stream);
                     match msg {
                         Some(cmd) => match cmd {
-                            RedisPubSubCoordinatorCommand::Subscribe { channel, actor_id, function_ref } => {
+                            RedisPubSubCoordinatorCommand::Subscribe { channel, actor_id, function_ref, sender } => {
                                 match channels.get_mut(&channel) {
                                     Some(v) => {
                                         v.push(ActorSubscriber {
@@ -475,9 +549,12 @@ async fn setup_pubsub_coordinator(
                                         });
                                         if v.len() == 1 { // In case an empty array was left
                                             match pubsub.subscribe(channel).await {
-                                                Ok(_) => {}
+                                                Ok(_) => {
+                                                    let _ = sender.send(Ok(()));
+                                                }
                                                 Err(err) => {
                                                     error!("Failed to subscribe to channel: {}", err);
+                                                    let _ = sender.send(Err(err.into()));
                                                 }
                                             }
                                         }
@@ -488,24 +565,30 @@ async fn setup_pubsub_coordinator(
                                             function_ref: function_ref.clone(),
                                         }]);
                                         match pubsub.subscribe(channel).await {
-                                            Ok(_) => {}
+                                            Ok(_) => {
+                                                let _ = sender.send(Ok(()));
+                                            }
                                             Err(err) => {
                                                 error!("Failed to subscribe to channel (2): {}", err);
+                                                let _ = sender.send(Err(err.into()));
                                             }
                                         }
                                     }
                                 }
                             }
-                            RedisPubSubCoordinatorCommand::Unsubscribe { channel, actor_id} => {
+                            RedisPubSubCoordinatorCommand::Unsubscribe { channel, actor_id, sender } => {
                                 match channels.get_mut(&channel) {
                                     Some(v) => {
                                         v.retain(|a| a.id != actor_id);
                                         if v.is_empty() {
                                             channels.remove(&channel);
                                             match pubsub.unsubscribe(channel).await {
-                                                Ok(_) => {}
+                                                Ok(_) => {
+                                                    let _ = sender.send(Ok(()));
+                                                }
                                                 Err(err) => {
                                                     error!("Failed to unsubscribe from channel: {}", err);
+                                                    let _ = sender.send(Err(err.into()));
                                                 }
                                             }
                                         }
@@ -513,9 +596,12 @@ async fn setup_pubsub_coordinator(
                                     None => {
                                         debug!("Unsubscribe on channel without any actors, channel was: {}", channel);
                                         match pubsub.unsubscribe(channel).await {
-                                            Ok(_) => {}
+                                            Ok(_) => {
+                                                let _ = sender.send(Ok(()));
+                                            }
                                             Err(err) => {
                                                 error!("Failed to unsubscribe from channel (2): {}", err);
+                                                let _ = sender.send(Err(err.into()));
                                             }
                                         }
                                     }
