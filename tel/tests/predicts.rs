@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use serde_json::json;
-use tel::{describe, evaluate_description, parse, StorageValue};
+use tel::{describe, predict_description, parse, StorageValue};
 
 #[test]
 fn test_predicts_cases() {
@@ -55,7 +55,7 @@ fn test_predicts_cases() {
             .map(|(k, v)| (k, describe(v)))
             .collect::<HashMap<_, _>>();
 
-        let description = evaluate_description(
+        let description = predict_description(
             result.expr.unwrap(),
             &storage_description,
             &environment_description,

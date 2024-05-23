@@ -1,6 +1,6 @@
 [package]
 name = "turbofuro_runtime"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 license.workspace = true
 repository.workspace = true
@@ -29,7 +29,7 @@ reqwest = { version = "0.12.3", features = ["json", "native-tls-vendored"] }
 http = "0.2.8"
 async-recursion = "1.0.0"
 serde_derive = "1.0.152"
-tel = { path = "../tel", version = "0.1.2" }
+tel = { path = "../tel", version = "0.1.6" }
 futures-util = "0.3.25"
 mime = "0.3.16"
 encoding_rs = "0.8.31"

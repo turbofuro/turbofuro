@@ -855,7 +855,7 @@ pub fn merge(a: Description, b: Description) -> Description {
     }
 }
 
-pub fn evaluate_description(
+pub fn predict_description(
     expr: Spanned<Expr>,
     storage: &HashMap<String, Description>,
     environment: &HashMap<String, Description>,
@@ -867,27 +867,27 @@ pub fn evaluate_description(
             then,
             otherwise,
         } => {
-            let value = evaluate_description(*condition, storage, environment);
+            let value = predict_description(*condition, storage, environment);
 
             match value {
                 Description::BooleanValue { value } => {
                     if value {
-                        evaluate_description(*then, storage, environment)
+                        predict_description(*then, storage, environment)
                     } else {
-                        evaluate_description(*otherwise, storage, environment)
+                        predict_description(*otherwise, storage, environment)
                     }
                 }
                 Description::Any => Description::Union {
                     of: vec![
-                        evaluate_description(*then, storage, environment),
-                        evaluate_description(*otherwise, storage, environment),
+                        predict_description(*then, storage, environment),
+                        predict_description(*otherwise, storage, environment),
                     ],
                 },
                 Description::BaseType { field_type } if field_type == "boolean" => {
                     Description::Union {
                         of: vec![
-                            evaluate_description(*then, storage, environment),
-                            evaluate_description(*otherwise, storage, environment),
+                            predict_description(*then, storage, environment),
+                            predict_description(*otherwise, storage, environment),
                         ],
                     }
                 }
@@ -909,7 +909,7 @@ pub fn evaluate_description(
         Expr::Array(n) => {
             let data: Vec<Description> = n
                 .into_iter()
-                .map(|e| evaluate_description(e, storage, environment))
+                .map(|e| predict_description(e, storage, environment))
                 .collect();
 
             Description::ExactArray { value: data }
@@ -918,7 +918,7 @@ pub fn evaluate_description(
             let data: HashMap<String, Description> = n
                 .into_iter()
                 .map(|(k, v)| {
-                    let v = evaluate_description(v, storage, environment);
+                    let v = predict_description(v, storage, environment);
                     (k, v)
                 })
                 .collect();
@@ -934,7 +934,7 @@ pub fn evaluate_description(
             None => Description::Null,
         },
         Expr::Attribute(expr, attr) => {
-            let expr = evaluate_description(*expr, storage, environment);
+            let expr = predict_description(*expr, storage, environment);
 
             expr.map(|expr| match expr {
                 Description::Object { value } => match value.get(&attr) {
@@ -979,8 +979,8 @@ pub fn evaluate_description(
             })
         }
         Expr::Slice(expr, slice_expr) => {
-            let expr = evaluate_description(*expr, storage, environment);
-            let slice = evaluate_description(*slice_expr, storage, environment);
+            let expr = predict_description(*expr, storage, environment);
+            let slice = predict_description(*slice_expr, storage, environment);
 
             expr.map(|expr| {
                 slice.map(|slice| match expr {
@@ -1049,7 +1049,7 @@ pub fn evaluate_description(
             })
         }
         Expr::UnaryOp(op, expr) => {
-            let expr = evaluate_description(*expr, storage, environment);
+            let expr = predict_description(*expr, storage, environment);
 
             expr.map(|expr| {
                 let key = expr.get_type() + "_" + op.get_operator();
@@ -1063,8 +1063,8 @@ pub fn evaluate_description(
             })
         }
         Expr::BinaryOp { lhs, op, rhs } => {
-            let l = evaluate_description(*lhs, storage, environment);
-            let r = evaluate_description(*rhs, storage, environment);
+            let l = predict_description(*lhs, storage, environment);
+            let r = predict_description(*rhs, storage, environment);
 
             r.map(|r| {
                 l.map(|l| {
@@ -1084,7 +1084,7 @@ pub fn evaluate_description(
             name,
             arguments: _,
         } => {
-            let value = evaluate_description(*callee, storage, environment);
+            let value = predict_description(*callee, storage, environment);
 
             value.map(|v| {
                 let key = v.get_type() + "_" + name.as_str();
@@ -1121,7 +1121,7 @@ pub fn evaluate_selector_description(
         }
         Expr::Slice(expr, slice_expr) => {
             let selectors = evaluate_selector_description(*expr, storage, environment);
-            let value = evaluate_description(*slice_expr, storage, environment);
+            let value = predict_description(*slice_expr, storage, environment);
 
             let mut combined_selectors = Vec::new();
             let mut value_selector_branches = value.as_slice();
@@ -1158,7 +1158,7 @@ pub fn evaluate_selector_description(
             then,
             otherwise,
         } => {
-            let value = evaluate_description(*condition, storage, environment);
+            let value = predict_description(*condition, storage, environment);
 
             match value {
                 Description::BooleanValue { value } => {

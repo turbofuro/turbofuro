@@ -4,15 +4,18 @@ use serde_derive::{Deserialize, Serialize};
 use std::{collections::HashMap, vec};
 
 mod description;
+mod description_notation;
 mod operators;
 
 pub use description::describe;
-pub use description::evaluate_description;
 pub use description::evaluate_selector_description;
+pub use description::predict_description;
 pub use description::store_description;
 pub use description::Description;
 pub use description::ObjectDescription;
 pub use description::SelectorDescription;
+pub use description_notation::evaluate_description_notation;
+pub use description_notation::parse_description;
 
 pub type ObjectBody = HashMap<String, StorageValue>;
 

@@ -265,15 +265,67 @@ export type Range = { start: number; end: number };
 
 export type SpannedExpr = [Expr, Range];
 
+///
+/// Description notation start
+/// 
+export type DExpr =
+  | { number: number }
+  | { string: string }
+  | { boolean: boolean }
+  | { array: DSpannedExpr[] }
+  | { object: { [key: string]: DSpannedExpr } }
+  | { identifier: string }
+  | { attribute: [value: DSpannedExpr, attribute: string] }
+  | {
+      methodCall: {
+        callee: DSpannedExpr;
+        name: string;
+        arguments: DSpannedExpr[];
+      };
+    }
+  | {
+      binaryOp: {
+        lhs: DSpannedExpr;
+        op:
+          | 'and'
+          | 'or';
+        rhs: DSpannedExpr;
+      };
+    }
+  | {
+      arrayOf: DSpannedExpr;
+    }
+  | 'invalid'
+  | 'null';
+
+export type DRange = { start: number; end: number };
+
+export type DSpannedExpr = [DExpr, DRange];
+
+///
+/// Description notation end
+/// 
+
 export type ParseResult = {
   expr?: SpannedExpr;
   errors: TelParseError[];
 };
 
+export type DescriptionParseResult = {
+  expr?: DSpannedExpr;
+  errors: TelParseError[];
+};
+
 /**
- * @param input - TEL expression
+ * @param input - TEL expression / selector
  */
 export function parse(input: string): ParseResult;
+
+/**
+ * @param input - Description notation
+ */
+export function parseDescription(input: string): DescriptionParseResult;
+
 
 export type EvaluationResult =
   | {
@@ -311,10 +363,18 @@ export function describe(value: any): Description;
  * @param storage - Storage description object
  * @param environment - Environment description object
  */
-export function evaluateDescription(
+export function predictDescription(
   expression: string,
   storage: Record<string, Description>,
   environment: Record<string, Description>,
+): DescriptionEvaluationResult;
+
+
+/**
+ * @param expression - Description notation
+ */
+export function evaluateDescription(
+  expression: string,
 ): DescriptionEvaluationResult;
 
 export type DescriptionStoreBranch =
@@ -382,6 +442,13 @@ pub struct DescriptionEvaluationResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
+pub struct DescriptionNotationEvaluationResult {
+    pub value: Description,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "camelCase")]
 pub enum DescriptionStoreBranch {
     Ok { storage: ObjectDescription },
     Error { error: TelError },
@@ -399,6 +466,37 @@ pub fn parse(input: &str) -> JsValue {
     serialize(&result).expect("Could not serialize ParseResult")
 }
 
+#[wasm_bindgen(skip_typescript, js_name = parseDescription)]
+pub fn parse_description(input: &str) -> JsValue {
+    let result = tel::parse_description(input);
+    serialize(&result).expect("Could not serialize ParseResult")
+}
+
+#[wasm_bindgen(skip_typescript, js_name = evaluateDescription)]
+pub fn evaluate_description(input: &str) -> JsValue {
+    let parse_result = tel::parse_description(input);
+    let result: DescriptionEvaluationResult = match parse_result.expr {
+        Some(expr) => {
+            let output = tel::evaluate_description_notation(expr);
+            match output {
+                Ok(value) => DescriptionEvaluationResult { value },
+                Err(error) => DescriptionEvaluationResult {
+                    value: Description::Error { error },
+                },
+            }
+        }
+        None => DescriptionEvaluationResult {
+            value: Description::Error {
+                error: TelError::ParseError {
+                    errors: parse_result.errors,
+                },
+            },
+        },
+    };
+
+    serialize(&result).expect("Could not serialize DescriptionEvaluationResult")
+}
+
 #[wasm_bindgen(skip_typescript, js_name = describe)]
 pub fn describe(storage_value: JsValue) -> JsValue {
     let storage_value: StorageValue =
@@ -408,8 +506,8 @@ pub fn describe(storage_value: JsValue) -> JsValue {
     serialize(&result).expect("Could not serialize Description")
 }
 
-#[wasm_bindgen(skip_typescript, js_name = evaluateDescription)]
-pub fn evaluate_description(input: &str, storage: JsValue, environment: JsValue) -> JsValue {
+#[wasm_bindgen(skip_typescript, js_name = predictDescription)]
+pub fn predict_description(input: &str, storage: JsValue, environment: JsValue) -> JsValue {
     let storage: ObjectDescription =
         serde_wasm_bindgen::from_value(storage).expect("Could not deserialize described storage");
     let environment: ObjectDescription = serde_wasm_bindgen::from_value(environment)
@@ -418,7 +516,7 @@ pub fn evaluate_description(input: &str, storage: JsValue, environment: JsValue)
     let parse_result = tel::parse(input);
     let result: DescriptionEvaluationResult = match parse_result.expr {
         Some(expr) => {
-            let output = tel::evaluate_description(expr, &storage, &environment);
+            let output = tel::predict_description(expr, &storage, &environment);
             DescriptionEvaluationResult { value: output }
         }
         None => DescriptionEvaluationResult {

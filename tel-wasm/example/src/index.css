@@ -3,7 +3,7 @@ html {
   font-size: 16px;
   line-height: 1.5;
   box-sizing: border-box;
-  font-family: "Inter", sans-serif;
+  font-family: "Noto Sans", sans-serif;
 }
 
 body {
@@ -17,27 +17,44 @@ nav {
   height: 50px;
   color: white;
   padding: 4px 16px;
-  font-size: 18px;
+  font-size: 24px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  background-color: #222;
+  background-color: #000;
+  font-family: "Noto Sans Mono", monospace;
+  font-weight: 700;
 }
 
 textarea {
-  font-family: "Roboto Mono", monospace;
+  font-family: "Noto Sans Mono", monospace;
   width: 100%;
   min-height: 200px;
   box-sizing: border-box;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  resize: vertical;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  background: black;
+  color: white;
+  border: none;
+  font-weight: 600;
+
+  font-size: 0.875rem;
+  line-height: 1.25rem;
 }
 
 pre {
-  font-family: "Roboto Mono", monospace;
+  font-family: "Noto Sans Mono", monospace;
 }
 
 h3 {
-  margin: 0 8px;
-  font-family: monospace;
+  margin: 4px 2px;
+  font-family: "Noto Sans Mono", monospace;
 }
 
 .split {
