@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use serde_json::json;
-use tel::{describe, predict_description, parse, StorageValue};
+use tel::{describe, parse, predict_description, StorageValue};
 
 #[test]
 fn test_predicts_cases() {
