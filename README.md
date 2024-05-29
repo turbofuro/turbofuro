@@ -1,9 +1,9 @@
 # Turbofuro
-Visual programming langauge for building cool things in record time.
+Visual programming language for building cool things in record time.
 
-This repository contains the worker application, runtime and Turbofuro Expression Language (TEL).
+This repository contains the worker application, runtime, Turbofuro Expression Language (TEL) and its bindings. You can find the editor and more details about this project on the [Turbofuro website](https://turbofuro.com).
 
-Note: This project is in early development stage. We are working on the first public release. Stay tuned!
+*Note: This project is experimental and under active development. It is not recommended for production use yet.*
 
 ## Getting started
 Download a latest release for your platform from the [GitHub releases page](https://github.com/turbofuro/turbofuro/releases) or install the binary using `cargo install turbofuro_worker`. There is also an official [Docker image](https://hub.docker.com/r/turbofuro/worker) you can use.
@@ -30,7 +30,7 @@ cargo run -- --config test_config.json
 ```
 
 #### Running with tokio-console
-The worker uses [Tokio][https://tokio.rs/] as a async runtime. You can run and connect to the worker with [tokio-console](https://github.com/tokio-rs/console) to inspect running tasks and resources.
+The worker uses [Tokio](https://tokio.rs/) as a async runtime. You can run and connect to the worker with [tokio-console](https://github.com/tokio-rs/console) to inspect running tasks and resources.
 ```
 RUSTFLAGS="--cfg tokio_unstable" cargo run -- --token XXX
 ```
