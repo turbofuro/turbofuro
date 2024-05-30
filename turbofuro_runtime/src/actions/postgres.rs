@@ -104,38 +104,78 @@ pub async fn get_connection<'a>(
     Ok(())
 }
 
+const NULL: StorageValue = StorageValue::Null(None);
+
 fn parse_row(row: Row) -> Result<StorageValue, ExecutionError> {
     let mut result: HashMap<String, StorageValue> = HashMap::new();
     for (i, c) in row.columns().iter().enumerate() {
         let t = c.type_();
         match *t {
             Type::INT4 => {
-                let v: i32 = row.get(i);
-                result.insert(c.name().to_owned(), StorageValue::Number(v.into()));
+                let v = row.try_get::<usize, Option<i32>>(i).map_err(|e| {
+                    ExecutionError::PostgresError {
+                        message: e.to_string(),
+                        stage: "parse".into(),
+                    }
+                })?;
+                result.insert(c.name().to_owned(), v.map_or(NULL, |v| v.into()));
             }
             Type::INT8 => {
-                let v: i64 = row.get(i);
-                result.insert(c.name().to_owned(), StorageValue::Number(v as f64));
+                let v = row.try_get::<usize, Option<i64>>(i).map_err(|e| {
+                    ExecutionError::PostgresError {
+                        message: e.to_string(),
+                        stage: "parse".into(),
+                    }
+                })?;
+                result.insert(c.name().to_owned(), v.map_or(NULL, |v| (v as f64).into()));
             }
             Type::FLOAT4 => {
-                let v: f64 = row.get(i);
-                result.insert(c.name().to_owned(), StorageValue::Number(v));
+                let v = row.try_get::<usize, Option<f64>>(i).map_err(|e| {
+                    ExecutionError::PostgresError {
+                        message: e.to_string(),
+                        stage: "parse".into(),
+                    }
+                })?;
+                result.insert(c.name().to_owned(), v.map_or(NULL, StorageValue::Number));
             }
             Type::FLOAT8 => {
-                let v: f64 = row.get(i);
-                result.insert(c.name().to_owned(), StorageValue::Number(v));
+                let v = row.try_get::<usize, Option<f64>>(i).map_err(|e| {
+                    ExecutionError::PostgresError {
+                        message: e.to_string(),
+                        stage: "parse".into(),
+                    }
+                })?;
+                result.insert(c.name().to_owned(), v.map_or(NULL, StorageValue::Number));
             }
             Type::TEXT => {
-                let v: String = row.get(i);
-                result.insert(c.name().to_owned(), StorageValue::String(v));
+                let v = row.try_get::<usize, Option<String>>(i).map_err(|e| {
+                    ExecutionError::PostgresError {
+                        message: e.to_string(),
+                        stage: "parse".into(),
+                    }
+                })?;
+                result.insert(c.name().to_owned(), v.map_or(NULL, StorageValue::String));
             }
             Type::UUID => {
-                let v: Uuid = row.get(i);
-                result.insert(c.name().to_owned(), StorageValue::String(v.to_string()));
+                let v = row.try_get::<usize, Option<Uuid>>(i).map_err(|e| {
+                    ExecutionError::PostgresError {
+                        message: e.to_string(),
+                        stage: "parse".into(),
+                    }
+                })?;
+                result.insert(
+                    c.name().to_owned(),
+                    v.map_or(NULL, |v| v.to_string().into()),
+                );
             }
             Type::BOOL => {
-                let v: bool = row.get(i);
-                result.insert(c.name().to_owned(), StorageValue::Boolean(v));
+                let v = row.try_get::<usize, Option<bool>>(i).map_err(|e| {
+                    ExecutionError::PostgresError {
+                        message: e.to_string(),
+                        stage: "parse".into(),
+                    }
+                })?;
+                result.insert(c.name().to_owned(), v.map_or(NULL, |v| v.into()));
             }
             Type::TIMESTAMPTZ => {
                 let v: SystemTime = row.get(i);
@@ -149,24 +189,54 @@ fn parse_row(row: Row) -> Result<StorageValue, ExecutionError> {
                 );
             }
             Type::JSONB => {
-                let v: serde_json::Value = row.get(i);
-                result.insert(
-                    c.name().to_owned(),
-                    serde_json::from_value(v).map_err(|_e| ExecutionError::PostgresError {
-                        message: "Could not parse JSONB value".to_owned(),
+                let v = row
+                    .try_get::<usize, Option<serde_json::Value>>(i)
+                    .map_err(|e| ExecutionError::PostgresError {
+                        message: e.to_string(),
                         stage: "parse".into(),
-                    })?,
-                );
+                    })?;
+
+                match v {
+                    Some(v) => {
+                        result.insert(
+                            c.name().to_owned(),
+                            serde_json::from_value(v).map_err(|_e| {
+                                ExecutionError::PostgresError {
+                                    message: "Could not parse JSONB value".to_owned(),
+                                    stage: "parse".into(),
+                                }
+                            })?,
+                        );
+                    }
+                    None => {
+                        result.insert(c.name().to_owned(), NULL);
+                    }
+                }
             }
             Type::JSON => {
-                let v: serde_json::Value = row.get(i);
-                result.insert(
-                    c.name().to_owned(),
-                    serde_json::from_value(v).map_err(|_e| ExecutionError::PostgresError {
-                        message: "Could not parse JSONB value".to_owned(),
+                let v = row
+                    .try_get::<usize, Option<serde_json::Value>>(i)
+                    .map_err(|e| ExecutionError::PostgresError {
+                        message: e.to_string(),
                         stage: "parse".into(),
-                    })?,
-                );
+                    })?;
+
+                match v {
+                    Some(v) => {
+                        result.insert(
+                            c.name().to_owned(),
+                            serde_json::from_value(v).map_err(|_e| {
+                                ExecutionError::PostgresError {
+                                    message: "Could not parse JSONB value".to_owned(),
+                                    stage: "parse".into(),
+                                }
+                            })?,
+                        );
+                    }
+                    None => {
+                        result.insert(c.name().to_owned(), NULL);
+                    }
+                }
             }
             _ => {
                 warn!("Unsupported type {:?}", t)
