@@ -297,7 +297,11 @@ impl Description {
         }
     }
 
-    pub fn to_form_string(&self) -> String {
+    pub fn to_notation(&self) -> String {
+        self.to_notation_with_indent(0)
+    }
+
+    pub fn to_notation_with_indent(&self, indent: usize) -> String {
         match self {
             Description::Null => "null".to_owned(),
             Description::StringValue { value } => "\"".to_owned() + value + "\"",
@@ -308,11 +312,39 @@ impl Description {
                     return "{}".to_owned();
                 }
 
-                let mut descriptions = Vec::new();
-                for (k, v) in value {
-                    descriptions.push(format!("{:?}: {}", k, v.to_form_string()));
+                let indent_str = " ".repeat(indent + 2);
+
+                // Get entries and sort them
+                let mut entries = value.iter().collect::<Vec<_>>();
+                entries.sort_by(|a, b| a.0.cmp(b.0));
+
+                // Write notation
+                let mut notation: String = "{\n".to_owned();
+                for (k, v) in entries {
+                    // If key is alphanumeric, we don't need to quote it
+                    let k = if k.chars().all(|c| c.is_alphanumeric()) {
+                        k.clone()
+                    } else {
+                        format!("\"{}\"", k)
+                    };
+
+                    notation.push_str(&format!(
+                        "{}{}: {},\n",
+                        indent_str,
+                        k,
+                        v.to_notation_with_indent(indent + 2)
+                    ));
                 }
-                format!("{{ {} }}", descriptions.join(", "))
+
+                // Remove trailing comma
+                if notation.ends_with(",\n") {
+                    notation.pop();
+                    notation.pop();
+                }
+                notation.push('\n');
+                notation.push_str(" ".repeat(indent).as_str());
+                notation.push('}');
+                notation
             }
             Description::ExactArray { value } => {
                 if value.is_empty() {
@@ -321,7 +353,7 @@ impl Description {
 
                 let mut descriptions = Vec::new();
                 for item in value {
-                    descriptions.push(item.to_form_string());
+                    descriptions.push(item.to_notation());
                 }
                 format!("[{}]", descriptions.join(", "))
             }
@@ -329,13 +361,24 @@ impl Description {
                 item_type,
                 length: _,
             } => {
-                format!("{}[]", item_type.to_form_string())
+                // If item type is a union we need to wrap it in parentheses
+                let item_type = match *item_type.clone() {
+                    Description::Union { of } => {
+                        if of.len() == 1 {
+                            of[0].to_notation()
+                        } else {
+                            format!("({})", item_type.to_notation())
+                        }
+                    }
+                    _ => item_type.to_notation(),
+                };
+                format!("{}[]", item_type)
             }
             Description::BaseType { field_type } => field_type.to_owned(),
             Description::Union { of } => {
                 let mut descriptions = Vec::new();
                 for item in of {
-                    descriptions.push(item.to_form_string());
+                    descriptions.push(item.to_notation());
                 }
                 descriptions.join(" | ")
             }
@@ -1587,5 +1630,87 @@ mod test_description {
 
         let current_test = storage.get("test").unwrap().clone();
         assert_eq!(current_test, describe(storage_value!({ "a": 6.0 })))
+    }
+
+    #[test]
+    fn test_notation() {
+        assert_eq!(Description::new_base_type("string").to_notation(), "string");
+        assert_eq!(
+            Description::new_string("GET".into()).to_notation(),
+            "\"GET\""
+        );
+        assert_eq!(
+            Description::new_union(vec![
+                Description::new_base_type("string"),
+                Description::new_base_type("number")
+            ])
+            .to_notation(),
+            "string | number"
+        );
+
+        let mut object = HashMap::new();
+        object.insert("a".to_owned(), Description::new_base_type("string"));
+        object.insert("b".to_owned(), Description::new_base_type("number"));
+        assert_eq!(
+            Description::Object {
+                value: object.clone()
+            }
+            .to_notation(),
+            "{\n  a: string,\n  b: number\n}"
+        );
+
+        let mut bigger_object = HashMap::new();
+        bigger_object.insert("a".to_owned(), Description::new_base_type("string"));
+        bigger_object.insert("b".to_owned(), Description::new_base_type("number"));
+        bigger_object.insert("c".to_owned(), Description::Object { value: object });
+        assert_eq!(
+            Description::Object {
+                value: bigger_object.clone()
+            }
+            .to_notation(),
+            "{\n  a: string,\n  b: number,\n  c: {\n    a: string,\n    b: number\n  }\n}"
+        );
+
+        assert_eq!(
+            Description::Object {
+                value: HashMap::new()
+            }
+            .to_notation(),
+            "{}"
+        );
+        assert_eq!(
+            Description::ExactArray { value: vec![] }.to_notation(),
+            "[]"
+        );
+        assert_eq!(
+            Description::ExactArray {
+                value: vec![
+                    Description::new_base_type("string"),
+                    Description::new_base_type("number"),
+                ]
+            }
+            .to_notation(),
+            "[string, number]"
+        );
+        assert_eq!(
+            Description::Array {
+                item_type: Box::new(Description::new_base_type("string")),
+                length: None
+            }
+            .to_notation(),
+            "string[]"
+        );
+
+        assert_eq!(
+            Description::Array {
+                item_type: Box::new(Description::new_union(vec![
+                    Description::new_base_type("string"),
+                    Description::new_base_type("number")
+                ])),
+                length: None
+            }
+            .to_notation(),
+            "(string | number)[]"
+        );
     }
 }

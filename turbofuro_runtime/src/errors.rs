@@ -5,6 +5,9 @@ use tel::{Description, StorageValue, TelError};
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "code", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ExecutionError {
+    Custom {
+        value: Option<StorageValue>,
+    },
     Tel {
         #[serde(flatten)]
         error: TelError,

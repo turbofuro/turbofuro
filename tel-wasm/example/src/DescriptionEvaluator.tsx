@@ -55,6 +55,9 @@ export default function DescriptionEvaluator() {
           {result?.value != null && (
             <pre id="output">{JSON.stringify(result.value, null, 2)}</pre>
           )}
+          {result?.value != null && (
+            <pre id="output">{tel.getNotation(result.value)}</pre>
+          )}
           <pre className="text-sm">{JSON.stringify(parsed, null, 2)}</pre>
         </div>
       </div>

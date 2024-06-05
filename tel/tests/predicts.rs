@@ -61,6 +61,6 @@ fn test_predicts_cases() {
             &environment_description,
         );
 
-        assert_eq!(expected, description.to_form_string());
+        assert_eq!(expected, description.to_notation());
     }
 }

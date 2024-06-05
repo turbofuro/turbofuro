@@ -323,9 +323,15 @@ export function parse(input: string): ParseResult;
 
 /**
  * @param input - Description notation
+ * @returns Description object
  */
 export function parseDescription(input: string): DescriptionParseResult;
 
+/**
+ * @param description - Description
+ * @returns Description notation
+ */
+export function getNotation(description: Description): string;
 
 export type EvaluationResult =
   | {
@@ -470,6 +476,15 @@ pub fn parse(input: &str) -> JsValue {
 pub fn parse_description(input: &str) -> JsValue {
     let result = tel::parse_description(input);
     serialize(&result).expect("Could not serialize ParseResult")
+}
+
+#[wasm_bindgen(skip_typescript, js_name = getNotation)]
+pub fn get_notation(description: JsValue) -> JsValue {
+    let description: Description =
+        serde_wasm_bindgen::from_value(description).expect("Could not deserialize Description");
+
+    let result = description.to_notation();
+    serialize(&result).expect("Could not serialize String")
 }
 
 #[wasm_bindgen(skip_typescript, js_name = evaluateDescription)]

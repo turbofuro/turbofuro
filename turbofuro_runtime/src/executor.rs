@@ -126,6 +126,12 @@ impl<'de> serde::Deserialize<'de> for Callee {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Branch {
+    pub condition: String,
+    pub steps: Steps,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
 pub enum Step {
@@ -155,7 +161,9 @@ pub enum Step {
         id: String,
         condition: String,
         then: Steps,
-        elze: Option<Steps>,
+        branches: Option<Vec<Branch>>,
+        #[serde(rename = "else")]
+        else_: Option<Steps>,
     },
     ForEach {
         id: String,
@@ -187,6 +195,10 @@ pub enum Step {
         id: String,
         body: Steps,
         catch: Steps,
+    },
+    Throw {
+        id: String,
+        value: Option<String>,
     },
 }
 
@@ -240,6 +252,7 @@ impl Step {
             Step::Assign { id, .. } => id,
             Step::DefineNativeFunction { id, .. } => id,
             Step::Try { id, .. } => id,
+            Step::Throw { id, .. } => id,
         }
     }
 }
@@ -1200,17 +1213,37 @@ async fn execute_step<'a>(
             }
         },
         Step::If {
-            id: _,
             condition,
             then,
-            elze,
+            id: _,
+            branches,
+            else_,
         } => {
             let value = eval(condition, &context.storage, &context.environment)?;
-
             if value == StorageValue::Boolean(true) {
                 execute_steps(then, context).await?;
-            } else if let Some(elze) = elze {
-                execute_steps(elze, context).await?;
+            } else {
+                let mut matched = false;
+
+                // Else-if branches
+                if let Some(branches) = branches {
+                    for branch in branches {
+                        let value =
+                            eval(&branch.condition, &context.storage, &context.environment)?;
+                        if value == StorageValue::Boolean(true) {
+                            execute_steps(&branch.steps, context).await?;
+                            matched = true;
+                            break;
+                        }
+                    }
+                }
+
+                // If nothing matched, execute else branch
+                if !matched {
+                    if let Some(else_) = else_ {
+                        execute_steps(else_, context).await?;
+                    }
+                }
             }
         }
         Step::ForEach {
@@ -1267,6 +1300,13 @@ async fn execute_step<'a>(
                 }
             },
         },
+        Step::Throw { value, .. } => {
+            let value = match value {
+                Some(value) => Some(eval(value, &context.storage, &context.environment)?),
+                None => None,
+            };
+            return Err(ExecutionError::Custom { value });
+        }
     }
     Ok(())
 }
