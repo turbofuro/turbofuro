@@ -1,3 +1,16 @@
+## 0.1.12
+* Fix panics when Postgres row contains NULL
+* Upgraded TEL
+
+## 0.1.11
+* Upgraded dependencies to axum 0.7.5, hyper 1.0
+* Security fixes
+* CRON schedule now uses more common format
+* Improved Postgres data type conversion
+* Added more specialized base descriptions like string.uuid
+
+## 0.1.10
+
 ## 0.1.3
 * Add option to specify custom cloud URL and operator URL
 
