@@ -1,6 +1,10 @@
 use std::{collections::HashMap, time::Duration};
 
-use hyper::{header, Method};
+use axum::http::HeaderValue;
+use hyper::{
+    header::{self, CONTENT_TYPE},
+    Method,
+};
 use mime::{Mime, TEXT_PLAIN};
 use once_cell::sync::Lazy;
 use reqwest::Client;
@@ -27,16 +31,10 @@ static CLIENT: Lazy<Client> = Lazy::new(|| {
         .unwrap()
 });
 
-#[instrument(level = "trace", skip_all)]
-pub async fn http_request<'a>(
-    context: &mut ExecutionContext<'a>,
+fn get_method(
+    context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
-    step_id: &str,
-    store_as: Option<&str>,
-) -> Result<(), ExecutionError> {
-    let url_param = eval_param("url", parameters, &context.storage, &context.environment)?;
-    let url = as_string(url_param, "url")?;
-
+) -> Result<Method, ExecutionError> {
     let method_value = eval_optional_param_with_default(
         "method",
         parameters,
@@ -45,7 +43,6 @@ pub async fn http_request<'a>(
         StorageValue::String("get".to_string()),
     )?;
     let method = as_string(method_value, "method")?;
-
     let method = match method.to_lowercase().as_str() {
         "get" => Method::GET,
         "post" => Method::POST,
@@ -62,6 +59,20 @@ pub async fn http_request<'a>(
             });
         }
     };
+    Ok(method)
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn send_http_request<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let url_param = eval_param("url", parameters, &context.storage, &context.environment)?;
+    let url = as_string(url_param, "url")?;
+
+    let method = get_method(context, parameters)?;
 
     let mut request_builder = CLIENT.request(method, url);
 
@@ -86,24 +97,69 @@ pub async fn http_request<'a>(
             }
             StorageValue::Array(arr) => {
                 let serialized =
-                    serde_json::to_string(&arr).map_err(|e| ExecutionError::ParameterInvalid {
+                    serde_json::to_vec(&arr).map_err(|e| ExecutionError::ParameterInvalid {
                         name: "body".to_string(),
                         message: format!("Failed to serialize array: {}", e),
                     })?;
                 request_builder = request_builder.body(serialized);
-                request_builder = request_builder.header("Content-Type", "application/json");
+                request_builder = request_builder
+                    .header(CONTENT_TYPE, HeaderValue::from_static("application/json"));
             }
             StorageValue::Object(obj) => {
                 let serialized =
-                    serde_json::to_string(&obj).map_err(|e| ExecutionError::ParameterInvalid {
+                    serde_json::to_vec(&obj).map_err(|e| ExecutionError::ParameterInvalid {
                         name: "body".to_string(),
                         message: format!("Failed to serialize object: {}", e),
                     })?;
                 request_builder = request_builder.body(serialized);
-                request_builder = request_builder.header("Content-Type", "application/json");
+                request_builder = request_builder
+                    .header(CONTENT_TYPE, HeaderValue::from_static("application/json"));
             }
             StorageValue::Null(_) => {
                 // Do nothing
+            }
+        }
+    }
+
+    let form_param =
+        eval_optional_param("form", parameters, &context.storage, &context.environment)?;
+    if let Some(form_param) = form_param {
+        match form_param {
+            StorageValue::Object(obj) => {
+                let serialized = serde_urlencoded::to_string(obj).map_err(|e| {
+                    ExecutionError::ParameterInvalid {
+                        name: "form".to_string(),
+                        message: format!("Failed to serialize object: {}", e),
+                    }
+                })?;
+                request_builder = request_builder.body(serialized);
+                request_builder = request_builder.header(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("application/x-www-form-urlencoded"),
+                );
+            }
+            StorageValue::Array(arr) => {
+                let serialized = serde_urlencoded::to_string(arr).map_err(|e| {
+                    ExecutionError::ParameterInvalid {
+                        name: "form".to_string(),
+                        message: format!("Failed to serialize array: {}", e),
+                    }
+                })?;
+                request_builder = request_builder.body(serialized);
+                request_builder = request_builder.header(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("application/x-www-form-urlencoded"),
+                );
+            }
+            StorageValue::Null(_) => {
+                // Do nothing
+            }
+            s => {
+                return Err(ExecutionError::ParameterTypeMismatch {
+                    name: "form".to_owned(),
+                    expected: Description::new_base_type("object"),
+                    actual: describe(s),
+                })
             }
         }
     }

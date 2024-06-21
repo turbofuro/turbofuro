@@ -30,7 +30,7 @@ use crate::actions::alarms;
 use crate::actions::convert;
 use crate::actions::crypto;
 use crate::actions::fs;
-use crate::actions::http_client::http_request;
+use crate::actions::http_client::send_http_request;
 use crate::actions::http_server::respond_with;
 use crate::actions::http_server::respond_with_file_stream;
 use crate::actions::http_server::setup_route;
@@ -41,6 +41,7 @@ use crate::actions::postgres;
 use crate::actions::pubsub;
 use crate::actions::redis;
 use crate::actions::time;
+use crate::actions::url;
 use crate::actions::wasm;
 use crate::actions::websocket;
 use crate::debug::DebugMessage;
@@ -843,7 +844,9 @@ async fn execute_native<'a>(
         "actors/check_actor_exists" => {
             actors::check_actor_exists(context, parameters, step_id, store_as).await?
         }
-        "http_client/request" => http_request(context, parameters, step_id, store_as).await?,
+        "url/parse" => url::parse_url(context, parameters, step_id, store_as).await?,
+        "url/serialize" => url::serialize_url(context, parameters, step_id, store_as).await?,
+        "http_client/request" => send_http_request(context, parameters, step_id, store_as).await?,
         "http_server/setup_route" => setup_route(context, parameters, step_id).await?,
         "http_server/respond_with" => respond_with(context, parameters, step_id).await?,
         "http_server/respond_with_file_stream" => {

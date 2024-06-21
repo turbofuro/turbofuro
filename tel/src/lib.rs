@@ -411,7 +411,7 @@ impl TelError {
     }
 }
 
-const NULL: StorageValue = StorageValue::Null(None);
+pub const NULL: StorageValue = StorageValue::Null(None);
 
 /// Op enum for Token parsing
 ///
