@@ -1,5 +1,6 @@
+use futures_util::StreamExt;
 use tel::StorageValue;
-use tokio::fs::OpenOptions;
+use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 use tracing::instrument;
 
 use crate::{
@@ -7,10 +8,16 @@ use crate::{
     errors::ExecutionError,
     evaluations::{eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
-    resources::FileHandle,
+    resources::{FileHandle, Resource},
 };
 
 use super::store_value;
+
+fn file_handle_not_found() -> ExecutionError {
+    ExecutionError::MissingResource {
+        resource_type: FileHandle::get_type().into(),
+    }
+}
 
 #[instrument(level = "trace", skip_all)]
 pub async fn open_file<'a>(
@@ -54,13 +61,34 @@ pub async fn open_file<'a>(
         .await
         .map_err(ExecutionError::from)?;
 
-    context.resources.files.push(FileHandle(file));
+    context.resources.files.push(FileHandle { file });
 
     Ok(())
 }
 
 #[instrument(level = "trace", skip_all)]
-pub async fn read_to_string<'a>(
+pub async fn write_stream<'a>(
+    context: &mut ExecutionContext<'a>,
+    _step_id: &str,
+) -> Result<(), ExecutionError> {
+    let mut file_handle = context
+        .resources
+        .files
+        .pop()
+        .ok_or(file_handle_not_found())?;
+
+    let mut stream = context.resources.get_nearest_stream()?;
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk?;
+        file_handle.file.write_all(&chunk).await?;
+    }
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn simple_read_to_string<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     step_id: &str,
@@ -79,7 +107,7 @@ pub async fn read_to_string<'a>(
 }
 
 #[instrument(level = "trace", skip_all)]
-pub async fn write_string<'a>(
+pub async fn simple_write_string<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     _step_id: &str,
@@ -116,7 +144,7 @@ mod tests {
         let mut t = ExecutionTest::default();
         let mut context = t.get_context();
 
-        write_string(
+        simple_write_string(
             &mut context,
             &vec![
                 Parameter::tel("path", "\"test.txt\""),
@@ -127,7 +155,7 @@ mod tests {
         .await
         .unwrap();
 
-        read_to_string(
+        simple_read_to_string(
             &mut context,
             &vec![Parameter::tel("path", "\"test.txt\"")],
             "test",

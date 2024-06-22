@@ -7,16 +7,16 @@ use hyper::{
 };
 use mime::{Mime, TEXT_PLAIN};
 use once_cell::sync::Lazy;
-use reqwest::Client;
+use reqwest::{Body, Client, RequestBuilder, Response};
 use tel::{describe, Description, ObjectBody, StorageValue};
-use tracing::{debug, info, instrument};
+use tracing::{info, instrument};
 
 use crate::{
     errors::ExecutionError,
     evaluations::{eval_optional_param, eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
     http_utils::decode_text_with_encoding,
-    resources::{HttpRequestToRespond, Resource},
+    resources::{HttpRequestToRespond, PendingHttpResponse, Resource},
 };
 
 use super::{as_string, store_value};
@@ -31,10 +31,12 @@ static CLIENT: Lazy<Client> = Lazy::new(|| {
         .unwrap()
 });
 
-fn get_method(
+fn get_builder(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
-) -> Result<Method, ExecutionError> {
+) -> Result<RequestBuilder, ExecutionError> {
+    let url_param = eval_param("url", parameters, &context.storage, &context.environment)?;
+    let url = as_string(url_param, "url")?;
     let method_value = eval_optional_param_with_default(
         "method",
         parameters,
@@ -59,29 +61,71 @@ fn get_method(
             });
         }
     };
-    Ok(method)
+
+    Ok(CLIENT.request(method, url))
 }
 
-#[instrument(level = "trace", skip_all)]
-pub async fn send_http_request<'a>(
-    context: &mut ExecutionContext<'a>,
-    parameters: &Vec<Parameter>,
-    step_id: &str,
-    store_as: Option<&str>,
-) -> Result<(), ExecutionError> {
-    let url_param = eval_param("url", parameters, &context.storage, &context.environment)?;
-    let url = as_string(url_param, "url")?;
+#[derive(Debug)]
+struct ResponseMetadata {
+    ok: bool,
+    status: u16,
+    status_text: String,
+    headers: HashMap<String, String>,
+    content_type: Option<Mime>,
+}
 
-    let method = get_method(context, parameters)?;
-
-    let mut request_builder = CLIENT.request(method, url);
-
-    if let Some(query) =
-        eval_optional_param("query", parameters, &context.storage, &context.environment)?
-    {
-        request_builder = request_builder.query(&query);
+impl ResponseMetadata {
+    fn into_storage_object(self) -> ObjectBody {
+        let mut map: ObjectBody = HashMap::new();
+        map.insert(
+            "status".to_string(),
+            StorageValue::Number(self.status.into()),
+        );
+        map.insert(
+            "statusText".to_string(),
+            StorageValue::String(self.status_text),
+        );
+        map.insert("ok".to_string(), StorageValue::Boolean(self.ok));
+        map.insert(
+            "headers".to_string(),
+            StorageValue::Object(
+                self.headers
+                    .into_iter()
+                    .map(|(k, v)| (k, StorageValue::String(v)))
+                    .collect(),
+            ),
+        );
+        map
     }
+}
 
+fn get_metadata_object_from_response(response: &Response) -> ResponseMetadata {
+    ResponseMetadata {
+        ok: response.status().is_success(),
+        status: response.status().as_u16(),
+        status_text: response
+            .status()
+            .canonical_reason()
+            .unwrap_or_default()
+            .to_string(),
+        headers: response
+            .headers()
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or_default().to_string()))
+            .collect(),
+        content_type: response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<Mime>().ok()),
+    }
+}
+
+fn set_static_body_from_parameters(
+    context: &mut ExecutionContext<'_>,
+    parameters: &Vec<Parameter>,
+    mut request_builder: RequestBuilder,
+) -> Result<RequestBuilder, ExecutionError> {
     let body_param =
         eval_optional_param("body", parameters, &context.storage, &context.environment)?;
     if let Some(body_param) = body_param {
@@ -120,7 +164,6 @@ pub async fn send_http_request<'a>(
             }
         }
     }
-
     let form_param =
         eval_optional_param("form", parameters, &context.storage, &context.environment)?;
     if let Some(form_param) = form_param {
@@ -162,6 +205,19 @@ pub async fn send_http_request<'a>(
                 })
             }
         }
+    }
+    Ok(request_builder)
+}
+
+async fn bare_http_request<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    mut request_builder: RequestBuilder,
+) -> Result<Response, ExecutionError> {
+    if let Some(query) =
+        eval_optional_param("query", parameters, &context.storage, &context.environment)?
+    {
+        request_builder = request_builder.query(&query);
     }
 
     let headers_param = eval_optional_param_with_default(
@@ -213,44 +269,20 @@ pub async fn send_http_request<'a>(
         }
     };
 
-    let mut response_object: ObjectBody = HashMap::new();
-    response_object.insert(
-        "status".to_string(),
-        StorageValue::Number(response.status().as_u16().into()),
-    );
-    if let Some(reason) = response.status().canonical_reason() {
-        response_object.insert(
-            "statusText".to_string(),
-            StorageValue::String(reason.to_string()),
-        );
-    }
-    response_object.insert(
-        "ok".to_string(),
-        StorageValue::Boolean(response.status().is_success()),
-    );
+    Ok(response)
+}
 
-    let mut headers_object: ObjectBody = HashMap::new();
-    for (k, v) in response.headers() {
-        headers_object.insert(
-            k.to_string(),
-            StorageValue::String(v.to_str().unwrap_or_default().to_string()),
-        );
-    }
-    response_object.insert("headers".to_string(), StorageValue::Object(headers_object));
-
-    let content_type = response
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.parse::<Mime>().ok());
-
-    let full = response.bytes().await.unwrap();
+async fn collect_body(
+    response: Response,
+    content_type: Option<Mime>,
+) -> Result<StorageValue, ExecutionError> {
     let mime = content_type.unwrap_or(TEXT_PLAIN);
     let encoding_name = mime
         .get_param("charset")
         .map(|charset| charset.as_str())
         .unwrap_or("utf-8");
 
+    let full = response.bytes().await.unwrap();
     let (text, replaced) = decode_text_with_encoding(encoding_name, &full);
     match replaced {
         true => {
@@ -266,20 +298,34 @@ pub async fn send_http_request<'a>(
                 .map(|f| StorageValue::Number(*f as f64))
                 .collect();
 
-            response_object.insert("body".to_string(), StorageValue::Array(vec));
+            Ok(StorageValue::Array(vec))
         }
-        false => match serde_json::from_str::<StorageValue>(&text) {
-            Ok(value) => {
-                response_object.insert("body".to_string(), value);
-                debug!("JSON response: {:?}", response_object);
-            }
-            Err(_) => {
-                response_object.insert("body".to_string(), StorageValue::String(text));
-                debug!("JSON parse errored");
-            }
-        },
+        false => Ok(match serde_json::from_str::<StorageValue>(&text) {
+            Ok(value) => value,
+            Err(_) => StorageValue::String(text),
+        }),
     }
+}
 
+#[instrument(level = "trace", skip_all)]
+pub async fn send_http_request<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let mut request_builder = get_builder(context, parameters)?;
+
+    // Set body
+    request_builder = set_static_body_from_parameters(context, parameters, request_builder)?;
+
+    let response = bare_http_request(context, parameters, request_builder).await?;
+    let metadata = get_metadata_object_from_response(&response);
+
+    // Parse body
+    let body = collect_body(response, metadata.content_type.clone()).await?;
+    let mut response_object = metadata.into_storage_object();
+    response_object.insert("body".to_string(), body);
     store_value(
         store_as,
         context,
@@ -287,5 +333,102 @@ pub async fn send_http_request<'a>(
         StorageValue::Object(response_object),
     )
     .await?;
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn send_http_request_with_stream<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let mut request_builder = get_builder(context, parameters)?;
+
+    // Pick a stream and set it as body
+    let stream = context.resources.get_nearest_stream()?;
+    request_builder = request_builder.body(Body::wrap_stream(stream));
+
+    let response = bare_http_request(context, parameters, request_builder).await?;
+    let metadata = get_metadata_object_from_response(&response);
+
+    // Parse body
+    let body = collect_body(response, metadata.content_type.clone()).await?;
+    let mut response_object = metadata.into_storage_object();
+    response_object.insert("body".to_string(), body);
+    store_value(
+        store_as,
+        context,
+        step_id,
+        StorageValue::Object(response_object),
+    )
+    .await?;
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn stream_http_request<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let mut request_builder = get_builder(context, parameters)?;
+
+    // Set body
+    request_builder = set_static_body_from_parameters(context, parameters, request_builder)?;
+
+    let response = bare_http_request(context, parameters, request_builder).await?;
+    let metadata = get_metadata_object_from_response(&response);
+
+    // Put pending response
+    context
+        .resources
+        .pending_response
+        .push(PendingHttpResponse::new(response));
+
+    store_value(
+        store_as,
+        context,
+        step_id,
+        StorageValue::Object(metadata.into_storage_object()),
+    )
+    .await?;
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn stream_http_request_with_stream<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let mut request_builder = get_builder(context, parameters)?;
+
+    // Pick a stream and set it as body
+    let stream = context.resources.get_nearest_stream()?;
+    request_builder = request_builder.body(Body::wrap_stream(stream));
+
+    let response = bare_http_request(context, parameters, request_builder).await?;
+    let metadata = get_metadata_object_from_response(&response);
+
+    // Put pending response
+    context
+        .resources
+        .pending_response
+        .push(PendingHttpResponse::new(response));
+
+    store_value(
+        store_as,
+        context,
+        step_id,
+        StorageValue::Object(metadata.into_storage_object()),
+    )
+    .await?;
+
     Ok(())
 }

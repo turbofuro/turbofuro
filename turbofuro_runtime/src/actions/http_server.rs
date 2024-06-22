@@ -165,7 +165,7 @@ pub async fn respond_with<'a>(
 }
 
 #[instrument(level = "debug", skip_all)]
-pub async fn respond_with_file_stream<'a>(
+pub async fn respond_with_stream<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     _step_id: &str,
@@ -183,17 +183,7 @@ pub async fn respond_with_file_stream<'a>(
 
     // TODO: Make this more verbose and handle other types by specialized functions
     let response = {
-        let file = context
-            .resources
-            .files
-            .pop()
-            .ok_or(ExecutionError::MissingResource {
-                resource_type: HttpRequestToRespond::get_type().into(),
-            })?;
-
-        // convert the `AsyncRead` into a `Stream`
-        let stream = ReaderStream::new(file.0);
-        // convert the `Stream` into an `axum::body::HttpBody`
+        let stream = context.resources.get_nearest_stream()?;
         let body = Body::from_stream(stream);
 
         let headers_param = eval_optional_param_with_default(

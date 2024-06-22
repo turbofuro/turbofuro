@@ -1,18 +1,20 @@
-use axum::{extract::ws::Message, response::Response};
+use axum::{body::Bytes, extract::ws::Message, response::Response, BoxError};
 use dashmap::DashMap;
+use futures_util::stream::Stream;
+use futures_util::{StreamExt, TryStream, TryStreamExt};
 use serde_derive::{Deserialize, Serialize};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use tel::StorageValue;
+use tokio::io::AsyncRead;
+use tokio_util::io::ReaderStream;
 
 use std::{
     collections::HashMap,
     fmt::{self, Debug},
     sync::Arc,
 };
-use tokio::sync::{
-    mpsc,
-    oneshot::{self},
-    Mutex,
-};
+use tokio::sync::{mpsc, oneshot, Mutex};
 
 use crate::{
     actions::redis::RedisPubSubCoordinatorHandle, actor::ActorCommand, errors::ExecutionError,
@@ -22,6 +24,7 @@ const WEBSOCKET_RESOURCE_TYPE: &str = "websocket";
 const POSTGRES_CONNECTION_RESOURCE_TYPE: &str = "postgres_connection";
 const REDIS_CONNECTION_RESOURCE_TYPE: &str = "redis_connection";
 const HTTP_REQUEST_RESOURCE_TYPE: &str = "http_request";
+const PENDING_HTTP_RESPONSE_TYPE: &str = "pending_http_response";
 const ACTOR_LINK_TYPE: &str = "actor_link";
 const CANCELLATION: &str = "cancellation";
 const FILE_HANDLE: &str = "file_handle";
@@ -209,11 +212,28 @@ impl Resource for Cancellation {
 }
 
 #[derive(Debug)]
-pub struct FileHandle(pub tokio::fs::File);
+pub struct FileHandle {
+    pub file: tokio::fs::File,
+}
 
 impl Resource for FileHandle {
     fn get_type() -> &'static str {
         FILE_HANDLE
+    }
+}
+
+#[derive(Debug)]
+pub struct PendingHttpResponse(pub reqwest::Response);
+
+impl PendingHttpResponse {
+    pub fn new(response: reqwest::Response) -> Self {
+        Self(response)
+    }
+}
+
+impl Resource for PendingHttpResponse {
+    fn get_type() -> &'static str {
+        PENDING_HTTP_RESPONSE_TYPE
     }
 }
 
@@ -231,4 +251,39 @@ pub struct ActorResources {
     pub http_requests_to_respond: Vec<HttpRequestToRespond>,
     pub cancellations: Vec<Cancellation>,
     pub files: Vec<FileHandle>,
+    pub pending_response: Vec<PendingHttpResponse>,
+}
+
+type HammerStream = Pin<Box<dyn Stream<Item = Result<Bytes, ExecutionError>> + Send + Sync>>;
+
+impl ActorResources {
+    pub fn get_nearest_stream(&mut self) -> Result<HammerStream, ExecutionError> {
+        // TODO: Implement a stack-like behavior for choosing the nearest stream
+        // Currently, it just pops the first response, file... etc.
+
+        let response = self.pending_response.pop();
+        if let Some(response) = response {
+            let a = response
+                .0
+                .bytes_stream()
+                .map_err(|e| ExecutionError::IoError {
+                    message: e.to_string(),
+                });
+
+            return Ok(Box::pin(a));
+        }
+
+        let file_handle = self.files.pop();
+        if let Some(file_handle) = file_handle {
+            return Ok(Box::pin(ReaderStream::new(file_handle.file).map_err(|e| {
+                ExecutionError::IoError {
+                    message: e.to_string(),
+                }
+            })));
+        }
+
+        Err(ExecutionError::MissingResource {
+            resource_type: FILE_HANDLE.to_string(),
+        })
+    }
 }

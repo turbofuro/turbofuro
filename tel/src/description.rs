@@ -2,7 +2,7 @@ use crate::{Expr, Selector, SelectorPart, Spanned, StorageValue, TelError};
 use once_cell::sync::Lazy;
 use serde::Serializer;
 use serde_derive::{Deserialize, Serialize};
-use std::{collections::HashMap, vec};
+use std::{collections::HashMap, fmt::Display, vec};
 use url::Url;
 
 pub type ObjectDescription = HashMap<String, Description>;
@@ -53,6 +53,12 @@ pub enum Description {
     },
     Unknown,
     Any,
+}
+
+impl Display for Description {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_notation())
+    }
 }
 
 impl From<StorageValue> for Description {
