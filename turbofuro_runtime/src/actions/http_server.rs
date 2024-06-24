@@ -48,6 +48,34 @@ pub async fn setup_route<'a>(
 }
 
 #[instrument(level = "debug", skip_all)]
+pub async fn setup_streaming_route<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    _step_id: &str,
+) -> Result<(), ExecutionError> {
+    let method_param = eval_optional_param_with_default(
+        "method",
+        parameters,
+        &context.storage,
+        &context.environment,
+        "get".into(),
+    )?;
+    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
+    let handlers = get_handlers_from_parameters(parameters);
+    {
+        let mut router = context.global.registry.router.lock().await;
+        router.add_streaming_route(
+            method_param.to_string()?,
+            path_param.to_string()?,
+            context.module.id.clone(),
+            handlers,
+        )
+    }
+
+    Ok(())
+}
+
+#[instrument(level = "debug", skip_all)]
 pub async fn respond_with<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,

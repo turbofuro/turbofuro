@@ -37,6 +37,7 @@ use crate::actions::http_client::stream_http_request_with_stream;
 use crate::actions::http_server::respond_with;
 use crate::actions::http_server::respond_with_stream;
 use crate::actions::http_server::setup_route;
+use crate::actions::http_server::setup_streaming_route;
 use crate::actions::kv;
 use crate::actions::mustache;
 use crate::actions::os;
@@ -869,6 +870,9 @@ async fn execute_native<'a>(
             stream_http_request_with_stream(context, parameters, step_id, store_as).await?
         }
         "http_server/setup_route" => setup_route(context, parameters, step_id).await?,
+        "http_server/setup_streaming_route" => {
+            setup_streaming_route(context, parameters, step_id).await?
+        }
         "http_server/respond_with" => respond_with(context, parameters, step_id).await?,
         "http_server/respond_with_stream" => {
             respond_with_stream(context, parameters, step_id).await?

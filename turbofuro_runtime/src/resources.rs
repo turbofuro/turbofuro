@@ -1,7 +1,11 @@
-use axum::{body::Bytes, extract::ws::Message, response::Response};
+use axum::{
+    body::{Body, BodyDataStream, Bytes},
+    extract::ws::Message,
+    response::Response,
+};
 use dashmap::DashMap;
 use futures_util::stream::Stream;
-use futures_util::TryStreamExt;
+use futures_util::{StreamExt, TryStreamExt};
 use serde_derive::{Deserialize, Serialize};
 use std::pin::Pin;
 use tel::StorageValue;
@@ -23,6 +27,7 @@ const POSTGRES_CONNECTION_RESOURCE_TYPE: &str = "postgres_connection";
 const REDIS_CONNECTION_RESOURCE_TYPE: &str = "redis_connection";
 const HTTP_REQUEST_RESOURCE_TYPE: &str = "http_request";
 const PENDING_HTTP_RESPONSE_TYPE: &str = "pending_http_response";
+const PENDING_HTTP_REQUEST_TYPE: &str = "pending_http_request";
 const ACTOR_LINK_TYPE: &str = "actor_link";
 const CANCELLATION: &str = "cancellation";
 const FILE_HANDLE: &str = "file_handle";
@@ -82,6 +87,7 @@ pub struct Route {
     #[serde(rename = "moduleVersionId")]
     pub module_version_id: String,
     pub handlers: HashMap<String, String>,
+    pub parse_body: bool,
 }
 
 #[derive(Debug, Default)]
@@ -102,6 +108,23 @@ impl RegisteringRouter {
             path,
             module_version_id,
             handlers,
+            parse_body: true,
+        });
+    }
+
+    pub fn add_streaming_route(
+        &mut self,
+        method: String,
+        path: String,
+        module_version_id: String,
+        handlers: HashMap<String, String>,
+    ) {
+        self.routes.push(Route {
+            method,
+            path,
+            module_version_id,
+            handlers,
+            parse_body: false,
         });
     }
 
@@ -221,17 +244,32 @@ impl Resource for FileHandle {
 }
 
 #[derive(Debug)]
-pub struct PendingHttpResponse(pub reqwest::Response);
+pub struct PendingHttpResponseBody(pub reqwest::Response);
 
-impl PendingHttpResponse {
+impl PendingHttpResponseBody {
     pub fn new(response: reqwest::Response) -> Self {
         Self(response)
     }
 }
 
-impl Resource for PendingHttpResponse {
+impl Resource for PendingHttpResponseBody {
     fn get_type() -> &'static str {
         PENDING_HTTP_RESPONSE_TYPE
+    }
+}
+
+#[derive(Debug)]
+pub struct PendingHttpRequestBody(pub Body);
+
+impl PendingHttpRequestBody {
+    pub fn new(body: Body) -> Self {
+        Self(body)
+    }
+}
+
+impl Resource for PendingHttpRequestBody {
+    fn get_type() -> &'static str {
+        PENDING_HTTP_REQUEST_TYPE
     }
 }
 
@@ -249,7 +287,29 @@ pub struct ActorResources {
     pub http_requests_to_respond: Vec<HttpRequestToRespond>,
     pub cancellations: Vec<Cancellation>,
     pub files: Vec<FileHandle>,
-    pub pending_response: Vec<PendingHttpResponse>,
+    pub pending_response_body: Vec<PendingHttpResponseBody>,
+    pub pending_request_body: Vec<PendingHttpRequestBody>,
+}
+
+pub struct PendingHttpRequestStream(pub BodyDataStream);
+
+// TODO: Figure out how to fix this non-sense
+// https://github.com/tokio-rs/axum/discussions/2540
+unsafe impl Sync for PendingHttpRequestStream {}
+
+impl Stream for PendingHttpRequestStream {
+    type Item = Result<Bytes, ExecutionError>;
+
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        self.0
+            .poll_next_unpin(cx)
+            .map_err(|e| ExecutionError::IoError {
+                message: e.to_string(),
+            })
+    }
 }
 
 type HammerStream = Pin<Box<dyn Stream<Item = Result<Bytes, ExecutionError>> + Send + Sync>>;
@@ -259,7 +319,13 @@ impl ActorResources {
         // TODO: Implement a stack-like behavior for choosing the nearest stream
         // Currently, it just pops the first response, file... etc.
 
-        let response = self.pending_response.pop();
+        let request = self.pending_request_body.pop();
+        if let Some(request) = request {
+            let stream = PendingHttpRequestStream(request.0.into_data_stream());
+            return Ok(Box::pin(stream));
+        }
+
+        let response = self.pending_response_body.pop();
         if let Some(response) = response {
             let a = response
                 .0

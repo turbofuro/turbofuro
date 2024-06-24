@@ -16,7 +16,7 @@ use crate::{
     evaluations::{eval_optional_param, eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
     http_utils::decode_text_with_encoding,
-    resources::{HttpRequestToRespond, PendingHttpResponse, Resource},
+    resources::{HttpRequestToRespond, PendingHttpResponseBody, Resource},
 };
 
 use super::{as_string, store_value};
@@ -386,8 +386,8 @@ pub async fn stream_http_request<'a>(
     // Put pending response
     context
         .resources
-        .pending_response
-        .push(PendingHttpResponse::new(response));
+        .pending_response_body
+        .push(PendingHttpResponseBody::new(response));
 
     store_value(
         store_as,
@@ -419,8 +419,8 @@ pub async fn stream_http_request_with_stream<'a>(
     // Put pending response
     context
         .resources
-        .pending_response
-        .push(PendingHttpResponse::new(response));
+        .pending_response_body
+        .push(PendingHttpResponseBody::new(response));
 
     store_value(
         store_as,
