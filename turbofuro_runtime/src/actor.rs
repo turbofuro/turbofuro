@@ -4,10 +4,12 @@ use std::vec;
 use tel::describe;
 use tel::ObjectBody;
 use tel::StorageValue;
+use tel::NULL;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tracing::debug;
 use tracing::info;
+use tracing::trace;
 use tracing::warn;
 
 use crate::actions::alarms::cancellation_name;
@@ -67,7 +69,7 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                     Ok(log) => {
                         match log.status {
                             ExecutionStatus::Finished => {
-                                info!("{} handled successfully, actor: {}", handler, actor.id);
+                                trace!("{} handled successfully, actor: {}", handler, actor.id);
                             }
                             ExecutionStatus::Failed => {
                                 warn!(
@@ -87,18 +89,16 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                             }
                         }
 
-                        // TODO:
-                        // if let Some(sender) = sender {
-                        //     match sender.send(Ok(())) {
-                        //         Ok(_) => {}
-                        //         Err(err) => {
-                        //             warn!(
-                        //                 "Failed to report back execution of actor: {} error: {:?}",
-                        //                 actor.id, err
-                        //             )
-                        //         }
-                        //     }
-                        // }
+                        // If there is a sender, send the result back
+                        if let Some(sender) = sender {
+                            let payload = log.result.clone().unwrap_or(Ok(NULL));
+                            match sender.send(payload) {
+                                Ok(_) => {}
+                                Err(_) => {
+                                    warn!("Failed to report back execution of actor: {}", actor.id)
+                                }
+                            }
+                        }
 
                         match actor.global.execution_logger.try_send(LoggerMessage::Log(
                             ExecutionReport {
@@ -124,6 +124,7 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                             handler, actor.id, e
                         );
 
+                        // By common sense the execution error should not be a return here
                         if let Some(sender) = sender {
                             match sender.send(Err(e)) {
                                 Ok(_) => {}
@@ -145,9 +146,10 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                     Ok(log) => {
                         match log.status {
                             ExecutionStatus::Finished => {
-                                info!(
+                                trace!(
                                     "{} ref/handled successfully, actor: {}",
-                                    function_ref, actor.id
+                                    function_ref,
+                                    actor.id
                                 );
                             }
                             ExecutionStatus::Failed => {
@@ -168,18 +170,16 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                             }
                         }
 
-                        // TODO:
-                        // if let Some(sender) = sender {
-                        //     match sender.send(Ok(())) {
-                        //         Ok(_) => {}
-                        //         Err(err) => {
-                        //             warn!(
-                        //                 "Failed to report back execution of actor: {} error: {:?}",
-                        //                 actor.id, err
-                        //             )
-                        //         }
-                        //     }
-                        // }
+                        // If there is a sender, send the result back
+                        if let Some(sender) = sender {
+                            let payload = log.result.clone().unwrap_or(Ok(NULL));
+                            match sender.send(payload) {
+                                Ok(_) => {}
+                                Err(_) => {
+                                    warn!("Failed to report back execution of actor: {}", actor.id)
+                                }
+                            }
+                        }
 
                         match actor.global.execution_logger.try_send(LoggerMessage::Log(
                             ExecutionReport {
@@ -205,14 +205,31 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                             function_ref, actor.id, e
                         );
 
-                        if let Some(sender) = sender {
-                            match sender.send(Err(e)) {
-                                Ok(_) => {}
-                                Err(err) => {
-                                    warn!(
-                                        "Failed to report back execution of actor: {} error: {:?}",
-                                        actor.id, err
-                                    )
+                        match e {
+                            ExecutionError::Return { value } => {
+                                if let Some(sender) = sender {
+                                    match sender.send(Ok(value)) {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            warn!(
+                                                "Failed to report back execution of actor: {} error: {:?}",
+                                                actor.id, err
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            _ => {
+                                if let Some(sender) = sender {
+                                    match sender.send(Err(e)) {
+                                        Ok(_) => {}
+                                        Err(err) => {
+                                            warn!(
+                                                "Failed to report back execution of actor: {} error: {:?}",
+                                                actor.id, err
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -239,7 +256,7 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                         Ok(log) => {
                             match log.status {
                                 ExecutionStatus::Finished => {
-                                    info!("{} handled successfully, actor: {}", handler, actor.id);
+                                    trace!("{} handled successfully, actor: {}", handler, actor.id);
                                 }
                                 ExecutionStatus::Failed => {
                                     warn!(
@@ -528,10 +545,12 @@ impl Actor {
                     .clone();
 
                 debug!("Execution finished successfully");
+                // TODO: Shall we return the result here?
+                // context.log.result = Some(Ok(NULL));
                 context.log
             }
             Err(e) => match e {
-                ExecutionError::Return { .. } => {
+                ExecutionError::Return { value } => {
                     self.state = context
                         .storage
                         .get("state")
@@ -539,11 +558,13 @@ impl Actor {
                         .clone();
 
                     debug!("Execution finished successfully (return)");
+                    context.log.result = Some(Ok(value));
                     context.log
                 }
                 e => {
                     warn!("Execution failed: error: ${:?}", e);
                     context.log.status = ExecutionStatus::Failed;
+                    context.log.result = Some(Err(e));
                     context.log
                 }
             },

@@ -720,6 +720,8 @@ pub struct ExecutionLog {
     pub started_at: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub finished_at: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<Result<StorageValue, ExecutionError>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -787,6 +789,7 @@ impl Default for ExecutionLog {
             },
             started_at: get_timestamp(),
             finished_at: None,
+            result: None,
         }
     }
 }
@@ -799,6 +802,7 @@ impl ExecutionLog {
             events: Vec::new(),
             started_at: get_timestamp(),
             finished_at: None,
+            result: None,
         }
     }
 }
@@ -843,7 +847,9 @@ async fn execute_native<'a>(
             os::set_environment_variable(context, parameters, step_id).await?
         }
         "actors/terminate" => actors::terminate(context, parameters, step_id).await?,
-        "actors/send_command" => actors::send_command(context, parameters, step_id).await?,
+        "actors/send_command" => actors::send(context, parameters, step_id).await?, // TODO: Remove this once the new actors/send is fully implemented
+        "actors/send" => actors::send(context, parameters, step_id).await?,
+        "actors/request" => actors::request(context, parameters, step_id, store_as).await?,
         "actors/get_actor_id" => {
             actors::get_actor_id(context, parameters, step_id, store_as).await?
         }
@@ -1368,7 +1374,7 @@ async fn execute_steps<'a>(
     Ok(())
 }
 
-#[instrument(level = "info", skip_all)]
+#[instrument(level = "debug", skip_all)]
 pub async fn execute<'a>(
     steps: &Steps,
     context: &mut ExecutionContext<'a>,
