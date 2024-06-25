@@ -1,5 +1,8 @@
-use tel::StorageValue;
-use tokio::fs::OpenOptions;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use futures_util::StreamExt;
+use tel::{ObjectBody, StorageValue};
+use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 use tracing::instrument;
 
 use crate::{
@@ -7,16 +10,30 @@ use crate::{
     errors::ExecutionError,
     evaluations::{eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
-    resources::FileHandle,
+    resources::{FileHandle, Resource},
 };
 
 use super::store_value;
+
+fn file_handle_not_found() -> ExecutionError {
+    ExecutionError::MissingResource {
+        resource_type: FileHandle::get_type().into(),
+    }
+}
+
+fn system_time_to_millis_since_epoch(time: SystemTime) -> f64 {
+    match time.duration_since(UNIX_EPOCH) {
+        Ok(duration) => duration.as_millis() as f64,
+        Err(error) => -(error.duration().as_millis() as f64),
+    }
+}
 
 #[instrument(level = "trace", skip_all)]
 pub async fn open_file<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
-    _step_id: &str,
+    step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     // Get path
     let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
@@ -54,13 +71,63 @@ pub async fn open_file<'a>(
         .await
         .map_err(ExecutionError::from)?;
 
-    context.resources.files.push(FileHandle(file));
+    let metadata = file.metadata().await.map_err(ExecutionError::from)?;
+
+    let mut metadata_object: ObjectBody = ObjectBody::new();
+    metadata_object.insert("size".into(), (metadata.len() as f64).into());
+    metadata_object.insert(
+        "created".into(),
+        metadata
+            .created()
+            .ok()
+            .map(|c| system_time_to_millis_since_epoch(c).into())
+            .unwrap_or_default(),
+    );
+    metadata_object.insert(
+        "modified".into(),
+        metadata
+            .modified()
+            .ok()
+            .map(|c| system_time_to_millis_since_epoch(c).into())
+            .unwrap_or_default(),
+    );
+
+    context.resources.files.push(FileHandle { file });
+
+    store_value(
+        store_as,
+        context,
+        step_id,
+        StorageValue::Object(metadata_object),
+    )
+    .await?;
 
     Ok(())
 }
 
 #[instrument(level = "trace", skip_all)]
-pub async fn read_to_string<'a>(
+pub async fn write_stream<'a>(
+    context: &mut ExecutionContext<'a>,
+    _step_id: &str,
+) -> Result<(), ExecutionError> {
+    let mut file_handle = context
+        .resources
+        .files
+        .pop()
+        .ok_or(file_handle_not_found())?;
+
+    let mut stream = context.resources.get_nearest_stream()?;
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk?;
+        file_handle.file.write_all(&chunk).await?;
+    }
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn simple_read_to_string<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     step_id: &str,
@@ -79,7 +146,7 @@ pub async fn read_to_string<'a>(
 }
 
 #[instrument(level = "trace", skip_all)]
-pub async fn write_string<'a>(
+pub async fn simple_write_string<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     _step_id: &str,
@@ -116,7 +183,7 @@ mod tests {
         let mut t = ExecutionTest::default();
         let mut context = t.get_context();
 
-        write_string(
+        simple_write_string(
             &mut context,
             &vec![
                 Parameter::tel("path", "\"test.txt\""),
@@ -127,7 +194,7 @@ mod tests {
         .await
         .unwrap();
 
-        read_to_string(
+        simple_read_to_string(
             &mut context,
             &vec![Parameter::tel("path", "\"test.txt\"")],
             "test",

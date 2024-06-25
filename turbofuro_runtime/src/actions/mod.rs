@@ -12,6 +12,7 @@ pub mod actors;
 pub mod alarms;
 pub mod convert;
 pub mod crypto;
+pub mod form_data;
 pub mod fs;
 pub mod http_client;
 pub mod http_server;
@@ -22,6 +23,7 @@ pub mod postgres;
 pub mod pubsub;
 pub mod redis;
 pub mod time;
+pub mod url;
 pub mod wasm;
 pub mod websocket;
 
@@ -49,9 +51,20 @@ pub fn as_string(s: StorageValue, name: &str) -> Result<String, ExecutionError> 
     }
 }
 
-pub fn as_integer(s: StorageValue, name: &str) -> Result<i32, ExecutionError> {
+pub fn as_integer(s: StorageValue, name: &str) -> Result<i64, ExecutionError> {
     match s {
-        StorageValue::Number(f) => Ok(f as i32),
+        StorageValue::Number(f) => Ok(f as i64),
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: name.to_owned(),
+            expected: Description::new_base_type("number"),
+            actual: describe(s),
+        }),
+    }
+}
+
+pub fn as_u64(s: StorageValue, name: &str) -> Result<u64, ExecutionError> {
+    match s {
+        StorageValue::Number(f) => Ok(f as u64),
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: name.to_owned(),
             expected: Description::new_base_type("number"),

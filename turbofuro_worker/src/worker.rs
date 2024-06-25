@@ -30,12 +30,12 @@ use turbofuro_runtime::errors::ExecutionError;
 use turbofuro_runtime::executor::{
     CompiledModule, Environment, Function, Global, Import, Step, Steps,
 };
-use turbofuro_runtime::http_utils::build_initial_storage_from_request;
+use turbofuro_runtime::http_utils::{build_metadata_from_parts, build_request_object};
 use turbofuro_runtime::resources::{
-    ActorLink, ActorResources, HttpRequestToRespond, HttpResponse, OpenWebSocket, Resource, Route,
-    WebSocketCommand,
+    ActorLink, ActorResources, HttpRequestToRespond, HttpResponse, OpenWebSocket,
+    PendingHttpRequestBody, Resource, Route, WebSocketCommand,
 };
-use turbofuro_runtime::StorageValue;
+use turbofuro_runtime::{ObjectBody, StorageValue};
 
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -443,14 +443,27 @@ async fn handle_request(
 
     let ws = request.extract_parts::<WebSocketUpgrade>().await.ok();
 
-    // Build initial storage
-    let initial_storage = build_initial_storage_from_request(request).await;
-
-    let (response_sender, response_receiver) = oneshot::channel::<HttpResponse>();
+    let (http_response_sender, http_response_receiver) = oneshot::channel::<HttpResponse>();
     let mut scoped_resources = ActorResources::default();
     scoped_resources
         .http_requests_to_respond
-        .push(HttpRequestToRespond(response_sender));
+        .push(HttpRequestToRespond(http_response_sender));
+
+    // Build initial storage
+    let mut initial_storage = ObjectBody::new();
+
+    if route.parse_body {
+        let request_object = build_request_object(request).await;
+        initial_storage.insert("request".to_string(), StorageValue::Object(request_object));
+    } else {
+        let (mut parts, body) = request.into_parts();
+        let (request_object, _) = build_metadata_from_parts(&mut parts).await;
+        initial_storage.insert("request".to_string(), StorageValue::Object(request_object));
+
+        scoped_resources
+            .pending_request_body
+            .push(PendingHttpRequestBody(body));
+    }
 
     let handlers = route.handlers.clone();
 
@@ -465,18 +478,19 @@ async fn handle_request(
 
     let actor_id = actor.get_id().to_owned();
     let sender = activate_actor(actor);
-
     app_state
         .global
         .registry
         .actors
-        .insert(actor_id, ActorLink(sender.clone()));
+        .insert(actor_id.clone(), ActorLink(sender.clone()));
 
+    let (response_sender, response_receiver) =
+        oneshot::channel::<Result<StorageValue, ExecutionError>>();
     sender
         .send(ActorCommand::Run {
             handler: "onRequest".to_owned(),
             storage: initial_storage,
-            sender: None,
+            sender: Some(response_sender),
         })
         .await
         .map_err(|_| {
@@ -485,7 +499,43 @@ async fn handle_request(
             })
         })?;
 
-    match response_receiver.await {
+    let killer_sender = sender.clone();
+    tokio::spawn(async move {
+        match response_receiver.await {
+            Ok(resp) => {
+                match resp {
+                    Ok(_) => {
+                        // Do nothing
+                    }
+                    Err(e) => {
+                        // If the execution has failed we should terminate the actor
+                        match killer_sender
+                            .send(ActorCommand::Terminate)
+                            .await
+                            .map_err(|_| {
+                                AppError::from(ExecutionError::ActorCommandFailed {
+                                    message: "Could not send terminate command to actor".to_owned(),
+                                })
+                            }) {
+                            Ok(_) => {}
+                            Err(_) => {
+                                error!("Could not send terminate command to actor");
+                            }
+                        }
+                        error!("Error running onRequest: {:?} sending error response", e);
+                    }
+                }
+            }
+            Err(e) => {
+                error!(
+                    "Error receiving response from actor (run response): {:?}",
+                    e
+                );
+            }
+        }
+    });
+
+    match http_response_receiver.await {
         Ok(wrapper) => {
             let response = match wrapper {
                 HttpResponse::Normal(response, responder) => {

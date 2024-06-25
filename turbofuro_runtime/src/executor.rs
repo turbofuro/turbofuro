@@ -29,11 +29,10 @@ use crate::actions::actors;
 use crate::actions::alarms;
 use crate::actions::convert;
 use crate::actions::crypto;
+use crate::actions::form_data;
 use crate::actions::fs;
-use crate::actions::http_client::http_request;
-use crate::actions::http_server::respond_with;
-use crate::actions::http_server::respond_with_file_stream;
-use crate::actions::http_server::setup_route;
+use crate::actions::http_client;
+use crate::actions::http_server;
 use crate::actions::kv;
 use crate::actions::mustache;
 use crate::actions::os;
@@ -41,6 +40,7 @@ use crate::actions::postgres;
 use crate::actions::pubsub;
 use crate::actions::redis;
 use crate::actions::time;
+use crate::actions::url;
 use crate::actions::wasm;
 use crate::actions::websocket;
 use crate::debug::DebugMessage;
@@ -716,6 +716,8 @@ pub struct ExecutionLog {
     pub started_at: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub finished_at: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<Result<StorageValue, ExecutionError>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -783,6 +785,7 @@ impl Default for ExecutionLog {
             },
             started_at: get_timestamp(),
             finished_at: None,
+            result: None,
         }
     }
 }
@@ -795,6 +798,7 @@ impl ExecutionLog {
             events: Vec::new(),
             started_at: get_timestamp(),
             finished_at: None,
+            result: None,
         }
     }
 }
@@ -816,9 +820,12 @@ async fn execute_native<'a>(
 
     match native_id {
         "wasm/run_wasi" => wasm::run_wasi(context, parameters, step_id, store_as).await?,
-        "fs/open" => fs::open_file(context, parameters, step_id).await?,
-        "fs/write_string" => fs::write_string(context, parameters, step_id).await?,
-        "fs/read_to_string" => fs::read_to_string(context, parameters, step_id, store_as).await?,
+        "fs/open" => fs::open_file(context, parameters, step_id, store_as).await?,
+        "fs/write_stream" => fs::write_stream(context, step_id).await?,
+        "fs/write_string" => fs::simple_write_string(context, parameters, step_id).await?,
+        "fs/read_to_string" => {
+            fs::simple_read_to_string(context, parameters, step_id, store_as).await?
+        }
         "alarms/set_alarm" => alarms::set_alarm(context, parameters, step_id).await?,
         "alarms/set_interval" => alarms::set_interval(context, parameters, step_id).await?,
         "alarms/cancel" => alarms::cancel_alarm(context, parameters, step_id).await?,
@@ -836,18 +843,57 @@ async fn execute_native<'a>(
             os::set_environment_variable(context, parameters, step_id).await?
         }
         "actors/terminate" => actors::terminate(context, parameters, step_id).await?,
-        "actors/send_command" => actors::send_command(context, parameters, step_id).await?,
+        "actors/send_command" => actors::send(context, parameters, step_id).await?, // TODO: Remove this once the new actors/send is fully implemented
+        "actors/send" => actors::send(context, parameters, step_id).await?,
+        "actors/request" => actors::request(context, parameters, step_id, store_as).await?,
         "actors/get_actor_id" => {
             actors::get_actor_id(context, parameters, step_id, store_as).await?
         }
         "actors/check_actor_exists" => {
             actors::check_actor_exists(context, parameters, step_id, store_as).await?
         }
-        "http_client/request" => http_request(context, parameters, step_id, store_as).await?,
-        "http_server/setup_route" => setup_route(context, parameters, step_id).await?,
-        "http_server/respond_with" => respond_with(context, parameters, step_id).await?,
-        "http_server/respond_with_file_stream" => {
-            respond_with_file_stream(context, parameters, step_id).await?
+        "url/parse" => url::parse_url(context, parameters, step_id, store_as).await?,
+        "url/serialize" => url::serialize_url(context, parameters, step_id, store_as).await?,
+        "http_client/request" => {
+            http_client::send_http_request(context, parameters, step_id, store_as).await?
+        }
+        "http_client/request_with_stream" => {
+            http_client::send_http_request_with_stream(context, parameters, step_id, store_as)
+                .await?
+        }
+        "http_client/request_with_form_data" => {
+            http_client::send_http_request_with_form_data(context, parameters, step_id, store_as)
+                .await?
+        }
+        "http_client/stream_request" => {
+            http_client::stream_http_request(context, parameters, step_id, store_as).await?
+        }
+        "http_client/stream_request_with_stream" => {
+            http_client::stream_http_request_with_stream(context, parameters, step_id, store_as)
+                .await?
+        }
+        "http_client/stream_request_with_form_data" => {
+            http_client::stream_http_request_with_form_data(context, parameters, step_id, store_as)
+                .await?
+        }
+        "form_data/create" => {
+            form_data::create_form_data(context, parameters, step_id, store_as).await?
+        }
+        "form_data/add_stream_field" => {
+            form_data::add_stream_field_to_form_data(context, parameters, step_id, store_as).await?
+        }
+        "form_data/add_field" => {
+            form_data::add_field_to_form_data(context, parameters, step_id, store_as).await?
+        }
+        "http_server/setup_route" => http_server::setup_route(context, parameters, step_id).await?,
+        "http_server/setup_streaming_route" => {
+            http_server::setup_streaming_route(context, parameters, step_id).await?
+        }
+        "http_server/respond_with" => {
+            http_server::respond_with(context, parameters, step_id).await?
+        }
+        "http_server/respond_with_stream" => {
+            http_server::respond_with_stream(context, parameters, step_id).await?
         }
         "postgres/get_connection" => postgres::get_connection(context, parameters, step_id).await?,
         "postgres/query_one" => postgres::query_one(context, parameters, step_id, store_as).await?,
@@ -1350,7 +1396,7 @@ async fn execute_steps<'a>(
     Ok(())
 }
 
-#[instrument(level = "info", skip_all)]
+#[instrument(level = "debug", skip_all)]
 pub async fn execute<'a>(
     steps: &Steps,
     context: &mut ExecutionContext<'a>,

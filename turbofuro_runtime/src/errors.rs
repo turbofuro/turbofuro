@@ -1,3 +1,5 @@
+use std::{error::Error, fmt::Display};
+
 use redis::RedisError;
 use serde::{Deserialize, Serialize};
 use tel::{Description, StorageValue, TelError};
@@ -82,6 +84,122 @@ pub enum ExecutionError {
     WasmError {
         message: String,
     },
+}
+
+impl Display for ExecutionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExecutionError::Custom { value } => {
+                write!(f, "Custom error: {:?}", value)
+            }
+            ExecutionError::Tel { error } => {
+                write!(f, "Tel error: {}", error)
+            }
+            ExecutionError::MissingParameter { name } => {
+                write!(f, "Missing parameter: {}", name)
+            }
+            ExecutionError::ParameterTypeMismatch {
+                name,
+                expected,
+                actual,
+            } => {
+                write!(
+                    f,
+                    "Parameter type mismatch: {} expected: {} actual: {}",
+                    name, expected, actual
+                )
+            }
+            ExecutionError::ParameterInvalid { name, message } => {
+                write!(f, "Parameter invalid: {} message: {}", name, message)
+            }
+            ExecutionError::Unknown { message } => {
+                write!(f, "Unknown error: {}", message)
+            }
+            ExecutionError::StateInvalid {
+                message,
+                subject,
+                inner,
+            } => {
+                write!(
+                    f,
+                    "State invalid: {} subject: {} inner: {}",
+                    message, subject, inner
+                )
+            }
+            ExecutionError::MissingResource { resource_type } => {
+                write!(f, "Missing resource: {}", resource_type)
+            }
+            ExecutionError::Continue => {
+                write!(f, "Continue")
+            }
+            ExecutionError::Break => {
+                write!(f, "Break")
+            }
+            ExecutionError::Return { value } => {
+                write!(f, "Return: {:?}", value)
+            }
+            ExecutionError::HandlerNotFound { name } => {
+                write!(f, "Handler not found: {}", name)
+            }
+            ExecutionError::FunctionNotFound { id } => {
+                write!(f, "Function not found: {}", id)
+            }
+            ExecutionError::ModuleVersionNotFound { id } => {
+                write!(f, "Module version not found: {}", id)
+            }
+            ExecutionError::UnresolvedImport { import_name } => {
+                write!(f, "Unresolved import: {}", import_name)
+            }
+            ExecutionError::Unsupported { message } => {
+                write!(f, "Unsupported: {}", message)
+            }
+            ExecutionError::SerializationFailed {
+                message,
+                breadcrumbs,
+                inner,
+            } => {
+                write!(
+                    f,
+                    "Serialization failed: {} breadcrumbs: {} inner: {}",
+                    message, breadcrumbs, inner
+                )
+            }
+            ExecutionError::JwtDecodingFailed { message } => {
+                write!(f, "JWT decoding failed: {}", message)
+            }
+            ExecutionError::ActorCommandFailed { message } => {
+                write!(f, "Actor command failed: {}", message)
+            }
+            ExecutionError::PostgresError { message, stage } => {
+                write!(f, "Postgres error: {} stage: {}", message, stage)
+            }
+            ExecutionError::RedisError { message } => {
+                write!(f, "Redis error: {}", message)
+            }
+            ExecutionError::IoError { message } => {
+                write!(f, "IO error: {}", message)
+            }
+            ExecutionError::WasmError { message } => {
+                write!(f, "Wasm error: {}", message)
+            }
+        }
+    }
+}
+
+impl Error for ExecutionError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+
+    fn description(&self) -> &str {
+        "description() is deprecated; use Display"
+    }
+
+    fn cause(&self) -> Option<&dyn Error> {
+        self.source()
+    }
+
+    // fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {}
 }
 
 impl From<TelError> for ExecutionError {

@@ -1,6 +1,7 @@
 use chumsky::{prelude::*, Parser, Stream};
 use serde::Serializer;
 use serde_derive::{Deserialize, Serialize};
+use std::fmt::Display;
 use std::{collections::HashMap, vec};
 
 mod description;
@@ -45,6 +46,12 @@ where
     } else {
         // Serialize as f64 otherwise
         serializer.serialize_f64(*num)
+    }
+}
+
+impl Default for StorageValue {
+    fn default() -> Self {
+        NULL
     }
 }
 
@@ -411,7 +418,48 @@ impl TelError {
     }
 }
 
-const NULL: StorageValue = StorageValue::Null(None);
+impl Display for TelError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TelError::ParseError { errors } => {
+                for error in errors {
+                    writeln!(f, "{}", error.message)?;
+                }
+                Ok(())
+            }
+            TelError::ConversionError { message, from, to } => {
+                write!(f, "{}: Can't convert {} to {}", message, from, to)
+            }
+            TelError::NotIndexable { message, subject } => {
+                write!(f, "{}: {} is not indexable", message, subject)
+            }
+            TelError::NoAttribute {
+                message,
+                subject,
+                attribute,
+            } => {
+                write!(f, "{}: {} has no attribute {}", message, subject, attribute)
+            }
+            TelError::InvalidSelector { message } => {
+                write!(f, "Invalid selector: {}", message)
+            }
+            TelError::UnsupportedOperation { operation, message } => {
+                write!(f, "Unsupported operation: {}: {}", operation, message)
+            }
+            TelError::FunctionNotFound(_) => {
+                write!(f, "Function not found")
+            }
+            TelError::IndexOutOfBounds { index, max } => {
+                write!(f, "Index out of bounds: {} > {}", index, max)
+            }
+            TelError::InvalidIndex { subject, message } => {
+                write!(f, "Invalid index: {}: {}", subject, message)
+            }
+        }
+    }
+}
+
+pub const NULL: StorageValue = StorageValue::Null(None);
 
 /// Op enum for Token parsing
 ///

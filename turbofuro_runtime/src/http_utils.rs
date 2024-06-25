@@ -3,10 +3,11 @@ use std::{borrow::Cow, collections::HashMap};
 use axum::{
     body::{Body, Bytes},
     extract::{FromRequest, FromRequestParts, Path, Query, Request},
+    http::request::Parts,
 };
 use encoding_rs::{Encoding, UTF_8};
 use hyper::{header, HeaderMap, Method};
-use tel::StorageValue;
+use tel::{ObjectBody, StorageValue};
 
 fn retrieve_content_type(headers: &HeaderMap) -> DetectedContentType {
     let content_type = match headers.get(header::CONTENT_TYPE) {
@@ -52,7 +53,7 @@ fn retrieve_content_type(headers: &HeaderMap) -> DetectedContentType {
 }
 
 #[derive(Debug, PartialEq)]
-enum DetectedContentType {
+pub enum DetectedContentType {
     Json,
     Form,
     Text,
@@ -61,26 +62,34 @@ enum DetectedContentType {
     Unknown,
 }
 
-pub async fn build_initial_storage_from_request(
-    req: Request<Body>,
-) -> HashMap<String, StorageValue> {
-    let mut request_obj = HashMap::new();
+impl ToString for DetectedContentType {
+    fn to_string(&self) -> String {
+        match self {
+            DetectedContentType::Json => "json".to_string(),
+            DetectedContentType::Form => "form".to_string(),
+            DetectedContentType::Text => "text".to_string(),
+            DetectedContentType::Bytes => "bytes".to_string(),
+            DetectedContentType::None => "none".to_string(),
+            DetectedContentType::Unknown => "unknown".to_string(),
+        }
+    }
+}
 
-    let (mut parts, body) = req.into_parts();
+pub async fn build_metadata_from_parts(parts: &mut Parts) -> (ObjectBody, DetectedContentType) {
+    let mut obj = HashMap::new();
     let content_type: DetectedContentType;
-
     {
         let path: Path<HashMap<String, String>> =
-            Path::from_request_parts(&mut parts, &()).await.unwrap();
+            Path::from_request_parts(parts, &()).await.unwrap();
         let query: Query<HashMap<String, String>> =
-            Query::from_request_parts(&mut parts, &()).await.unwrap();
-        let method: Method = Method::from_request_parts(&mut parts, &()).await.unwrap();
+            Query::from_request_parts(parts, &()).await.unwrap();
+        let method: Method = Method::from_request_parts(parts, &()).await.unwrap();
 
-        request_obj.insert(
+        obj.insert(
             "method".to_string(),
             StorageValue::String(method.to_string()),
         );
-        request_obj.insert(
+        obj.insert(
             "query".to_string(),
             StorageValue::Object(
                 query
@@ -90,7 +99,7 @@ pub async fn build_initial_storage_from_request(
                     .collect(),
             ),
         );
-        request_obj.insert(
+        obj.insert(
             "params".to_string(),
             StorageValue::Object(
                 path.0
@@ -99,8 +108,7 @@ pub async fn build_initial_storage_from_request(
                     .collect(),
             ),
         );
-
-        request_obj.insert(
+        obj.insert(
             "path".to_string(),
             StorageValue::String(parts.uri.path().to_string()),
         );
@@ -112,15 +120,20 @@ pub async fn build_initial_storage_from_request(
                 Ok(v) => v,
                 Err(_) => continue,
             };
-
             headers.insert(
                 k.as_str().to_string(),
                 StorageValue::String(value.to_string()),
             );
         }
-        request_obj.insert("headers".to_string(), StorageValue::Object(headers));
+        obj.insert("headers".to_string(), StorageValue::Object(headers));
         content_type = retrieve_content_type(&parts.headers);
     }
+    (obj, content_type)
+}
+
+pub async fn build_request_object(request: Request<Body>) -> HashMap<String, StorageValue> {
+    let (mut parts, body) = request.into_parts();
+    let (mut request_object, content_type) = build_metadata_from_parts(&mut parts).await;
 
     let request = Request::from_parts(parts, body);
 
@@ -131,18 +144,18 @@ pub async fn build_initial_storage_from_request(
             DetectedContentType::Json => {
                 let body = serde_json::from_slice(&bytes).ok();
                 if let Some(body) = body {
-                    request_obj.insert("body".to_string(), body);
+                    request_object.insert("body".to_string(), body);
                 }
             }
             DetectedContentType::Form => {
                 let body = serde_urlencoded::from_bytes(&bytes).ok();
                 if let Some(body) = body {
-                    request_obj.insert("form".to_string(), body);
+                    request_object.insert("form".to_string(), body);
                 }
             }
             DetectedContentType::Text => {
                 let (text, _) = decode_text_with_encoding("utf-8", &bytes);
-                request_obj.insert("body".to_string(), StorageValue::String(text));
+                request_object.insert("body".to_string(), StorageValue::String(text));
             }
             DetectedContentType::Bytes => {
                 let vec = bytes
@@ -150,16 +163,13 @@ pub async fn build_initial_storage_from_request(
                     .iter_mut()
                     .map(|f| StorageValue::Number(*f as f64))
                     .collect();
-                request_obj.insert("body".to_string(), StorageValue::Array(vec));
+                request_object.insert("body".to_string(), StorageValue::Array(vec));
             }
             DetectedContentType::None => {}
             DetectedContentType::Unknown => {}
         }
     }
-
-    let mut storage = HashMap::new();
-    storage.insert("request".to_string(), StorageValue::Object(request_obj));
-    storage
+    request_object
 }
 
 pub fn decode_text_with_encoding(encoding_name: &str, full: &Bytes) -> (String, bool) {

@@ -7,6 +7,7 @@ use crate::{
     resources::{ActorLink, ActorResources, Resource},
 };
 use tel::{ObjectBody, StorageValue};
+use tokio::sync::oneshot;
 use tracing::{debug, instrument};
 
 use super::store_value;
@@ -74,7 +75,7 @@ pub async fn spawn_actor<'a>(
 }
 
 #[instrument(level = "trace", skip_all)]
-pub async fn send_command<'a>(
+pub async fn send<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     _step_id: &str,
@@ -102,8 +103,7 @@ pub async fn send_command<'a>(
     let mut storage = ObjectBody::new();
     storage.insert("message".to_owned(), message_param);
 
-    // TODO: Wait for run to finish?
-    // let (sender, receiver) = oneshot::channel();
+    // This is fire and forget
     messenger
         .send(ActorCommand::Run {
             handler: "onMessage".to_owned(),
@@ -112,7 +112,54 @@ pub async fn send_command<'a>(
         })
         .await
         .expect("Failed to send message to actor");
-    // let _ = receiver.await.expect("Actor did not respond");
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn request<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let id_param = eval_param("id", parameters, &context.storage, &context.environment)?;
+    let id = as_string(id_param, "id")?;
+
+    let messenger = {
+        context
+            .global
+            .registry
+            .actors
+            .get(&id)
+            .ok_or_else(actor_not_found)
+            .map(|r| r.value().0.clone())?
+    };
+
+    let message_param = eval_param(
+        "message",
+        parameters,
+        &context.storage,
+        &context.environment,
+    )?;
+
+    let mut storage = ObjectBody::new();
+    storage.insert("message".to_owned(), message_param);
+
+    // Let's wait for run to finish
+    // TODO: Add timeout
+    let (sender, receiver) = oneshot::channel();
+    messenger
+        .send(ActorCommand::Run {
+            handler: "onRequest".to_owned(),
+            storage,
+            sender: Some(sender),
+        })
+        .await
+        .expect("Failed to send message to actor");
+
+    let response = receiver.await.expect("Actor did not respond")?;
+    store_value(store_as, context, step_id, response).await?;
 
     Ok(())
 }
