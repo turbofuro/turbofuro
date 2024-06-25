@@ -876,14 +876,12 @@ async fn execute_native<'a>(
             http_client::stream_http_request_with_form_data(context, parameters, step_id, store_as)
                 .await?
         }
-        "form_data/create" => {
-            form_data::create_form_data(context, parameters, step_id, store_as).await?
+        "form_data/create" => form_data::create_form_data(context, parameters, step_id, store_as)?,
+        "form_data/add_stream_part" => {
+            form_data::add_stream_part_to_form_data(context, parameters, step_id, store_as).await?
         }
-        "form_data/add_stream_field" => {
-            form_data::add_stream_field_to_form_data(context, parameters, step_id, store_as).await?
-        }
-        "form_data/add_field" => {
-            form_data::add_field_to_form_data(context, parameters, step_id, store_as).await?
+        "form_data/add_text_part" => {
+            form_data::add_text_part_to_form_data(context, parameters, step_id, store_as).await?
         }
         "http_server/setup_route" => http_server::setup_route(context, parameters, step_id).await?,
         "http_server/setup_streaming_route" => {
