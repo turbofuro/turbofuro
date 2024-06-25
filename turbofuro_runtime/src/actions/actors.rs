@@ -156,7 +156,12 @@ pub async fn request<'a>(
             sender: Some(sender),
         })
         .await
-        .expect("Failed to send message to actor");
+        .map_err(|e| ExecutionError::ActorCommandFailed {
+            message: format!(
+                "Could not send run command (handler: onRequest) to actor. Send error: {:?}",
+                e
+            ),
+        })?;
 
     let response = receiver.await.expect("Actor did not respond")?;
     store_value(store_as, context, step_id, response).await?;

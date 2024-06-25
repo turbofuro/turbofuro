@@ -40,7 +40,6 @@ use crate::actions::postgres;
 use crate::actions::pubsub;
 use crate::actions::redis;
 use crate::actions::time;
-use crate::actions::url;
 use crate::actions::wasm;
 use crate::actions::websocket;
 use crate::debug::DebugMessage;
@@ -821,6 +820,7 @@ async fn execute_native<'a>(
     match native_id {
         "wasm/run_wasi" => wasm::run_wasi(context, parameters, step_id, store_as).await?,
         "fs/open" => fs::open_file(context, parameters, step_id, store_as).await?,
+        // TODO: Before stable, decide how to structure the fs actions write_stream vs write_string, one is resourceful (requires open) and other is not
         "fs/write_stream" => fs::write_stream(context, step_id).await?,
         "fs/write_string" => fs::simple_write_string(context, parameters, step_id).await?,
         "fs/read_to_string" => {
@@ -852,8 +852,6 @@ async fn execute_native<'a>(
         "actors/check_actor_exists" => {
             actors::check_actor_exists(context, parameters, step_id, store_as).await?
         }
-        "url/parse" => url::parse_url(context, parameters, step_id, store_as).await?,
-        "url/serialize" => url::serialize_url(context, parameters, step_id, store_as).await?,
         "http_client/request" => {
             http_client::send_http_request(context, parameters, step_id, store_as).await?
         }
@@ -916,6 +914,8 @@ async fn execute_native<'a>(
         "convert/to_urlencoded" => {
             convert::to_urlencoded(context, parameters, step_id, store_as).await?
         }
+        "convert/parse_url" => convert::parse_url(context, parameters, step_id, store_as).await?,
+        "convert/to_url" => convert::to_url(context, parameters, step_id, store_as).await?,
         "crypto/get_uuid_v4" => crypto::get_uuid_v4(context, parameters, step_id, store_as).await?,
         "crypto/get_uuid_v7" => crypto::get_uuid_v7(context, parameters, step_id, store_as).await?,
         "crypto/jwt_decode" => crypto::jwt_decode(context, parameters, step_id, store_as).await?,

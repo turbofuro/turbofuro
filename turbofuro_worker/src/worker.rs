@@ -41,7 +41,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, error, info, info_span, instrument, Instrument};
+use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE", tag = "type")]
@@ -130,8 +130,8 @@ impl Display for WorkerError {
     }
 }
 
-async fn handle_socket_with_errors<'a>(socket: WebSocket, actor: Sender<ActorCommand>) {
-    match handle_socket(socket, actor).await {
+async fn handle_websocket_with_errors<'a>(socket: WebSocket, actor: Sender<ActorCommand>) {
+    match handle_websocket(socket, actor).await {
         Ok(_) => {}
         Err(e) => {
             error!("Error handling socket: {:?}", e);
@@ -139,7 +139,10 @@ async fn handle_socket_with_errors<'a>(socket: WebSocket, actor: Sender<ActorCom
     }
 }
 
-async fn handle_socket<'a>(socket: WebSocket, actor: Sender<ActorCommand>) -> Result<(), AppError> {
+async fn handle_websocket<'a>(
+    socket: WebSocket,
+    actor: Sender<ActorCommand>,
+) -> Result<(), AppError> {
     let (mut sender, mut receiver) = socket.split();
     let (websocket_sender, mut websocket_receiver) = mpsc::channel::<WebSocketCommand>(32);
     {
@@ -166,11 +169,11 @@ async fn handle_socket<'a>(socket: WebSocket, actor: Sender<ActorCommand>) -> Re
                 sender: None,
             })
             .await
-            .map_err(|_| {
-                AppError::from(ExecutionError::ActorCommandFailed {
-                    message: "Could not send run command (handler: onWebSocketConnection) to actor"
-                        .to_owned(),
-                })
+            .map_err(|e| ExecutionError::ActorCommandFailed {
+                message: format!(
+                    "Could not send run command (handler: onWebSocketConnection) to actor. Send error: {:?}",
+                    e
+                ),
             })?;
     }
 
@@ -212,11 +215,11 @@ async fn handle_socket<'a>(socket: WebSocket, actor: Sender<ActorCommand>) -> Re
                                 sender: None
                             })
                             .await
-                            .map_err(|_| {
-                                AppError::from(ExecutionError::ActorCommandFailed {
-                                    message: "Could not send run command (handler: onWebSocketDisconnection) to actor"
-                                        .to_owned(),
-                                })
+                            .map_err(|e| ExecutionError::ActorCommandFailed {
+                                message: format!(
+                                    "Could not send run command (handler: onWebSocketDisconnection) to actor. Send error: {:?}",
+                                    e
+                                ),
                             })?;
                     }
                     msg => {
@@ -247,11 +250,11 @@ async fn handle_socket<'a>(socket: WebSocket, actor: Sender<ActorCommand>) -> Re
                                 sender: None
                             })
                             .await
-                            .map_err(|_| {
-                                AppError::from(ExecutionError::ActorCommandFailed {
-                                    message: "Could not send run command (handler: onWebSocketMessage) to actor"
-                                        .to_owned(),
-                                })
+                            .map_err(|e| ExecutionError::ActorCommandFailed {
+                                message: format!(
+                                    "Could not send run command (handler: onWebSocketMessage) to actor. Send error: {:?}",
+                                    e
+                                ),
                             })?;
                     }
                 };
@@ -272,11 +275,11 @@ async fn handle_socket<'a>(socket: WebSocket, actor: Sender<ActorCommand>) -> Re
                         sender: None,
                     })
                     .await
-                    .map_err(|_| {
-                        AppError::from(ExecutionError::ActorCommandFailed {
-                            message: "Could not send run command (handler: onWebSocketDisconnection) to actor"
-                                .to_owned(),
-                        })
+                    .map_err(|e| ExecutionError::ActorCommandFailed {
+                        message: format!(
+                            "Could not send run command (handler: onWebSocketDisconnection) to actor. Send error: {:?}",
+                            e
+                        ),
                     })?;
             }
         }
@@ -477,29 +480,29 @@ async fn handle_request(
     );
 
     let actor_id = actor.get_id().to_owned();
-    let sender = activate_actor(actor);
+    let actor_sender = activate_actor(actor);
     app_state
         .global
         .registry
         .actors
-        .insert(actor_id.clone(), ActorLink(sender.clone()));
+        .insert(actor_id.clone(), ActorLink(actor_sender.clone()));
 
     let (response_sender, response_receiver) =
         oneshot::channel::<Result<StorageValue, ExecutionError>>();
-    sender
+    actor_sender
         .send(ActorCommand::Run {
-            handler: "onRequest".to_owned(),
+            handler: "onHttpRequest".to_owned(),
             storage: initial_storage,
             sender: Some(response_sender),
         })
         .await
         .map_err(|_| {
             AppError::from(ExecutionError::ActorCommandFailed {
-                message: "Could not send run command (handler: onRequest) to actor".to_owned(),
+                message: "Could not send run command (handler: onHttpRequest) to actor".to_owned(),
             })
         })?;
 
-    let killer_sender = sender.clone();
+    let actor_sender_for_termination = actor_sender.clone();
     tokio::spawn(async move {
         match response_receiver.await {
             Ok(resp) => {
@@ -509,7 +512,7 @@ async fn handle_request(
                     }
                     Err(e) => {
                         // If the execution has failed we should terminate the actor
-                        match killer_sender
+                        match actor_sender_for_termination
                             .send(ActorCommand::Terminate)
                             .await
                             .map_err(|_| {
@@ -522,7 +525,7 @@ async fn handle_request(
                                 error!("Could not send terminate command to actor");
                             }
                         }
-                        error!("Error running onRequest: {:?} sending error response", e);
+                        warn!("Error running onRequest: {:?} sending error response", e);
                     }
                 }
             }
@@ -540,11 +543,14 @@ async fn handle_request(
             let response = match wrapper {
                 HttpResponse::Normal(response, responder) => {
                     responder.send(Ok(())).unwrap();
-                    sender.send(ActorCommand::Terminate).await.map_err(|_| {
-                        AppError::from(ExecutionError::ActorCommandFailed {
-                            message: "Could not send terminate command to actor".to_owned(),
-                        })
-                    })?;
+                    actor_sender
+                        .send(ActorCommand::Terminate)
+                        .await
+                        .map_err(|_| {
+                            AppError::from(ExecutionError::ActorCommandFailed {
+                                message: "Could not send terminate command to actor".to_owned(),
+                            })
+                        })?;
                     response
                 }
                 HttpResponse::WebSocket(responder) => {
@@ -566,7 +572,7 @@ async fn handle_request(
                         }
                     };
 
-                    ws.on_upgrade(move |socket| handle_socket_with_errors(socket, sender))
+                    ws.on_upgrade(move |socket| handle_websocket_with_errors(socket, actor_sender))
                 }
             };
 
@@ -827,10 +833,9 @@ impl Worker {
                     sender: Some(run_sender),
                 })
                 .await
-                .map_err(|_| {
+                .map_err(|e| {
                     AppError::from(ExecutionError::ActorCommandFailed {
-                        message: "Could not send run command (handler: onRequest) to actor"
-                            .to_owned(),
+                        message: format!("Could not send run command (handler: onStart) to actor. Send error: {:?}", e)
                     })
                 }); // TODO: Handle error
 
