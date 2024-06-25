@@ -49,6 +49,12 @@ where
     }
 }
 
+impl Default for StorageValue {
+    fn default() -> Self {
+        NULL
+    }
+}
+
 impl From<String> for StorageValue {
     fn from(item: String) -> Self {
         StorageValue::String(item)

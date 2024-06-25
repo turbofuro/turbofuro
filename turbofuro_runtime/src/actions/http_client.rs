@@ -19,7 +19,7 @@ use crate::{
     resources::{HttpRequestToRespond, PendingHttpResponseBody, Resource},
 };
 
-use super::{as_string, store_value};
+use super::{as_string, form_data::form_data_draft_resource_not_found, store_value};
 
 static USER_AGENT: &str = concat!("turbofuro/", env!("CARGO_PKG_VERSION"));
 
@@ -369,6 +369,43 @@ pub async fn send_http_request_with_stream<'a>(
 }
 
 #[instrument(level = "trace", skip_all)]
+pub async fn send_http_request_with_form_data<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let mut request_builder = get_builder(context, parameters)?;
+
+    // Set body
+    // Get form data from resources
+    let form_data = context
+        .resources
+        .form_data
+        .pop()
+        .ok_or(form_data_draft_resource_not_found())?;
+
+    request_builder = request_builder.multipart(form_data.0);
+
+    let response = bare_http_request(context, parameters, request_builder).await?;
+    let metadata = get_metadata_object_from_response(&response);
+
+    // Parse body
+    let body = collect_body(response, metadata.content_type.clone()).await?;
+    let mut response_object = metadata.into_storage_object();
+    response_object.insert("body".to_string(), body);
+    store_value(
+        store_as,
+        context,
+        step_id,
+        StorageValue::Object(response_object),
+    )
+    .await?;
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
 pub async fn stream_http_request<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
@@ -412,6 +449,45 @@ pub async fn stream_http_request_with_stream<'a>(
     // Pick a stream and set it as body
     let stream = context.resources.get_nearest_stream()?;
     request_builder = request_builder.body(Body::wrap_stream(stream));
+
+    let response = bare_http_request(context, parameters, request_builder).await?;
+    let metadata = get_metadata_object_from_response(&response);
+
+    // Put pending response
+    context
+        .resources
+        .pending_response_body
+        .push(PendingHttpResponseBody::new(response));
+
+    store_value(
+        store_as,
+        context,
+        step_id,
+        StorageValue::Object(metadata.into_storage_object()),
+    )
+    .await?;
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn stream_http_request_with_form_data<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let mut request_builder = get_builder(context, parameters)?;
+
+    // Set body
+    // Get form data from resources
+    let form_data = context
+        .resources
+        .form_data
+        .pop()
+        .ok_or(form_data_draft_resource_not_found())?;
+
+    request_builder = request_builder.multipart(form_data.0);
 
     let response = bare_http_request(context, parameters, request_builder).await?;
     let metadata = get_metadata_object_from_response(&response);

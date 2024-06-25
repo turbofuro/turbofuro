@@ -29,15 +29,10 @@ use crate::actions::actors;
 use crate::actions::alarms;
 use crate::actions::convert;
 use crate::actions::crypto;
+use crate::actions::form_data;
 use crate::actions::fs;
-use crate::actions::http_client::send_http_request;
-use crate::actions::http_client::send_http_request_with_stream;
-use crate::actions::http_client::stream_http_request;
-use crate::actions::http_client::stream_http_request_with_stream;
-use crate::actions::http_server::respond_with;
-use crate::actions::http_server::respond_with_stream;
-use crate::actions::http_server::setup_route;
-use crate::actions::http_server::setup_streaming_route;
+use crate::actions::http_client;
+use crate::actions::http_server;
 use crate::actions::kv;
 use crate::actions::mustache;
 use crate::actions::os;
@@ -825,7 +820,7 @@ async fn execute_native<'a>(
 
     match native_id {
         "wasm/run_wasi" => wasm::run_wasi(context, parameters, step_id, store_as).await?,
-        "fs/open" => fs::open_file(context, parameters, step_id).await?,
+        "fs/open" => fs::open_file(context, parameters, step_id, store_as).await?,
         "fs/write_stream" => fs::write_stream(context, step_id).await?,
         "fs/write_string" => fs::simple_write_string(context, parameters, step_id).await?,
         "fs/read_to_string" => {
@@ -859,23 +854,46 @@ async fn execute_native<'a>(
         }
         "url/parse" => url::parse_url(context, parameters, step_id, store_as).await?,
         "url/serialize" => url::serialize_url(context, parameters, step_id, store_as).await?,
-        "http_client/request" => send_http_request(context, parameters, step_id, store_as).await?,
+        "http_client/request" => {
+            http_client::send_http_request(context, parameters, step_id, store_as).await?
+        }
         "http_client/request_with_stream" => {
-            send_http_request_with_stream(context, parameters, step_id, store_as).await?
+            http_client::send_http_request_with_stream(context, parameters, step_id, store_as)
+                .await?
+        }
+        "http_client/request_with_form_data" => {
+            http_client::send_http_request_with_form_data(context, parameters, step_id, store_as)
+                .await?
         }
         "http_client/stream_request" => {
-            stream_http_request(context, parameters, step_id, store_as).await?
+            http_client::stream_http_request(context, parameters, step_id, store_as).await?
         }
         "http_client/stream_request_with_stream" => {
-            stream_http_request_with_stream(context, parameters, step_id, store_as).await?
+            http_client::stream_http_request_with_stream(context, parameters, step_id, store_as)
+                .await?
         }
-        "http_server/setup_route" => setup_route(context, parameters, step_id).await?,
+        "http_client/stream_request_with_form_data" => {
+            http_client::stream_http_request_with_form_data(context, parameters, step_id, store_as)
+                .await?
+        }
+        "form_data/create" => {
+            form_data::create_form_data(context, parameters, step_id, store_as).await?
+        }
+        "form_data/add_stream_field" => {
+            form_data::add_stream_field_to_form_data(context, parameters, step_id, store_as).await?
+        }
+        "form_data/add_field" => {
+            form_data::add_field_to_form_data(context, parameters, step_id, store_as).await?
+        }
+        "http_server/setup_route" => http_server::setup_route(context, parameters, step_id).await?,
         "http_server/setup_streaming_route" => {
-            setup_streaming_route(context, parameters, step_id).await?
+            http_server::setup_streaming_route(context, parameters, step_id).await?
         }
-        "http_server/respond_with" => respond_with(context, parameters, step_id).await?,
+        "http_server/respond_with" => {
+            http_server::respond_with(context, parameters, step_id).await?
+        }
         "http_server/respond_with_stream" => {
-            respond_with_stream(context, parameters, step_id).await?
+            http_server::respond_with_stream(context, parameters, step_id).await?
         }
         "postgres/get_connection" => postgres::get_connection(context, parameters, step_id).await?,
         "postgres/query_one" => postgres::query_one(context, parameters, step_id, store_as).await?,

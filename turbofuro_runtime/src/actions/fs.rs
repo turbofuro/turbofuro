@@ -1,5 +1,7 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use futures_util::StreamExt;
-use tel::StorageValue;
+use tel::{ObjectBody, StorageValue};
 use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 use tracing::instrument;
 
@@ -19,11 +21,19 @@ fn file_handle_not_found() -> ExecutionError {
     }
 }
 
+fn system_time_to_millis_since_epoch(time: SystemTime) -> f64 {
+    match time.duration_since(UNIX_EPOCH) {
+        Ok(duration) => duration.as_millis() as f64,
+        Err(error) => -(error.duration().as_millis() as f64),
+    }
+}
+
 #[instrument(level = "trace", skip_all)]
 pub async fn open_file<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
-    _step_id: &str,
+    step_id: &str,
+    store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     // Get path
     let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
@@ -61,7 +71,36 @@ pub async fn open_file<'a>(
         .await
         .map_err(ExecutionError::from)?;
 
+    let metadata = file.metadata().await.map_err(ExecutionError::from)?;
+
+    let mut metadata_object: ObjectBody = ObjectBody::new();
+    metadata_object.insert("size".into(), (metadata.len() as f64).into());
+    metadata_object.insert(
+        "created".into(),
+        metadata
+            .created()
+            .ok()
+            .map(|c| system_time_to_millis_since_epoch(c).into())
+            .unwrap_or_default(),
+    );
+    metadata_object.insert(
+        "modified".into(),
+        metadata
+            .modified()
+            .ok()
+            .map(|c| system_time_to_millis_since_epoch(c).into())
+            .unwrap_or_default(),
+    );
+
     context.resources.files.push(FileHandle { file });
+
+    store_value(
+        store_as,
+        context,
+        step_id,
+        StorageValue::Object(metadata_object),
+    )
+    .await?;
 
     Ok(())
 }

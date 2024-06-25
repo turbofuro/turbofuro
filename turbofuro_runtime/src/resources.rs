@@ -6,6 +6,7 @@ use axum::{
 use dashmap::DashMap;
 use futures_util::stream::Stream;
 use futures_util::{StreamExt, TryStreamExt};
+use reqwest::multipart::Form;
 use serde_derive::{Deserialize, Serialize};
 use std::pin::Pin;
 use tel::StorageValue;
@@ -28,6 +29,7 @@ const REDIS_CONNECTION_RESOURCE_TYPE: &str = "redis_connection";
 const HTTP_REQUEST_RESOURCE_TYPE: &str = "http_request";
 const PENDING_HTTP_RESPONSE_TYPE: &str = "pending_http_response";
 const PENDING_HTTP_REQUEST_TYPE: &str = "pending_http_request";
+const FORM_DATA_DRAFT_TYPE: &str = "form_data_draft";
 const ACTOR_LINK_TYPE: &str = "actor_link";
 const CANCELLATION: &str = "cancellation";
 const FILE_HANDLE: &str = "file_handle";
@@ -273,6 +275,21 @@ impl Resource for PendingHttpRequestBody {
     }
 }
 
+#[derive(Debug)]
+pub struct FormDataDraft(pub Form);
+
+impl FormDataDraft {
+    pub fn new(form: Form) -> Self {
+        Self(form)
+    }
+}
+
+impl Resource for FormDataDraft {
+    fn get_type() -> &'static str {
+        FORM_DATA_DRAFT_TYPE
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct ResourceRegistry {
     pub redis_pools: DashMap<String, RedisPool>,
@@ -289,6 +306,7 @@ pub struct ActorResources {
     pub files: Vec<FileHandle>,
     pub pending_response_body: Vec<PendingHttpResponseBody>,
     pub pending_request_body: Vec<PendingHttpRequestBody>,
+    pub form_data: Vec<FormDataDraft>,
 }
 
 pub struct PendingHttpRequestStream(pub BodyDataStream);
