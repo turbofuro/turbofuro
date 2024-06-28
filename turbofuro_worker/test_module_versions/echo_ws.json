@@ -86,7 +86,7 @@
           "parameters": [
             {
               "type": "functionRef",
-              "name": "onRequest",
+              "name": "onHttpRequest",
               "id": "Xjk2dP1YC_2-FW76IlD-q"
             },
             {

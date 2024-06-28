@@ -525,7 +525,10 @@ async fn handle_request(
                                 error!("Could not send terminate command to actor");
                             }
                         }
-                        warn!("Error running onRequest: {:?} sending error response", e);
+                        warn!(
+                            "Error running onHttpRequest: {:?} sending error response",
+                            e
+                        );
                     }
                 }
             }
@@ -944,7 +947,7 @@ mod test_worker {
                 "id": "ZVnigLgKIJQ1d_nmeT71g",
                 "type": "HTTP",
                 "handlers": {
-                  "onRequest": "ZVnigLgKIJQ1d_nmeT71g"
+                  "onHttpRequest": "ZVnigLgKIJQ1d_nmeT71g"
                 },
                 "imports": {
                     "something": {

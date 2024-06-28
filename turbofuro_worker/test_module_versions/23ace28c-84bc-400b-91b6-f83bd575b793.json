@@ -19,7 +19,7 @@
           }
         },
         {
-          "name": "onRequest",
+          "name": "onHttpRequest",
           "description": "Function to be called when the route is matched",
           "optional": false,
           "type": "functionRef"

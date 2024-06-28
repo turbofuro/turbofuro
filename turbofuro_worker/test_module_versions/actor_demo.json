@@ -197,7 +197,7 @@
             },
             {
               "type": "functionRef",
-              "name": "onRequest",
+              "name": "onHttpRequest",
               "id": "_xr1Fnvgfh9uYPk4rNJKe"
             },
             {
