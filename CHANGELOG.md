@@ -1,3 +1,12 @@
+## 0.1.13
+* Added `form` parameter to HTTP request function
+* Added new HTTP client functions
+* Added form data functions
+* Added concept of Streams
+* Added request/reply messaging to actors
+* Worker is now throwing 500 errors immediately when actor fails to run to response to HTTP request
+* Add URL parsing utilities
+
 ## 0.1.12
 * Fix panics when Postgres row contains NULL
 * Upgraded TEL
