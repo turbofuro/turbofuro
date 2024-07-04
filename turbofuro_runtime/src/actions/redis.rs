@@ -332,19 +332,18 @@ impl RedisPubSubCoordinatorHandle {
             })
             .await
             .map_err(|e| ExecutionError::RedisError {
-                message: e.to_string(),
+                message: format!("Subscribe sender failed: {}", e),
             })?;
 
-        receiver
-            .await
-            .map_err(|e| ExecutionError::RedisError {
-                message: e.to_string(),
-            })?
-            .map_err(|e| e.clone())?;
+        receiver.await.map_err(|e| ExecutionError::RedisError {
+            message: format!("Subscribe receiver failed: {}", e),
+        })??;
 
         let (sender, receiver) = tokio::sync::oneshot::channel::<()>();
         let self_clone = self.clone();
         let channel_copy = channel.clone();
+
+        // Spawn cancellation task
         tokio::spawn(async move {
             match receiver.await {
                 Ok(_) => {
@@ -446,7 +445,6 @@ async fn setup_pubsub_coordinator(
     tokio::spawn(async move {
         // Map of channels to list of actors
         let mut channels = HashMap::<String, Vec<ActorSubscriber>>::new();
-
         loop {
             let mut stream = pubsub.on_message();
             tokio::select! {
@@ -541,13 +539,17 @@ async fn setup_pubsub_coordinator(
                     match msg {
                         Some(cmd) => match cmd {
                             RedisPubSubCoordinatorCommand::Subscribe { channel, actor_id, function_ref, sender } => {
+                                debug!("Subscribing to channel: {} for actor ID {}", channel, actor_id);
                                 match channels.get_mut(&channel) {
                                     Some(v) => {
                                         v.push(ActorSubscriber {
                                             id: actor_id.clone(),
                                             function_ref: function_ref.clone(),
                                         });
-                                        if v.len() == 1 { // In case an empty array was left
+
+                                        // In case an empty array was left, re-subscribe
+                                        // Though I should probably learn how this thing works
+                                        if v.len() == 1 {
                                             match pubsub.subscribe(channel).await {
                                                 Ok(_) => {
                                                     let _ = sender.send(Ok(()));
@@ -557,6 +559,8 @@ async fn setup_pubsub_coordinator(
                                                     let _ = sender.send(Err(err.into()));
                                                 }
                                             }
+                                        } else {
+                                            let _ = sender.send(Ok(()));
                                         }
                                     }
                                     None => {
@@ -577,9 +581,12 @@ async fn setup_pubsub_coordinator(
                                 }
                             }
                             RedisPubSubCoordinatorCommand::Unsubscribe { channel, actor_id, sender } => {
+                                debug!("Unsubscribing to channel: {} for actor ID {}", channel, actor_id);
                                 match channels.get_mut(&channel) {
                                     Some(v) => {
                                         v.retain(|a| a.id != actor_id);
+
+                                        // When it's empty, unsubscribe
                                         if v.is_empty() {
                                             channels.remove(&channel);
                                             match pubsub.unsubscribe(channel).await {
@@ -591,6 +598,8 @@ async fn setup_pubsub_coordinator(
                                                     let _ = sender.send(Err(err.into()));
                                                 }
                                             }
+                                        } else {
+                                            let _ = sender.send(Ok(()));
                                         }
                                     }
                                     None => {
@@ -610,12 +619,14 @@ async fn setup_pubsub_coordinator(
                         }
                         None => {
                             // If all handles are dropped, we should stop the coordinator
+                            debug!("Redis PubSub coordinator dropped");
                             break;
                         }
                     }
                 }
             }
         }
+        debug!("Redis PubSub coordinator ended");
     });
 
     Ok(RedisPubSubCoordinatorHandle::new(tx))
