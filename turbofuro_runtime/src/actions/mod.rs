@@ -92,6 +92,17 @@ pub fn as_integer(s: StorageValue, name: &str) -> Result<i64, ExecutionError> {
     }
 }
 
+pub fn as_boolean(s: StorageValue, name: &str) -> Result<bool, ExecutionError> {
+    match s {
+        StorageValue::Boolean(b) => Ok(b),
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: name.to_owned(),
+            expected: Description::new_base_type("boolean"),
+            actual: describe(s),
+        }),
+    }
+}
+
 pub fn as_u64(s: StorageValue, name: &str) -> Result<u64, ExecutionError> {
     match s {
         StorageValue::Number(f) => Ok(f as u64),

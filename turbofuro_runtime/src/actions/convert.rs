@@ -10,7 +10,7 @@ use crate::{
     executor::{ExecutionContext, Parameter},
 };
 
-use super::{as_string, store_value};
+use super::{as_boolean, as_string, store_value};
 
 #[instrument(level = "trace", skip_all)]
 pub async fn parse_json(
@@ -42,12 +42,30 @@ pub async fn to_json(
 ) -> Result<(), ExecutionError> {
     let value_param = eval_param("value", parameters, &context.storage, &context.environment)?;
 
-    let json =
+    let pretty = eval_optional_param_with_default(
+        "pretty",
+        parameters,
+        &context.storage,
+        &context.environment,
+        false.into(),
+    )?;
+    let pretty = as_boolean(pretty, "pretty")?;
+
+    let json = if pretty {
+        serde_json::to_string_pretty(&value_param).map_err(|e| {
+            ExecutionError::SerializationFailed {
+                message: "Failed to serialize to JSON".to_owned(),
+                breadcrumbs: "action/to_json".to_string(),
+                inner: e.to_string(),
+            }
+        })?
+    } else {
         serde_json::to_string(&value_param).map_err(|e| ExecutionError::SerializationFailed {
             message: "Failed to serialize to JSON".to_owned(),
             breadcrumbs: "action/to_json".to_string(),
             inner: e.to_string(),
-        })?;
+        })?
+    };
 
     store_value(store_as, context, step_id, json.into()).await?;
     Ok(())
