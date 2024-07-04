@@ -307,7 +307,7 @@ async fn startup() -> Result<(), WorkerError> {
 
     let http_server_options = HttpServerOptions { port };
 
-    info!("Starting Turbofuro Worker");
+    info!("Starting Turbofuro Worker {}", env!("CARGO_PKG_VERSION"));
     match (turbofuro_token, config_path_env) {
         (Some(token), None) => {
             let cloud_options = CloudOptions {

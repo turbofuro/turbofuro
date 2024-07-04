@@ -17,6 +17,7 @@ pub mod fs;
 pub mod http_client;
 pub mod http_server;
 pub mod kv;
+pub mod mail;
 pub mod mustache;
 pub mod os;
 pub mod postgres;
@@ -42,6 +43,36 @@ pub async fn store_value(
 pub fn as_string(s: StorageValue, name: &str) -> Result<String, ExecutionError> {
     match s {
         StorageValue::String(s) => Ok(s),
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: name.to_owned(),
+            expected: Description::new_base_type("string"),
+            actual: describe(s),
+        }),
+    }
+}
+
+pub fn as_string_or_array_string(
+    s: StorageValue,
+    name: &str,
+) -> Result<Vec<String>, ExecutionError> {
+    match s {
+        StorageValue::String(s) => Ok(vec![s]),
+        StorageValue::Array(arr) => {
+            let mut result = Vec::new();
+            for s in arr {
+                match s {
+                    StorageValue::String(s) => result.push(s),
+                    s => {
+                        return Err(ExecutionError::ParameterTypeMismatch {
+                            name: name.to_owned(),
+                            expected: Description::new_base_type("string"),
+                            actual: describe(s),
+                        })
+                    }
+                }
+            }
+            Ok(result)
+        }
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: name.to_owned(),
             expected: Description::new_base_type("string"),
