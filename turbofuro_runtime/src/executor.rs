@@ -34,6 +34,7 @@ use crate::actions::fs;
 use crate::actions::http_client;
 use crate::actions::http_server;
 use crate::actions::kv;
+use crate::actions::mail;
 use crate::actions::mustache;
 use crate::actions::os;
 use crate::actions::postgres;
@@ -924,6 +925,12 @@ async fn execute_native<'a>(
         "pubsub/unsubscribe" => pubsub::unsubscribe(context, parameters, step_id).await?,
         "mustache/render_template" => {
             mustache::render_template(context, parameters, step_id, store_as).await?
+        }
+        "mail/send_smtp_html" => {
+            mail::sendmail_smtp_html(context, parameters, step_id, store_as).await?
+        }
+        "mail/send_smtp_text" => {
+            mail::sendmail_smtp_text(context, parameters, step_id, store_as).await?
         }
         id => {
             return Err(ExecutionError::Unsupported {
