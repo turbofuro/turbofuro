@@ -70,6 +70,7 @@ pub enum OperatorCommand<'a> {
         finished_at: u64,
     },
     UpdateStats {
+        version: &'static str,
         os: &'static str,
         #[serde(rename = "runsCount")]
         runs_count: u64,
@@ -92,6 +93,8 @@ pub enum CloudAgentCommand {
         id: String,
     },
 }
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct CloudAgent {
     pub cloud_options: CloudOptions,
@@ -182,6 +185,7 @@ impl CloudAgent {
                     debug!(
                         "Cloud agent: Sending stats {}",
                         serde_json::to_string(&OperatorCommand::UpdateStats {
+                            version: VERSION,
                             os: env::consts::OS,
                             runs_count: RUNS_ACCUMULATOR.load(std::sync::atomic::Ordering::SeqCst),
                             name: &name,
@@ -191,6 +195,7 @@ impl CloudAgent {
                     report_write
                         .send(Message::Text(
                             serde_json::to_string(&OperatorCommand::UpdateStats {
+                                version: VERSION,
                                 os: env::consts::OS,
                                 name: &name,
                                 runs_count: RUNS_ACCUMULATOR
