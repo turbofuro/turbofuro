@@ -1,3 +1,10 @@
+## 0.1.14
+* Added `mail` module for sending emails via SMTP
+* Added `pretty` parameter to JSON stringify function
+* Print worker version on start
+* Add worker version to stats
+* Fix leaking Redis PubSub
+
 ## 0.1.13
 * Added `form` parameter to HTTP request function
 * Added new HTTP client functions
