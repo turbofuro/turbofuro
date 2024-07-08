@@ -498,11 +498,17 @@ impl Actor {
         function_ref: &str,
         initial_storage: ObjectBody,
     ) -> Result<ExecutionLog, ExecutionError> {
-        let local_function = self
+        let function = self
             .module
-            .local_functions
+            .exported_functions
             .iter()
             .find(|f| f.get_id() == function_ref)
+            .or_else(|| {
+                self.module
+                    .local_functions
+                    .iter()
+                    .find(|f| f.get_id() == function_ref)
+            })
             .ok_or(ExecutionError::FunctionNotFound {
                 id: function_ref.to_owned(),
             })?;
@@ -527,7 +533,7 @@ impl Actor {
             loop_counts: vec![],
         };
 
-        let body = match &local_function {
+        let body = match &function {
             Function::Normal { body, .. } => body,
             Function::Native { id, .. } => {
                 return Err(ExecutionError::Unsupported {
