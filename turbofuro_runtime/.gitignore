@@ -1,3 +1,8 @@
+# Ignore WASI images
+php-cgi-8.2.6.wasm
+python-3.12.0.wasm
+ruby-3.2.2.wasm
+
 # Remove Cargo.lock from gitignore if creating an executable, leave it for libraries
 # More information here https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html
 Cargo.lock

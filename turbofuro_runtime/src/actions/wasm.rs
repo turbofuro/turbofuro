@@ -184,14 +184,7 @@ mod test_wasm {
             &vec![
                 Parameter::tel("path", r#""./src/actions/wasm-example.wasm""#),
                 Parameter::tel("args", r#"["arg1", "500"]"#),
-                Parameter::tel(
-                    "env",
-                    r#"
-                {
-                    "TEST_VAR": "Test Value"
-                }
-                "#,
-                ),
+                Parameter::tel("env", r#"{ "TEST_VAR": "Test Value" }"#),
                 Parameter::tel("input", r#""Test""#),
             ],
             "test",
@@ -213,4 +206,85 @@ Stdin: Test
             .into()
         );
     }
+
+    // These are advanced WASI tests that require a chonky WASI image
+    // You can download images from here:
+    // https://github.com/webassemblylabs/webassembly-language-runtimes
+    // You should download them into the `turbofuro_runtime` directory.
+    // These tests are commented out because they are slow and require a download.
+
+    // #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    // async fn test_wasi_python() {
+    //     let mut t = ExecutionTest::default();
+    //     let mut context = t.get_context();
+
+    //     run_wasi(
+    //         &mut context,
+    //         &vec![
+    //             Parameter::tel("path", r#""./python-3.12.0.wasm""#),
+    //             Parameter::tel(
+    //                 "args",
+    //                 r#"["python", "-c", "print('Hello World from Python')"]"#,
+    //             ),
+    //             Parameter::tel("input", r#""""#),
+    //         ],
+    //         "test",
+    //         Some("output"),
+    //     )
+    //     .await
+    //     .unwrap();
+
+    //     assert_eq!(
+    //         eval("output", &context.storage, &context.environment).unwrap(),
+    //         "Hello World from Python\n".into()
+    //     );
+    // }
+
+    // #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    // async fn test_wasi_ruby() {
+    //     let mut t = ExecutionTest::default();
+    //     let mut context = t.get_context();
+
+    //     run_wasi(
+    //         &mut context,
+    //         &vec![
+    //             Parameter::tel("path", r#""./ruby-3.2.2.wasm""#),
+    //             Parameter::tel("args", r#"["ruby", "-e", "puts('Hello World from Ruby')"]"#),
+    //             Parameter::tel("input", r#""""#),
+    //         ],
+    //         "test",
+    //         Some("output"),
+    //     )
+    //     .await
+    //     .unwrap();
+
+    //     assert_eq!(
+    //         eval("output", &context.storage, &context.environment).unwrap(),
+    //         "Hello World from Ruby\n".into()
+    //     );
+    // }
+
+    // #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    // async fn test_wasi_php() {
+    //     let mut t = ExecutionTest::default();
+    //     let mut context = t.get_context();
+
+    //     run_wasi(
+    //         &mut context,
+    //         &vec![
+    //             Parameter::tel("path", r#""./php-cgi-8.2.6.wasm""#),
+    //             Parameter::tel("env", r#"{}"#),
+    //             Parameter::tel("input", r#""Hello World""#),
+    //         ],
+    //         "test",
+    //         Some("output"),
+    //     )
+    //     .await
+    //     .unwrap();
+
+    //     assert_eq!(
+    //         eval("output", &context.storage, &context.environment).unwrap(),
+    //         StorageValue::String("X-Powered-By: PHP/8.2.6\r\nContent-type: text/html; charset=UTF-8\r\n\r\nHello World".to_owned())
+    //     );
+    // }
 }
