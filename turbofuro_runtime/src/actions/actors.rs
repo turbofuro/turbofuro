@@ -12,12 +12,6 @@ use tracing::{debug, instrument};
 
 use super::store_value;
 
-fn actor_not_found() -> ExecutionError {
-    ExecutionError::MissingResource {
-        resource_type: ActorLink::get_type().into(),
-    }
-}
-
 #[instrument(level = "trace", skip_all)]
 pub async fn check_actor_exists<'a>(
     context: &mut ExecutionContext<'a>,
@@ -89,7 +83,7 @@ pub async fn send<'a>(
             .registry
             .actors
             .get(&id)
-            .ok_or_else(actor_not_found)
+            .ok_or_else(ActorLink::missing)
             .map(|r| r.value().0.clone())?
     };
 
@@ -132,7 +126,7 @@ pub async fn request<'a>(
             .registry
             .actors
             .get(&id)
-            .ok_or_else(actor_not_found)
+            .ok_or_else(ActorLink::missing)
             .map(|r| r.value().0.clone())?
     };
 
@@ -190,7 +184,7 @@ pub async fn terminate<'a>(
             .registry
             .actors
             .get(&id)
-            .ok_or_else(actor_not_found)
+            .ok_or_else(ActorLink::missing)
             .map(|r| r.value().0.clone())?
     };
 

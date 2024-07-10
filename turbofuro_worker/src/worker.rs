@@ -3,6 +3,7 @@ extern crate log;
 use crate::config::{Configuration, WorkerSettings};
 use crate::environment_resolver::SharedEnvironmentResolver;
 use crate::module_version_resolver::SharedModuleVersionResolver;
+use crate::utils::sse_receiver_stream::sse_handler;
 use crate::HttpServerOptions;
 use async_recursion::async_recursion;
 use axum::body::Body;
@@ -542,45 +543,50 @@ async fn handle_request(
     });
 
     match http_response_receiver.await {
-        Ok(wrapper) => {
-            let response = match wrapper {
-                HttpResponse::Normal(response, responder) => {
-                    responder.send(Ok(())).unwrap();
-                    actor_sender
-                        .send(ActorCommand::Terminate)
-                        .await
-                        .map_err(|_| {
-                            AppError::from(ExecutionError::ActorCommandFailed {
-                                message: "Could not send terminate command to actor".to_owned(),
-                            })
-                        })?;
-                    response
-                }
-                HttpResponse::WebSocket(responder) => {
-                    let ws = match ws {
-                        Some(ws) => {
-                            responder.send(Ok(())).unwrap();
-                            ws
-                        }
-                        None => {
-                            responder
-                                .send(Err(ExecutionError::StateInvalid {
-                                    message: "Could not open WebSocket on non-upgrade HTTP request"
-                                        .into(),
-                                    subject: "http_server".into(),
-                                    inner: "No upgrade headers".into(),
-                                }))
-                                .unwrap();
-                            return Ok(StatusCode::INTERNAL_SERVER_ERROR.into_response());
-                        }
-                    };
+        Ok(wrapper) => match wrapper {
+            HttpResponse::Normal(response, responder) => {
+                responder.send(Ok(())).unwrap();
+                actor_sender
+                    .send(ActorCommand::Terminate)
+                    .await
+                    .map_err(|_| {
+                        AppError::from(ExecutionError::ActorCommandFailed {
+                            message: "Could not send terminate command to actor".to_owned(),
+                        })
+                    })?;
+                Ok(response)
+            }
+            HttpResponse::WebSocket(responder) => {
+                let ws = match ws {
+                    Some(ws) => {
+                        responder.send(Ok(())).unwrap();
+                        ws
+                    }
+                    None => {
+                        responder
+                            .send(Err(ExecutionError::StateInvalid {
+                                message: "Could not open WebSocket on non-upgrade HTTP request"
+                                    .into(),
+                                subject: "http_server".into(),
+                                inner: "No upgrade headers".into(),
+                            }))
+                            .unwrap();
+                        return Ok(StatusCode::INTERNAL_SERVER_ERROR.into_response());
+                    }
+                };
 
-                    ws.on_upgrade(move |socket| handle_websocket_with_errors(socket, actor_sender))
-                }
-            };
-
-            Ok(response)
-        }
+                Ok(ws.on_upgrade(move |socket| handle_websocket_with_errors(socket, actor_sender)))
+            }
+            HttpResponse::ServerSentEvents {
+                event_receiver,
+                keep_alive,
+                disconnect_sender,
+                responder,
+            } => {
+                responder.send(Ok(())).unwrap();
+                Ok(sse_handler(event_receiver, keep_alive, disconnect_sender).into_response())
+            }
+        },
         Err(_) => Ok(StatusCode::INTERNAL_SERVER_ERROR.into_response()),
     }
 }

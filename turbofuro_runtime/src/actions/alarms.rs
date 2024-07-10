@@ -3,7 +3,7 @@ use crate::{
     errors::ExecutionError,
     evaluations::{eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Global, Parameter},
-    resources::{Cancellation, CancellationSubject},
+    resources::{Cancellation, CancellationSubject, Resource},
 };
 use chrono::Local;
 use croner::Cron;
@@ -255,9 +255,7 @@ pub async fn cancel_alarm<'a>(
         let cancellation = context.resources.cancellations.remove(i);
         cancellation.sender.send(()).unwrap();
     } else {
-        return Err(ExecutionError::MissingResource {
-            resource_type: "cancellation".into(),
-        });
+        return Err(Cancellation::missing());
     }
 
     Ok(())

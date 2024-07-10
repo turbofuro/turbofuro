@@ -16,10 +16,10 @@ use crate::{
     evaluations::{eval_optional_param, eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
     http_utils::decode_text_with_encoding,
-    resources::{HttpRequestToRespond, PendingHttpResponseBody, Resource},
+    resources::{FormDataDraft, HttpRequestToRespond, PendingHttpResponseBody, Resource},
 };
 
-use super::{as_string, form_data::form_data_draft_resource_not_found, store_value};
+use super::{as_string, store_value};
 
 static USER_AGENT: &str = concat!("turbofuro/", env!("CARGO_PKG_VERSION"));
 
@@ -383,7 +383,7 @@ pub async fn send_http_request_with_form_data<'a>(
         .resources
         .form_data
         .pop()
-        .ok_or(form_data_draft_resource_not_found())?;
+        .ok_or_else(FormDataDraft::missing)?;
 
     request_builder = request_builder.multipart(form_data.0);
 
@@ -485,7 +485,7 @@ pub async fn stream_http_request_with_form_data<'a>(
         .resources
         .form_data
         .pop()
-        .ok_or(form_data_draft_resource_not_found())?;
+        .ok_or_else(FormDataDraft::missing)?;
 
     request_builder = request_builder.multipart(form_data.0);
 
