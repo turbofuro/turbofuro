@@ -4,7 +4,6 @@ use crate::{
     errors::ExecutionError,
     evaluations::{eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
-    resource_not_found,
     resources::{ActorLink, ActorResources, Resource},
 };
 use tel::{ObjectBody, StorageValue};
@@ -84,7 +83,7 @@ pub async fn send<'a>(
             .registry
             .actors
             .get(&id)
-            .ok_or(resource_not_found!(ActorLink))
+            .ok_or_else(ActorLink::missing)
             .map(|r| r.value().0.clone())?
     };
 
@@ -127,7 +126,7 @@ pub async fn request<'a>(
             .registry
             .actors
             .get(&id)
-            .ok_or(resource_not_found!(ActorLink))
+            .ok_or_else(ActorLink::missing)
             .map(|r| r.value().0.clone())?
     };
 
@@ -185,7 +184,7 @@ pub async fn terminate<'a>(
             .registry
             .actors
             .get(&id)
-            .ok_or(resource_not_found!(ActorLink))
+            .ok_or_else(ActorLink::missing)
             .map(|r| r.value().0.clone())?
     };
 

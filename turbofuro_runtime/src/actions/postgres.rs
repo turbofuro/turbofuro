@@ -19,12 +19,6 @@ use crate::{
 
 use super::store_value;
 
-fn postgres_resource_not_found() -> ExecutionError {
-    ExecutionError::MissingResource {
-        resource_type: PostgresPool::get_type().into(),
-    }
-}
-
 #[instrument(level = "trace", skip_all)]
 pub async fn get_connection<'a>(
     context: &mut ExecutionContext<'a>,
@@ -369,7 +363,7 @@ pub async fn query_one<'a>(
             .registry
             .postgres_pools
             .get(&connection_name)
-            .ok_or_else(postgres_resource_not_found)
+            .ok_or_else(PostgresPool::missing)
             .map(|r| r.value().0.clone())?
     };
 
@@ -449,7 +443,7 @@ pub async fn query<'a>(
             .registry
             .postgres_pools
             .get(&connection_name)
-            .ok_or_else(postgres_resource_not_found)
+            .ok_or_else(PostgresPool::missing)
             .map(|r| r.value().0.clone())?
     };
 

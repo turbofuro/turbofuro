@@ -40,35 +40,18 @@ const FILE_HANDLE: &str = "file_handle";
 
 pub trait Resource {
     fn get_type() -> &'static str;
-}
 
-/// Macro for spawning a `ExecutionError::MissingResource` error
-///
-/// # Example
-///
-/// ```
-/// use turbofuro_runtime::resources::{OpenSseStream, Resource};
-/// use turbofuro_runtime::errors::ExecutionError;
-///
-/// # #[macro_use] extern crate turbofuro_runtime;
-/// # fn main() {
-/// assert!(matches!(
-///     resource_not_found!(OpenSseStream),
-///     ExecutionError::MissingResource { .. }
-/// ));
-/// # }
-/// //
-/// ```
-#[macro_export]
-macro_rules! resource_not_found {
-    ($resource_type:ty) => {
+    fn missing() -> ExecutionError {
         ExecutionError::MissingResource {
-            resource_type: <$resource_type>::get_type().into(),
+            resource_type: Self::get_type().into(),
         }
-    };
+    }
 }
 
+//
 // Machine resources
+//
+
 pub struct RedisPool(pub deadpool_redis::Pool, pub RedisPubSubCoordinatorHandle);
 
 impl Resource for RedisPool {
@@ -88,7 +71,6 @@ impl Debug for RedisPool {
 #[derive(Debug)]
 pub struct PostgresPool(pub deadpool_postgres::Pool);
 
-// Macro for derriving
 impl Resource for PostgresPool {
     fn get_type() -> &'static str {
         POSTGRES_CONNECTION_RESOURCE_TYPE
@@ -179,7 +161,9 @@ impl RegisteringRouter {
     }
 }
 
+//
 // Local resources
+//
 
 #[derive(Debug)]
 pub enum HttpResponse {

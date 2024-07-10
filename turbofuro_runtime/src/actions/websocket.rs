@@ -11,18 +11,6 @@ use crate::{
 
 use super::get_handlers_from_parameters;
 
-fn http_resource_not_found() -> ExecutionError {
-    ExecutionError::MissingResource {
-        resource_type: HttpRequestToRespond::get_type().into(),
-    }
-}
-
-fn websocket_resource_not_found() -> ExecutionError {
-    ExecutionError::MissingResource {
-        resource_type: OpenWebSocket::get_type().into(),
-    }
-}
-
 #[instrument(level = "debug", skip_all)]
 pub async fn setup_route<'a>(
     context: &mut ExecutionContext<'a>,
@@ -54,7 +42,7 @@ pub async fn accept_ws<'a>(
         .resources
         .http_requests_to_respond
         .pop()
-        .ok_or(http_resource_not_found())?;
+        .ok_or_else(HttpRequestToRespond::missing)?;
 
     let (response, receiver) = HttpResponse::new_ws();
     http_request_to_respond
@@ -97,7 +85,7 @@ pub async fn send_message<'a>(
         .resources
         .websockets
         .first_mut()
-        .ok_or(websocket_resource_not_found())
+        .ok_or_else(OpenWebSocket::missing)
         .map(|r| r.0.clone())?;
 
     let (command, receiver) = WebSocketCommand::new(message);
@@ -127,7 +115,7 @@ pub async fn close_websocket<'a>(
         .resources
         .websockets
         .first_mut()
-        .ok_or(websocket_resource_not_found())
+        .ok_or_else(OpenWebSocket::missing)
         .map(|r| r.0.clone())?;
 
     let (command, receiver) = WebSocketCommand::new(Message::Close(None));

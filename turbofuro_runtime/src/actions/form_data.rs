@@ -9,7 +9,6 @@ use crate::{
     errors::ExecutionError,
     evaluations::{eval_optional_param, eval_param},
     executor::{ExecutionContext, Parameter},
-    resource_not_found,
     resources::{FormDataDraft, Resource},
 };
 
@@ -71,7 +70,7 @@ pub async fn add_stream_part_to_form_data<'a>(
         .resources
         .form_data
         .pop()
-        .ok_or(resource_not_found!(FormDataDraft))?;
+        .ok_or_else(FormDataDraft::missing)?;
 
     let stream = context.resources.get_nearest_stream()?;
 
@@ -135,7 +134,7 @@ pub async fn add_text_part_to_form_data<'a>(
         .resources
         .form_data
         .pop()
-        .ok_or(resource_not_found!(FormDataDraft))?;
+        .ok_or_else(FormDataDraft::missing)?;
 
     let mut part: Part = Part::text(value);
 

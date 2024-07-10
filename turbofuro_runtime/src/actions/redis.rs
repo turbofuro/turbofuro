@@ -21,12 +21,6 @@ use crate::{
 
 use super::{get_optional_handler_from_parameters, store_value};
 
-fn redis_resource_not_found() -> ExecutionError {
-    ExecutionError::MissingResource {
-        resource_type: RedisPool::get_type().into(),
-    }
-}
-
 #[instrument(level = "trace", skip_all)]
 pub async fn get_connection<'a>(
     context: &mut ExecutionContext<'a>,
@@ -134,7 +128,7 @@ pub async fn low_level_command<'a>(
             .registry
             .redis_pools
             .get(&connection_name)
-            .ok_or(redis_resource_not_found())
+            .ok_or_else(RedisPool::missing)
             .map(|r| r.value().0.clone())?
     };
 
@@ -204,7 +198,7 @@ pub async fn subscribe<'a>(
             .registry
             .redis_pools
             .get(&connection_name)
-            .ok_or(redis_resource_not_found())
+            .ok_or_else(RedisPool::missing)
             .map(|r| r.value().1.clone())?
     };
 
@@ -246,7 +240,7 @@ pub async fn unsubscribe<'a>(
             .registry
             .redis_pools
             .get(&connection_name)
-            .ok_or(redis_resource_not_found())
+            .ok_or_else(RedisPool::missing)
             .map(|r| r.value().1.clone())?
     };
 

@@ -13,7 +13,6 @@ use crate::{
     errors::ExecutionError,
     evaluations::{eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
-    resource_not_found,
     resources::{HttpRequestToRespond, HttpResponse, OpenSseStream, Resource},
 };
 
@@ -174,7 +173,7 @@ pub async fn respond_with<'a>(
         .resources
         .http_requests_to_respond
         .pop()
-        .ok_or(resource_not_found!(HttpRequestToRespond))?;
+        .ok_or_else(HttpRequestToRespond::missing)?;
 
     let (response, receiver) = HttpResponse::new(response);
     http_request_to_respond
@@ -253,7 +252,7 @@ pub async fn respond_with_stream<'a>(
         .resources
         .http_requests_to_respond
         .pop()
-        .ok_or(resource_not_found!(HttpRequestToRespond))?;
+        .ok_or_else(HttpRequestToRespond::missing)?;
 
     let (response, receiver) = HttpResponse::new(response);
     http_request_to_respond
@@ -300,7 +299,7 @@ pub async fn respond_with_sse_stream<'a>(
         .resources
         .http_requests_to_respond
         .pop()
-        .ok_or(resource_not_found!(HttpRequestToRespond))?;
+        .ok_or_else(HttpRequestToRespond::missing)?;
 
     let (disconnect_sender, disconnect_receiver) = oneshot::channel::<StorageValue>();
     let actor_id = context.actor_id.clone();
@@ -377,7 +376,7 @@ pub async fn send_sse<'a>(
         .resources
         .sse_streams
         .last_mut()
-        .ok_or(resource_not_found!(OpenSseStream))?;
+        .ok_or_else(OpenSseStream::missing)?;
 
     sse_stream
         .0
@@ -403,7 +402,7 @@ pub async fn close_sse_stream<'a>(
         .resources
         .sse_streams
         .pop()
-        .ok_or(resource_not_found!(OpenSseStream))?;
+        .ok_or_else(OpenSseStream::missing)?;
 
     drop(sse_stream);
     Ok(())

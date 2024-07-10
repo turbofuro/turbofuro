@@ -16,7 +16,6 @@ use crate::{
     evaluations::{eval_optional_param, eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
     http_utils::decode_text_with_encoding,
-    resource_not_found,
     resources::{FormDataDraft, HttpRequestToRespond, PendingHttpResponseBody, Resource},
 };
 
@@ -384,7 +383,7 @@ pub async fn send_http_request_with_form_data<'a>(
         .resources
         .form_data
         .pop()
-        .ok_or(resource_not_found!(FormDataDraft))?;
+        .ok_or_else(FormDataDraft::missing)?;
 
     request_builder = request_builder.multipart(form_data.0);
 
@@ -486,7 +485,7 @@ pub async fn stream_http_request_with_form_data<'a>(
         .resources
         .form_data
         .pop()
-        .ok_or(resource_not_found!(FormDataDraft))?;
+        .ok_or_else(FormDataDraft::missing)?;
 
     request_builder = request_builder.multipart(form_data.0);
 

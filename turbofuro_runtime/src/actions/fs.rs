@@ -15,12 +15,6 @@ use crate::{
 
 use super::store_value;
 
-fn file_handle_not_found() -> ExecutionError {
-    ExecutionError::MissingResource {
-        resource_type: FileHandle::get_type().into(),
-    }
-}
-
 fn system_time_to_millis_since_epoch(time: SystemTime) -> f64 {
     match time.duration_since(UNIX_EPOCH) {
         Ok(duration) => duration.as_millis() as f64,
@@ -114,7 +108,7 @@ pub async fn write_stream<'a>(
         .resources
         .files
         .pop()
-        .ok_or(file_handle_not_found())?;
+        .ok_or_else(FileHandle::missing)?;
 
     let mut stream = context.resources.get_nearest_stream()?;
 
