@@ -7,6 +7,7 @@ mod config;
 mod environment_resolver;
 mod module_version_resolver;
 mod tracing_setup;
+mod utils;
 mod worker;
 
 use crate::cli::parse_cli_args;

@@ -1,14 +1,17 @@
 use axum::{
     body::{Body, BodyDataStream, Bytes},
     extract::ws::Message,
-    response::Response,
+    response::{
+        sse::{self},
+        Response,
+    },
 };
 use dashmap::DashMap;
 use futures_util::stream::Stream;
 use futures_util::{StreamExt, TryStreamExt};
 use reqwest::multipart::Form;
 use serde_derive::{Deserialize, Serialize};
-use std::pin::Pin;
+use std::{convert::Infallible, pin::Pin};
 use tel::StorageValue;
 use tokio_util::io::ReaderStream;
 
@@ -24,6 +27,7 @@ use crate::{
 };
 
 const WEBSOCKET_RESOURCE_TYPE: &str = "websocket";
+const SSE_RESOURCE_TYPE: &str = "sse";
 const POSTGRES_CONNECTION_RESOURCE_TYPE: &str = "postgres_connection";
 const REDIS_CONNECTION_RESOURCE_TYPE: &str = "redis_connection";
 const HTTP_REQUEST_RESOURCE_TYPE: &str = "http_request";
@@ -36,6 +40,32 @@ const FILE_HANDLE: &str = "file_handle";
 
 pub trait Resource {
     fn get_type() -> &'static str;
+}
+
+/// Macro for spawning a `ExecutionError::MissingResource` error
+///
+/// # Example
+///
+/// ```
+/// use turbofuro_runtime::resources::{OpenSseStream, Resource};
+/// use turbofuro_runtime::errors::ExecutionError;
+///
+/// # #[macro_use] extern crate turbofuro_runtime;
+/// # fn main() {
+/// assert!(matches!(
+///     resource_not_found!(OpenSseStream),
+///     ExecutionError::MissingResource { .. }
+/// ));
+/// # }
+/// //
+/// ```
+#[macro_export]
+macro_rules! resource_not_found {
+    ($resource_type:ty) => {
+        ExecutionError::MissingResource {
+            resource_type: <$resource_type>::get_type().into(),
+        }
+    };
 }
 
 // Machine resources
@@ -58,6 +88,7 @@ impl Debug for RedisPool {
 #[derive(Debug)]
 pub struct PostgresPool(pub deadpool_postgres::Pool);
 
+// Macro for derriving
 impl Resource for PostgresPool {
     fn get_type() -> &'static str {
         POSTGRES_CONNECTION_RESOURCE_TYPE
@@ -70,6 +101,15 @@ pub struct OpenWebSocket(pub mpsc::Sender<WebSocketCommand>);
 impl Resource for OpenWebSocket {
     fn get_type() -> &'static str {
         WEBSOCKET_RESOURCE_TYPE
+    }
+}
+
+#[derive(Debug)]
+pub struct OpenSseStream(pub mpsc::Sender<Result<sse::Event, Infallible>>);
+
+impl Resource for OpenSseStream {
+    fn get_type() -> &'static str {
+        SSE_RESOURCE_TYPE
     }
 }
 
@@ -145,6 +185,12 @@ impl RegisteringRouter {
 pub enum HttpResponse {
     Normal(Response, oneshot::Sender<Result<(), ExecutionError>>),
     WebSocket(oneshot::Sender<Result<(), ExecutionError>>),
+    ServerSentEvents {
+        event_receiver: mpsc::Receiver<Result<sse::Event, Infallible>>,
+        keep_alive: Option<sse::KeepAlive>,
+        disconnect_sender: oneshot::Sender<StorageValue>,
+        responder: oneshot::Sender<Result<(), ExecutionError>>,
+    },
 }
 
 impl HttpResponse {
@@ -157,6 +203,21 @@ impl HttpResponse {
     pub fn new_ws() -> (Self, oneshot::Receiver<Result<(), ExecutionError>>) {
         let (responder, receiver) = oneshot::channel();
         let http_response = HttpResponse::WebSocket(responder);
+        (http_response, receiver)
+    }
+
+    pub fn new_sse(
+        event_receiver: mpsc::Receiver<Result<sse::Event, Infallible>>,
+        keep_alive: Option<sse::KeepAlive>,
+        disconnect_sender: oneshot::Sender<StorageValue>,
+    ) -> (Self, oneshot::Receiver<Result<(), ExecutionError>>) {
+        let (responder, receiver) = oneshot::channel();
+        let http_response = HttpResponse::ServerSentEvents {
+            event_receiver,
+            keep_alive,
+            disconnect_sender,
+            responder,
+        };
         (http_response, receiver)
     }
 }
@@ -301,6 +362,7 @@ pub struct ResourceRegistry {
 #[derive(Debug, Default)]
 pub struct ActorResources {
     pub websockets: Vec<OpenWebSocket>,
+    pub sse_streams: Vec<OpenSseStream>,
     pub http_requests_to_respond: Vec<HttpRequestToRespond>,
     pub cancellations: Vec<Cancellation>,
     pub files: Vec<FileHandle>,

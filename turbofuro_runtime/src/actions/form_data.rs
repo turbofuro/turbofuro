@@ -9,16 +9,11 @@ use crate::{
     errors::ExecutionError,
     evaluations::{eval_optional_param, eval_param},
     executor::{ExecutionContext, Parameter},
+    resource_not_found,
     resources::{FormDataDraft, Resource},
 };
 
 use super::{as_string, as_u64};
-
-pub fn form_data_draft_resource_not_found() -> ExecutionError {
-    ExecutionError::MissingResource {
-        resource_type: FormDataDraft::get_type().into(),
-    }
-}
 
 #[instrument(level = "trace", skip_all)]
 pub fn create_form_data<'a>(
@@ -76,7 +71,7 @@ pub async fn add_stream_part_to_form_data<'a>(
         .resources
         .form_data
         .pop()
-        .ok_or(form_data_draft_resource_not_found())?;
+        .ok_or(resource_not_found!(FormDataDraft))?;
 
     let stream = context.resources.get_nearest_stream()?;
 
@@ -140,7 +135,7 @@ pub async fn add_text_part_to_form_data<'a>(
         .resources
         .form_data
         .pop()
-        .ok_or(form_data_draft_resource_not_found())?;
+        .ok_or(resource_not_found!(FormDataDraft))?;
 
     let mut part: Part = Part::text(value);
 
