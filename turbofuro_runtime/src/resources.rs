@@ -260,6 +260,7 @@ pub enum CancellationSubject {
     PubSubSubscription,
     RedisPubSubSubscription,
     PostgresNotificationSubscription,
+    Watcher,
 }
 
 #[derive(Debug)]
