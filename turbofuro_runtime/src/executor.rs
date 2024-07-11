@@ -827,6 +827,8 @@ async fn execute_native<'a>(
         "fs/read_to_string" => {
             fs::simple_read_to_string(context, parameters, step_id, store_as).await?
         }
+        "fs/setup_watcher" => fs::setup_watcher(context, parameters, step_id).await?,
+        "fs/cancel_watcher" => fs::cancel_watcher(context, parameters, step_id).await?,
         "alarms/set_alarm" => alarms::set_alarm(context, parameters, step_id).await?,
         "alarms/set_interval" => alarms::set_interval(context, parameters, step_id).await?,
         "alarms/cancel" => alarms::cancel_alarm(context, parameters, step_id).await?,

@@ -84,6 +84,9 @@ pub enum ExecutionError {
     WasmError {
         message: String,
     },
+    WatcherError {
+        message: String,
+    },
 }
 
 impl Display for ExecutionError {
@@ -182,6 +185,9 @@ impl Display for ExecutionError {
             ExecutionError::WasmError { message } => {
                 write!(f, "Wasm error: {}", message)
             }
+            ExecutionError::WatcherError { message } => {
+                write!(f, "Watcher error: {}", message)
+            }
         }
     }
 }
@@ -205,6 +211,14 @@ impl Error for ExecutionError {
 impl From<TelError> for ExecutionError {
     fn from(error: TelError) -> Self {
         ExecutionError::Tel { error }
+    }
+}
+
+impl From<notify::Error> for ExecutionError {
+    fn from(error: notify::Error) -> Self {
+        ExecutionError::WatcherError {
+            message: error.to_string(),
+        }
     }
 }
 

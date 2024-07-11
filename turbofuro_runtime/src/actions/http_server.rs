@@ -6,7 +6,7 @@ use axum::{
 };
 use tel::{describe, Description, StorageValue};
 use tokio::sync::{mpsc, oneshot};
-use tracing::{debug, instrument, warn};
+use tracing::{debug, instrument};
 
 use crate::{
     actor::ActorCommand,
@@ -320,7 +320,7 @@ pub async fn respond_with_sse_stream<'a>(
                         "Failed to send terminate command to actor after SSE stream closed",
                     );
                 } else {
-                    warn!("SSE stream closed but actor {} was not found", actor_id);
+                    debug!("SSE stream closed but actor {} was not found. This might be normal if the actor was terminated and the stream is closed as the result of that.", actor_id);
                 }
             }
             Err(_) => {
