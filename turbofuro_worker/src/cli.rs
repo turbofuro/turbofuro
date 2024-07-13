@@ -1,3 +1,5 @@
+use crate::errors::WorkerError;
+
 const HELP: &str = "\
 Turbofuro Worker 🛫
 
@@ -19,7 +21,7 @@ Alternatively, you can use the following environment variables:
 TURBOFURO_TOKEN, PORT, TURBOFURO_CLOUD_URL, TURBOFURO_OPERATOR_URL, NAME
 ";
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AppArgs {
     pub token: Option<String>,
     pub port: Option<u16>,
@@ -29,7 +31,7 @@ pub struct AppArgs {
     pub name: Option<String>,
 }
 
-pub fn parse_cli_args() -> Result<AppArgs, pico_args::Error> {
+pub fn parse_cli_args() -> Result<AppArgs, WorkerError> {
     let mut pargs = pico_args::Arguments::from_env();
 
     // Help has a higher priority and should be handled separately.

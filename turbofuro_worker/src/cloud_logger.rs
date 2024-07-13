@@ -8,7 +8,7 @@ use turbofuro_runtime::{
     executor::{ExecutionReport, ExecutionStatus},
 };
 
-use crate::CloudOptions;
+use crate::options::CloudOptions;
 
 #[derive(Debug, Clone, Default)]
 struct LoggerStats {

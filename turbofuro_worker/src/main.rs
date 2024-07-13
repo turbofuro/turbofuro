@@ -4,8 +4,12 @@ mod cli;
 mod cloud_agent;
 mod cloud_logger;
 mod config;
+mod director;
 mod environment_resolver;
+mod errors;
 mod module_version_resolver;
+mod options;
+mod shared;
 mod tracing_setup;
 mod utils;
 mod worker;
@@ -22,14 +26,18 @@ use config::{
 use environment_resolver::{
     CloudEnvironmentResolver, EnvironmentResolver, SharedEnvironmentResolver,
 };
+use errors::WorkerError;
 use futures_util::Future;
 use module_version_resolver::SharedModuleVersionResolver;
+use options::{
+    get_cloud_options, get_http_server_options, get_name, get_turbofuro_token, CloudOptions,
+    HttpServerOptions,
+};
 use reqwest::Client;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tokio::sync::{broadcast, watch, Mutex};
 use turbofuro_runtime::executor::{Global, GlobalBuilder};
-use worker::WorkerError;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -80,7 +88,7 @@ async fn shutdown_signal(
     }
 }
 
-async fn start_worker(
+async fn run_worker(
     config: Configuration,
     environments_resolver: SharedEnvironmentResolver,
     http_server_options: HttpServerOptions,
@@ -155,12 +163,11 @@ async fn setup_configuration_fetching(
     let cloud_agent_cloud_options = cloud_options.clone();
     tokio::spawn(async move {
         let mut agent = CloudAgent {
-            cloud_options: cloud_agent_cloud_options.clone(),
+            options: cloud_agent_cloud_options.clone(),
             global: global.clone(),
             environment_resolver: cloud_agent_environment_resolver.clone(),
             module_version_resolver: cloud_agent_module_version_resolver.clone(),
             configuration_coordinator: coordinator.clone(),
-            name: cloud_agent_cloud_options.name.clone(),
         };
 
         // Let's try to connect with a exponential backoff
@@ -178,12 +185,11 @@ async fn setup_configuration_fetching(
                 }
             }
             agent = CloudAgent {
-                cloud_options: cloud_agent_cloud_options.clone(),
+                options: cloud_agent_cloud_options.clone(),
                 global: global.clone(),
                 environment_resolver: cloud_agent_environment_resolver.clone(),
                 module_version_resolver: cloud_agent_module_version_resolver.clone(),
                 configuration_coordinator: coordinator.clone(),
-                name: cloud_agent_cloud_options.name.clone(),
             };
 
             if failed {
@@ -205,7 +211,7 @@ async fn setup_configuration_fetching(
         // Fetch current config
         let current_config = { worker_mutex.lock().await.clone() };
 
-        start_worker(
+        run_worker(
             current_config,
             environment_resolver.clone(),
             http_server_options.clone(),
@@ -227,8 +233,8 @@ async fn setup_configuration_fetching(
         } else {
             info!("Restarting worker...");
 
-            // Sleep for a second before restarting to prevent a devastating restart loop
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            // Sleep for a 200 milliseconds before restarting to prevent a devastating restart loop
+            tokio::time::sleep(Duration::from_millis(200)).await;
         }
     }
 
@@ -251,93 +257,19 @@ pub fn get_environment_resolver(cloud_options: &CloudOptions) -> SharedEnvironme
     )))
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct HttpServerOptions {
-    pub port: u16,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct CloudOptions {
-    pub cloud_url: String,
-    pub operator_url: String,
-    pub token: String,
-    pub name: String,
-}
-
-// Remember to update the help message in cli.rs when changing those
-static DEFAULT_CLOUD_URL: &str = "https://api.turbofuro.com";
-static DEFAULT_OPERATOR_URL: &str = "wss://operator.turbofuro.com";
-static TURBOFURO_TOKEN_ENV_NAME: &str = "TURBOFURO_TOKEN";
-static TURBOFURO_CLOUD_URL_ENV_NAME: &str = "TURBOFURO_CLOUD_URL";
-static TURBOFURO_OPERATOR_URL_ENV_NAME: &str = "TURBOFURO_OPERATOR_URL";
-static PORT_ENV_NAME: &str = "PORT";
-static NAME_ENV_NAME: &str = "NAME";
+static VERSION: &str = env!("CARGO_PKG_VERSION");
 
 async fn startup() -> Result<(), WorkerError> {
-    let args = parse_cli_args().map_err(|e| WorkerError::IncorrectParameters(e.to_string()))?;
+    let args = parse_cli_args()?;
+    let config_path_arg = args.config.clone();
+    let http_server_options = get_http_server_options(args.clone())?;
+    let turbofuro_token = get_turbofuro_token(args.clone());
+    let name = get_name(args.clone());
 
-    let turbofuro_token = args
-        .token
-        .or_else(|| std::env::var(TURBOFURO_TOKEN_ENV_NAME).ok());
-    let config_path_env = args.config;
-    let port = match args.port.ok_or_else(|| {
-        std::env::var(PORT_ENV_NAME)
-            .ok()
-            .unwrap_or("4000".to_owned())
-            .parse::<u16>()
-            .map_err(|e| {
-                WorkerError::IncorrectEnvironmentVariable(PORT_ENV_NAME.into(), e.to_string())
-            })
-    }) {
-        Ok(p) => p,
-        Err(p) => p?,
-    };
-
-    let name = args
-        .name
-        .or_else(|| std::env::var(NAME_ENV_NAME).ok())
-        .or_else(|| {
-            {
-                hostname::get()
-                    .map(|s| s.to_string_lossy().into_owned())
-                    .ok()
-            }
-            .map(|s| s.chars().take(200).collect())
-        })
-        .unwrap_or("Unknown".to_owned());
-
-    let http_server_options = HttpServerOptions { port };
-
-    info!("Starting Turbofuro Worker {}", env!("CARGO_PKG_VERSION"));
-    match (turbofuro_token, config_path_env) {
+    info!("Starting Turbofuro Worker {}", VERSION);
+    match (turbofuro_token, config_path_arg) {
         (Some(token), None) => {
-            let cloud_options = CloudOptions {
-                cloud_url: args
-                    .cloud_url
-                    .or_else(|| std::env::var(TURBOFURO_CLOUD_URL_ENV_NAME).ok())
-                    .unwrap_or(DEFAULT_CLOUD_URL.to_owned()),
-                operator_url: args
-                    .operator_url
-                    .or_else(|| std::env::var(TURBOFURO_OPERATOR_URL_ENV_NAME).ok())
-                    .unwrap_or(DEFAULT_OPERATOR_URL.to_owned()),
-                token,
-                name,
-            };
-
-            if cloud_options.cloud_url != DEFAULT_CLOUD_URL {
-                info!(
-                    "Using custom cloud URL: {}",
-                    cloud_options.cloud_url.clone()
-                );
-            }
-
-            if cloud_options.operator_url != DEFAULT_OPERATOR_URL {
-                info!(
-                    "Using custom operator URL: {}",
-                    cloud_options.operator_url.clone()
-                );
-            }
-
+            let cloud_options = get_cloud_options(args.clone(), name, token);
             setup_configuration_fetching(cloud_options, http_server_options).await
         }
         (None, Some(path)) => {
@@ -350,7 +282,7 @@ async fn startup() -> Result<(), WorkerError> {
             let environment_resolver = Arc::new(Mutex::new(FileSystemEnvironmentResolver {}));
             let global = Arc::new(GlobalBuilder::new().build());
 
-            Ok(start_worker(
+            Ok(run_worker(
                 config,
                 environment_resolver,
                 http_server_options,
@@ -365,12 +297,13 @@ async fn startup() -> Result<(), WorkerError> {
             )
             .await?)
         }
-        (None, None) => Err(WorkerError::IncorrectParameters(
-            "Either token or config must be provided".to_string(),
-        )),
-        (Some(_), Some(_)) => Err(WorkerError::IncorrectParameters(
-            "Either token or config must be provided, but not both at the same time".to_string(),
-        )),
+        (None, None) => Err(WorkerError::InvalidCommandLineArguments {
+            message: "Either token or config must be provided".to_string(),
+        }),
+        (Some(_), Some(_)) => Err(WorkerError::InvalidCommandLineArguments {
+            message: "Either token or config must be provided, but not both at the same time"
+                .to_string(),
+        }),
     }
 }
 

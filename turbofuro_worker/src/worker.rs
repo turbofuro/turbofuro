@@ -2,35 +2,31 @@ extern crate log;
 
 use crate::config::{Configuration, WorkerSettings};
 use crate::environment_resolver::SharedEnvironmentResolver;
+use crate::errors::WorkerError;
 use crate::module_version_resolver::SharedModuleVersionResolver;
+use crate::options::HttpServerOptions;
+use crate::shared::get_compiled_module;
 use crate::utils::sse_receiver_stream::sse_handler;
-use crate::HttpServerOptions;
-use async_recursion::async_recursion;
 use axum::body::Body;
 use axum::extract::ws::WebSocket;
 use axum::extract::{State, WebSocketUpgrade};
 use axum::routing::MethodRouter;
+use axum::RequestExt;
 use axum::{
     http::{self, StatusCode},
     response::{IntoResponse, Response},
     Router,
 };
-use axum::{Json, RequestExt};
 use futures_util::{SinkExt, StreamExt};
 use http::{HeaderValue, Request};
 use itertools::Itertools;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
-use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, oneshot};
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
-use turbofuro_runtime::actor::{activate_actor, Actor, ActorCommand};
+use turbofuro_runtime::actor::{activate_actor, spawn_ok_or_terminate, Actor, ActorCommand};
 use turbofuro_runtime::errors::ExecutionError;
-use turbofuro_runtime::executor::{
-    CompiledModule, Environment, Function, Global, Import, Step, Steps,
-};
+use turbofuro_runtime::executor::{CompiledModule, Environment, Global};
 use turbofuro_runtime::http_utils::{build_metadata_from_parts, build_request_object};
 use turbofuro_runtime::resources::{
     ActorLink, ActorResources, HttpRequestToRespond, HttpResponse, OpenWebSocket,
@@ -39,99 +35,11 @@ use turbofuro_runtime::resources::{
 use turbofuro_runtime::{ObjectBody, StorageValue};
 
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
+use tracing::{debug, error, info, info_span, Instrument};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE", tag = "type")]
-pub enum ModuleVersionType {
-    Http,
-    WebSocket,
-    Actor,
-    Library,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ModuleVersion {
-    pub id: String,
-    #[serde(rename = "moduleId")]
-    pub module_id: String,
-    pub instructions: Steps,
-    pub handlers: HashMap<String, String>,
-    pub imports: HashMap<String, Import>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(tag = "app_error", rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum AppError {
-    ModuleVersionNotFound,
-    MalformedModuleVersion,
-    EnvironmentNotFound,
-    MalformedEnvironment,
-    ExecutionFailed {
-        #[serde(flatten)]
-        error: ExecutionError,
-    },
-}
-
-impl From<ExecutionError> for AppError {
-    fn from(error: ExecutionError) -> Self {
-        AppError::ExecutionFailed { error }
-    }
-}
-
-impl IntoResponse for AppError {
-    fn into_response(self) -> Response {
-        let (status, error_message) = match self {
-            AppError::ModuleVersionNotFound => (StatusCode::NOT_FOUND, "Module version not found"),
-            AppError::MalformedModuleVersion => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Malformed module version",
-            ),
-            AppError::EnvironmentNotFound => (StatusCode::NOT_FOUND, "Environment not found"),
-            AppError::MalformedEnvironment => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Malformed module version",
-            ),
-            AppError::ExecutionFailed { .. } => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "Failed to run module")
-            }
-        };
-
-        let body = Json(json!({
-            "error": error_message,
-        }));
-
-        (status, body).into_response()
-    }
-}
-
-#[derive(Debug)]
-pub enum WorkerError {
-    IncorrectParameters(String),
-    IncorrectEnvironmentVariable(String, String),
-    ConfigurationFetch,
-}
-
-impl Display for WorkerError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            WorkerError::IncorrectParameters(message) => {
-                write!(f, "Incorrect parameters: {}", message)
-            }
-            WorkerError::ConfigurationFetch => {
-                write!(f, "Could not fetch configuration")
-            }
-            WorkerError::IncorrectEnvironmentVariable(key, message) => {
-                write!(f, "Incorrect environment variable {}: {}", key, message)
-            }
-        }
-    }
-}
-
-async fn handle_websocket_with_errors<'a>(socket: WebSocket, actor: Sender<ActorCommand>) {
+async fn handle_websocket_with_errors<'a>(socket: WebSocket, actor: ActorLink) {
     match handle_websocket(socket, actor).await {
         Ok(_) => {}
         Err(e) => {
@@ -140,47 +48,34 @@ async fn handle_websocket_with_errors<'a>(socket: WebSocket, actor: Sender<Actor
     }
 }
 
-async fn handle_websocket<'a>(
-    socket: WebSocket,
-    actor: Sender<ActorCommand>,
-) -> Result<(), AppError> {
-    let (mut sender, mut receiver) = socket.split();
-    let (websocket_sender, mut websocket_receiver) = mpsc::channel::<WebSocketCommand>(32);
+async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Result<(), WorkerError> {
+    let (mut ws_sender, mut ws_receiver) = socket.split();
+    let (ws_command_sender, mut ws_command_receiver) = mpsc::channel::<WebSocketCommand>(32);
+
+    // Let's run on connection handler
     {
-        let initial_storage = HashMap::new();
         let mut scoped_resources = ActorResources::default();
         scoped_resources
             .websockets
-            .push(OpenWebSocket(websocket_sender.clone()));
-        actor
-            .send(ActorCommand::TakeResource {
-                resources: scoped_resources,
-            })
-            .await
-            .map_err(|_| {
-                AppError::from(ExecutionError::ActorCommandFailed {
-                    message: "Could not send take resource to actor".to_owned(),
-                })
-            })?;
+            .push(OpenWebSocket(ws_command_sender.clone()));
 
-        actor
+        actor_link
+            .send(ActorCommand::TakeResources(scoped_resources))
+            .await?;
+
+        actor_link
             .send(ActorCommand::Run {
                 handler: "onWebSocketConnection".to_owned(),
-                storage: initial_storage,
-                sender: None,
+                storage: ObjectBody::new(),
+                sender: None, // Some(response_sender),
             })
-            .await
-            .map_err(|e| ExecutionError::ActorCommandFailed {
-                message: format!(
-                    "Could not send run command (handler: onWebSocketConnection) to actor. Send error: {:?}",
-                    e
-                ),
-            })?;
+            .await?;
     }
 
+    // Start processing of WebSocket command messages
     tokio::spawn(async move {
-        while let Some(command) = websocket_receiver.recv().await {
-            match sender.send(command.message).await {
+        while let Some(command) = ws_command_receiver.recv().await {
+            match ws_sender.send(command.message).await {
                 Ok(_) => {
                     command.responder.send(Ok(())).unwrap();
                 }
@@ -198,7 +93,8 @@ async fn handle_websocket<'a>(
         }
     });
 
-    while let Some(msg) = receiver.next().await {
+    // Process WebSocket messages
+    while let Some(msg) = ws_receiver.next().await {
         match msg {
             Ok(msg) => {
                 match msg {
@@ -209,19 +105,13 @@ async fn handle_websocket<'a>(
                             StorageValue::String("leaving".to_owned()),
                         );
 
-                        actor
+                        actor_link
                             .send(ActorCommand::Run {
                                 handler: "onWebSocketDisconnection".to_owned(),
                                 storage: initial_storage,
-                                sender: None
+                                sender: None,
                             })
-                            .await
-                            .map_err(|e| ExecutionError::ActorCommandFailed {
-                                message: format!(
-                                    "Could not send run command (handler: onWebSocketDisconnection) to actor. Send error: {:?}",
-                                    e
-                                ),
-                            })?;
+                            .await?;
                     }
                     msg => {
                         let message: StorageValue = match msg {
@@ -244,24 +134,18 @@ async fn handle_websocket<'a>(
                         let mut initial_storage = HashMap::new();
                         initial_storage.insert("message".to_string(), message);
 
-                        actor
+                        actor_link
                             .send(ActorCommand::Run {
                                 handler: "onWebSocketMessage".to_owned(),
                                 storage: initial_storage,
-                                sender: None
+                                sender: None,
                             })
-                            .await
-                            .map_err(|e| ExecutionError::ActorCommandFailed {
-                                message: format!(
-                                    "Could not send run command (handler: onWebSocketMessage) to actor. Send error: {:?}",
-                                    e
-                                ),
-                            })?;
+                            .await?;
                     }
                 };
             }
             Err(error) => {
-                let mut initial_storage = HashMap::new();
+                let mut initial_storage = ObjectBody::new();
                 initial_storage.insert(
                     "reason".to_string(),
                     StorageValue::String("errored".to_owned()),
@@ -269,175 +153,28 @@ async fn handle_websocket<'a>(
                 initial_storage
                     .insert("error".to_string(), StorageValue::String(error.to_string()));
 
-                actor
+                actor_link
                     .send(ActorCommand::Run {
                         handler: "onWebSocketDisconnection".to_owned(),
                         storage: initial_storage,
                         sender: None,
                     })
-                    .await
-                    .map_err(|e| ExecutionError::ActorCommandFailed {
-                        message: format!(
-                            "Could not send run command (handler: onWebSocketDisconnection) to actor. Send error: {:?}",
-                            e
-                        ),
-                    })?;
+                    .await?;
             }
         }
     }
 
-    actor.send(ActorCommand::Terminate).await.map_err(|_| {
-        AppError::from(ExecutionError::ActorCommandFailed {
-            message: "Could not send terminate command to actor".to_owned(),
-        })
-    })?;
+    // After WebSocket is closed, we need to terminate the actor
+    actor_link.send(ActorCommand::Terminate).await?;
 
     Ok(())
-}
-
-pub fn compile_module(module_version: ModuleVersion) -> CompiledModule {
-    let local_functions: Vec<Function> = module_version
-        .instructions
-        .iter()
-        .filter(|s| {
-            matches!(
-                s,
-                Step::DefineFunction {
-                    exported: false,
-                    ..
-                } | Step::DefineNativeFunction {
-                    exported: false,
-                    ..
-                }
-            )
-        })
-        .map(|s| match s {
-            Step::DefineFunction {
-                id,
-                parameters: _,
-                body,
-                exported: _,
-            } => Function::Normal {
-                id: id.clone(),
-                body: body.clone(),
-            },
-            Step::DefineNativeFunction {
-                id,
-                native_id,
-                parameters: _,
-                exported: _,
-            } => Function::Native {
-                id: id.to_owned(),
-                native_id: native_id.to_owned(),
-            },
-            other => {
-                panic!("Expected function definition, got step: {:?}", other)
-            }
-        })
-        .collect_vec();
-
-    let exported_functions: Vec<Function> = module_version
-        .instructions
-        .iter()
-        .filter(|s| {
-            matches!(
-                s,
-                Step::DefineFunction { exported: true, .. }
-                    | Step::DefineNativeFunction { exported: true, .. }
-            )
-        })
-        .map(|s| match s {
-            Step::DefineFunction {
-                id,
-                parameters: _,
-                body,
-                exported: _,
-            } => Function::Normal {
-                id: id.clone(),
-                body: body.clone(),
-            },
-            Step::DefineNativeFunction {
-                id,
-                native_id,
-                parameters: _,
-                exported: _,
-            } => Function::Native {
-                id: id.to_owned(),
-                native_id: native_id.to_owned(),
-            },
-            other => {
-                panic!("Expected function definition, got step: {:?}", other)
-            }
-        })
-        .collect_vec();
-
-    CompiledModule {
-        id: module_version.id,
-        module_id: module_version.module_id,
-        local_functions,
-        exported_functions,
-        handlers: module_version.handlers,
-        imports: HashMap::new(),
-    }
-}
-
-#[async_recursion]
-#[instrument(skip(global, module_version_resolver), level = "debug")]
-pub async fn get_compiled_module(
-    id: &str,
-    global: Arc<Global>,
-    module_version_resolver: SharedModuleVersionResolver,
-) -> Result<Arc<CompiledModule>, AppError> {
-    let cached_module = {
-        global
-            .modules
-            .read()
-            .await
-            .iter()
-            .find(|m| m.id == id)
-            .cloned()
-    };
-
-    if let Some(cached) = cached_module {
-        debug!("Returning cached compiled module: {}", id);
-        return Ok(cached);
-    }
-
-    debug!("Fetching module: {}", id);
-    let module_version: ModuleVersion = {
-        module_version_resolver
-            .get_module_version(id)
-            .instrument(info_span!("get_module_version"))
-            .await?
-    };
-
-    // Resolve module version for each import
-    let mut imports = HashMap::new();
-    for (import_name, import) in &module_version.imports {
-        debug!("Fetching import: {}", import_name);
-        let imported = match import {
-            Import::Cloud { id: _, version_id } => {
-                get_compiled_module(version_id, global.clone(), module_version_resolver.clone())
-                    .await?
-            }
-        };
-        imports.insert(import_name.to_owned(), imported);
-    }
-
-    let mut compiled_module = compile_module(module_version);
-    compiled_module.imports = imports;
-    let module = Arc::new(compiled_module);
-    {
-        global.modules.write().await.push(module.clone());
-    }
-    Ok(module)
 }
 
 async fn handle_request(
     State(app_state): State<AppState>,
     mut request: Request<Body>,
     route: Route,
-) -> Result<Response, AppError> {
+) -> Result<Response, WorkerError> {
     let module = get_compiled_module(
         route.module_version_id.as_str(),
         app_state.global.clone(),
@@ -448,14 +185,13 @@ async fn handle_request(
     let ws = request.extract_parts::<WebSocketUpgrade>().await.ok();
 
     let (http_response_sender, http_response_receiver) = oneshot::channel::<HttpResponse>();
-    let mut scoped_resources = ActorResources::default();
-    scoped_resources
+    let mut resources = ActorResources::default();
+    resources
         .http_requests_to_respond
         .push(HttpRequestToRespond(http_response_sender));
 
     // Build initial storage
     let mut initial_storage = ObjectBody::new();
-
     if route.parse_body {
         let request_object = build_request_object(request).await;
         initial_storage.insert("request".to_string(), StorageValue::Object(request_object));
@@ -463,8 +199,7 @@ async fn handle_request(
         let (mut parts, body) = request.into_parts();
         let (request_object, _) = build_metadata_from_parts(&mut parts).await;
         initial_storage.insert("request".to_string(), StorageValue::Object(request_object));
-
-        scoped_resources
+        resources
             .pending_request_body
             .push(PendingHttpRequestBody(body));
     }
@@ -476,84 +211,36 @@ async fn handle_request(
         app_state.environment.clone(),
         module,
         app_state.global.clone(),
-        scoped_resources,
+        resources,
         handlers,
     );
 
     let actor_id = actor.get_id().to_owned();
-    let actor_sender = activate_actor(actor);
+    let actor_link = activate_actor(actor);
     app_state
         .global
         .registry
         .actors
-        .insert(actor_id.clone(), ActorLink(actor_sender.clone()));
+        .insert(actor_id.clone(), actor_link.clone());
 
     let (response_sender, response_receiver) =
         oneshot::channel::<Result<StorageValue, ExecutionError>>();
-    actor_sender
+
+    actor_link
         .send(ActorCommand::Run {
             handler: "onHttpRequest".to_owned(),
             storage: initial_storage,
             sender: Some(response_sender),
         })
-        .await
-        .map_err(|_| {
-            AppError::from(ExecutionError::ActorCommandFailed {
-                message: "Could not send run command (handler: onHttpRequest) to actor".to_owned(),
-            })
-        })?;
+        .await?;
 
-    let actor_sender_for_termination = actor_sender.clone();
-    tokio::spawn(async move {
-        match response_receiver.await {
-            Ok(resp) => {
-                match resp {
-                    Ok(_) => {
-                        // Do nothing
-                    }
-                    Err(e) => {
-                        // If the execution has failed we should terminate the actor
-                        match actor_sender_for_termination
-                            .send(ActorCommand::Terminate)
-                            .await
-                            .map_err(|_| {
-                                AppError::from(ExecutionError::ActorCommandFailed {
-                                    message: "Could not send terminate command to actor".to_owned(),
-                                })
-                            }) {
-                            Ok(_) => {}
-                            Err(_) => {
-                                error!("Could not send terminate command to actor");
-                            }
-                        }
-                        warn!(
-                            "Error running onHttpRequest: {:?} sending error response",
-                            e
-                        );
-                    }
-                }
-            }
-            Err(e) => {
-                error!(
-                    "Error receiving response from actor (run response): {:?}",
-                    e
-                );
-            }
-        }
-    });
+    spawn_ok_or_terminate(actor_link.clone(), response_receiver);
 
     match http_response_receiver.await {
         Ok(wrapper) => match wrapper {
             HttpResponse::Normal(response, responder) => {
                 responder.send(Ok(())).unwrap();
-                actor_sender
-                    .send(ActorCommand::Terminate)
-                    .await
-                    .map_err(|_| {
-                        AppError::from(ExecutionError::ActorCommandFailed {
-                            message: "Could not send terminate command to actor".to_owned(),
-                        })
-                    })?;
+                actor_link.send(ActorCommand::Terminate).await?;
                 Ok(response)
             }
             HttpResponse::WebSocket(responder) => {
@@ -575,7 +262,7 @@ async fn handle_request(
                     }
                 };
 
-                Ok(ws.on_upgrade(move |socket| handle_websocket_with_errors(socket, actor_sender)))
+                Ok(ws.on_upgrade(move |socket| handle_websocket_with_errors(socket, actor_link)))
             }
             HttpResponse::ServerSentEvents {
                 event_receiver,
@@ -693,7 +380,9 @@ impl WorkerHttpServer {
                 let mut origins: Vec<HeaderValue> = Vec::with_capacity(raw_origins.len());
                 for raw_origin in raw_origins {
                     let header_value = HeaderValue::from_str(&raw_origin).map_err(|e| {
-                        WorkerError::IncorrectParameters(format!("Could not parse origin: {}", e))
+                        WorkerError::MalformedConfiguration {
+                            message: format!("Could not parse origin: {}", e),
+                        }
                     })?;
                     origins.push(header_value);
                 }
@@ -797,7 +486,7 @@ impl Worker {
                 )
             }))
             .buffer_unordered(16)
-            .collect::<Vec<Result<Arc<CompiledModule>, AppError>>>()
+            .collect::<Vec<Result<Arc<CompiledModule>, WorkerError>>>()
             .await
         };
 
@@ -826,27 +515,22 @@ impl Worker {
                 ActorResources::default(), // TODO: Add router here?
             );
             let actor_id = actor.get_id().to_owned();
-            let sender = activate_actor(actor);
+            let actor_link = activate_actor(actor);
 
             self.global
                 .registry
                 .actors
-                .insert(actor_id, ActorLink(sender.clone()));
+                .insert(actor_id, actor_link.clone());
 
             let (run_sender, run_receiver) = tokio::sync::oneshot::channel();
 
-            let _ = sender
+            let _ = actor_link
                 .send(ActorCommand::Run {
                     handler: "onStart".to_owned(),
                     storage: HashMap::new(),
                     sender: Some(run_sender),
                 })
-                .await
-                .map_err(|e| {
-                    AppError::from(ExecutionError::ActorCommandFailed {
-                        message: format!("Could not send run command (handler: onStart) to actor. Send error: {:?}", e)
-                    })
-                }); // TODO: Handle error
+                .await;
 
             waits.push(run_receiver);
         }
@@ -873,11 +557,10 @@ impl Worker {
     ) -> Result<(), WorkerError> {
         let router = self.start().await?;
 
-        let (shutdown_sender, shutdown_receiver) = tokio::sync::oneshot::channel::<()>();
+        let (shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
         self.router_shutdown = Some(shutdown_sender);
 
-        let (shutdown_completed_sender, shutdown_completed_receiver) =
-            tokio::sync::oneshot::channel::<()>();
+        let (shutdown_completed_sender, shutdown_completed_receiver) = oneshot::channel::<()>();
         self.router_shutdown_completed = Some(shutdown_completed_receiver);
 
         tokio::spawn(async move {
@@ -925,12 +608,7 @@ impl Worker {
 
         debug!("Propagating terminate to actors");
         for pair in self.global.registry.actors.iter_mut() {
-            match pair.0.send(ActorCommand::Terminate).await {
-                Ok(_) => {}
-                Err(_e) => {
-                    // TODO: Send errors
-                }
-            }
+            let _ = pair.send(ActorCommand::Terminate).await;
         }
 
         if let Some(shutdown_completed) = self.router_shutdown_completed.take() {
@@ -942,80 +620,4 @@ impl Worker {
 }
 
 #[cfg(test)]
-mod test_worker {
-    use super::*;
-
-    #[test]
-    fn test_can_parse_module_version() {
-        let value = json!(
-            {
-                "moduleId": "test",
-                "id": "ZVnigLgKIJQ1d_nmeT71g",
-                "type": "HTTP",
-                "handlers": {
-                  "onHttpRequest": "ZVnigLgKIJQ1d_nmeT71g"
-                },
-                "imports": {
-                    "something": {
-                        "type": "cloud",
-                        "id": "test",
-                        "versionId": "test"
-                    }
-                },
-                "instructions": [
-                  {
-                    "type": "defineFunction",
-                    "id": "ZVnigLgKIJQ1d_nmeT71g",
-                    "body": [
-                      {
-                        "id": "jMwI6DurROzkjebyNhNyD",
-                        "type": "call",
-                        "callee": "import/http_server/respond_with",
-                        "version": "1",
-                        "parameters": [
-                          {
-                            "name": "body",
-                            "type": "tel",
-                            "expression": "{\n  message: \"Hello World\"\n}"
-                          },
-                          {
-                            "name": "responseType",
-                            "type": "tel",
-                            "expression": "\"json\""
-                          }
-                        ]
-                      }
-                    ],
-                    "name": "Handle request",
-                    "version": "1.0.0",
-                    "parameters": [
-                      {
-                        "name": "request",
-                        "optional": false,
-                        "description": "The incoming request object."
-                      }
-                    ]
-                  }
-                ]
-              }
-        );
-
-        serde_json::from_value::<ModuleVersion>(value).unwrap();
-    }
-
-    #[test]
-    fn test_can_parse_empty_module_version() {
-        let value = json!(
-            {
-                "id": "ZVnigLgKIJQ1d_nmeT71g",
-                "type": "HTTP",
-                "handlers": {},
-                "imports": {},
-                "instructions": [],
-                "moduleId": "test"
-              }
-        );
-
-        serde_json::from_value::<ModuleVersion>(value).unwrap();
-    }
-}
+mod test_worker {}

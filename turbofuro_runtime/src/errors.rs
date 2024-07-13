@@ -3,6 +3,9 @@ use std::{error::Error, fmt::Display};
 use redis::RedisError;
 use serde::{Deserialize, Serialize};
 use tel::{Description, StorageValue, TelError};
+use tokio::sync::mpsc::error::SendError;
+
+use crate::actor::ActorCommand;
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "code", rename_all = "SCREAMING_SNAKE_CASE")]
@@ -204,8 +207,14 @@ impl Error for ExecutionError {
     fn cause(&self) -> Option<&dyn Error> {
         self.source()
     }
+}
 
-    // fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {}
+impl From<SendError<ActorCommand>> for ExecutionError {
+    fn from(error: SendError<ActorCommand>) -> Self {
+        ExecutionError::ActorCommandFailed {
+            message: format!("Could not send actor command: {}", error.0),
+        }
+    }
 }
 
 impl From<TelError> for ExecutionError {

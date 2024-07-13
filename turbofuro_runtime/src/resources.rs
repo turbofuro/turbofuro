@@ -14,6 +14,7 @@ use serde_derive::{Deserialize, Serialize};
 use std::{convert::Infallible, pin::Pin};
 use tel::StorageValue;
 use tokio_util::io::ReaderStream;
+use tracing::{error, warn};
 
 use std::{
     collections::HashMap,
@@ -95,8 +96,14 @@ impl Resource for OpenSseStream {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ActorLink(pub mpsc::Sender<ActorCommand>);
+
+impl ActorLink {
+    pub async fn send(&self, command: ActorCommand) -> Result<(), ExecutionError> {
+        self.0.send(command).await.map_err(ExecutionError::from)
+    }
+}
 
 impl Resource for ActorLink {
     fn get_type() -> &'static str {

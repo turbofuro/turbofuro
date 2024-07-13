@@ -56,13 +56,13 @@ pub async fn spawn_actor<'a>(
 
     debug!("Spawning actor id: {}, module: {}", id, context.module.id);
 
-    let sender = activate_actor(actor);
+    let actor_link = activate_actor(actor);
 
     context
         .global
         .registry
         .actors
-        .insert(id.clone(), ActorLink(sender));
+        .insert(id.clone(), actor_link);
 
     store_value(store_as, context, step_id, id.into()).await?;
     Ok(())

@@ -436,6 +436,13 @@ pub struct DebuggerHandle {
     pub sender: mpsc::Sender<DebugMessage>,
 }
 
+impl DebuggerHandle {
+    pub fn new(id: String) -> (Self, mpsc::Receiver<DebugMessage>) {
+        let (sender, receiver) = mpsc::channel::<DebugMessage>(16);
+        (Self { id, sender }, receiver)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ExecutionMode {
     /// Optimize for speed with minimal observability

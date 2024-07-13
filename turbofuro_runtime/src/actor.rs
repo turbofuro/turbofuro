@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::sync::Arc;
 use std::vec;
 use tel::describe;
@@ -8,6 +9,7 @@ use tel::NULL;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tracing::debug;
+use tracing::error;
 use tracing::info;
 use tracing::trace;
 use tracing::warn;
@@ -27,6 +29,7 @@ use crate::executor::ExecutionStatus;
 use crate::executor::Function;
 use crate::executor::Global;
 use crate::executor::Steps;
+use crate::resources::ActorLink;
 use crate::resources::ActorResources;
 
 #[derive(Debug)]
@@ -47,16 +50,36 @@ pub enum ActorCommand {
         storage: ObjectBody,
         alarm_id: u64,
     },
-    TakeResource {
-        resources: ActorResources,
+    TakeResources(ActorResources),
+    EnableDebugger {
+        handle: DebuggerHandle,
     },
+    DisableDebugger,
     Terminate,
+}
+
+impl Display for ActorCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ActorCommand::Run { handler, .. } => write!(f, "Run handler {}", handler),
+            ActorCommand::RunFunctionRef { function_ref, .. } => {
+                write!(f, "Run function ref {}", function_ref)
+            }
+            ActorCommand::RunAlarm { handler, .. } => {
+                write!(f, "Run alarm for handler {}", handler)
+            }
+            ActorCommand::TakeResources(_resources) => write!(f, "Take resources"),
+            ActorCommand::EnableDebugger { handle } => write!(f, "Enable debugger {}", handle.id),
+            ActorCommand::DisableDebugger => write!(f, "Disable debugger"),
+            ActorCommand::Terminate => write!(f, "Terminate"),
+        }
+    }
 }
 
 /**
  * Runs service execution in a separate task
  */
-pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
+pub fn activate_actor(mut actor: Actor) -> ActorLink {
     let (sender, mut receiver) = mpsc::channel::<ActorCommand>(16);
     tokio::spawn(async move {
         while let Some(command) = receiver.recv().await {
@@ -305,7 +328,7 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                 ActorCommand::Terminate => {
                     actor.terminate();
                 }
-                ActorCommand::TakeResource { mut resources } => {
+                ActorCommand::TakeResources(mut resources) => {
                     actor
                         .resources
                         .http_requests_to_respond
@@ -316,10 +339,47 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                         .cancellations
                         .append(&mut resources.cancellations);
                 }
+                ActorCommand::EnableDebugger { handle } => {
+                    actor.debugger = Some(handle);
+                }
+                ActorCommand::DisableDebugger => {
+                    actor.debugger = None;
+                }
             }
         }
     });
-    sender
+
+    ActorLink(sender)
+}
+
+pub fn spawn_ok_or_terminate(
+    actor_link: ActorLink,
+    response_receiver: oneshot::Receiver<Result<StorageValue, ExecutionError>>,
+) {
+    tokio::spawn(async move {
+        match response_receiver.await {
+            Ok(resp) => {
+                match resp {
+                    Ok(_) => {
+                        // Do nothing
+                    }
+                    Err(_e) => {
+                        // If the execution has failed we should terminate the actor
+                        match actor_link.send(ActorCommand::Terminate).await {
+                            Ok(_) => {}
+                            Err(_) => warn!("Failed to terminate actor after errored response"),
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                error!(
+                    "Error receiving response from actor (run response): {:?}",
+                    e
+                );
+            }
+        }
+    });
 }
 
 #[derive(Debug)]
@@ -331,6 +391,7 @@ pub struct Actor {
     environment: Arc<Environment>,
     resources: ActorResources,
     handlers: HashMap<String, String>,
+    debugger: Option<DebuggerHandle>,
 }
 
 impl Drop for Actor {
@@ -358,6 +419,7 @@ impl Actor {
             environment,
             resources,
             handlers,
+            debugger: None,
         }
     }
 
@@ -378,6 +440,7 @@ impl Actor {
             environment,
             resources,
             handlers: module.handlers.clone(),
+            debugger: None,
         }
     }
 
@@ -529,7 +592,10 @@ impl Actor {
             global: self.global.clone(),
             bubbling: false,
             references: HashMap::new(),
-            mode: ExecutionMode::Probe, // TODO: Roll the dice or something to prefer fast mode
+            mode: match &self.debugger {
+                Some(handle) => ExecutionMode::Debug(handle.clone()),
+                None => ExecutionMode::Probe, // TODO: Roll the dice or something to prefer fast mode
+            },
             loop_counts: vec![],
         };
 

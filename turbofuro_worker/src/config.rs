@@ -2,9 +2,9 @@ use std::{sync::Arc, time::Duration};
 
 use serde_derive::{Deserialize, Serialize};
 use tokio::sync::Mutex;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
-use crate::{worker::WorkerError, CloudOptions};
+use crate::{errors::WorkerError, options::CloudOptions};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase", tag = "type")]
@@ -76,31 +76,34 @@ pub async fn fetch_configuration(options: &CloudOptions) -> Result<Configuration
         .header("content-length", 0)
         .send()
         .await
-        .map_err(|e| {
-            warn!("Failed to fetch configuration {}", e);
-            WorkerError::ConfigurationFetch
+        .map_err(|e| WorkerError::CouldNotFetchConfiguration {
+            message: format!("Failed to fetch configuration: {}", e),
         })?;
 
     if !response.status().is_success() {
-        error!(
-            "Failed to fetch configuration. Status code is {}",
-            response.status()
-        );
-        return Err(WorkerError::ConfigurationFetch);
+        return Err(WorkerError::CouldNotFetchConfiguration {
+            message: format!(
+                "Failed to fetch configuration. Status code was {}",
+                response.status()
+            ),
+        });
     }
 
-    let response_body = response.text().await.map_err(|e| {
-        error!("Failed to read configuration response body {}", e);
-        WorkerError::ConfigurationFetch
-    })?;
+    let response_body =
+        response
+            .text()
+            .await
+            .map_err(|e| WorkerError::CouldNotFetchConfiguration {
+                message: format!(
+                    "Failed to fetch configuration. Could not read response body: {}",
+                    e
+                ),
+            })?;
 
-    let config: Configuration = serde_json::from_str(&response_body).map_err(|e| {
-        error!(
-            "Failed to parse configuration\nError is {}\nResponse body is {}",
-            e, response_body
-        );
-        WorkerError::ConfigurationFetch
-    })?;
+    let config: Configuration =
+        serde_json::from_str(&response_body).map_err(|e| WorkerError::MalformedConfiguration {
+            message: format!("Failed to parse configuration: {}", e),
+        })?;
 
     debug!(
         "Configuration fetched:\n{}",
