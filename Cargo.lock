@@ -3979,6 +3979,7 @@ dependencies = [
 name = "turbofuro_runtime"
 version = "0.1.9"
 dependencies = [
+ "arc-swap",
  "async-recursion",
  "async-trait",
  "axum 0.7.5",

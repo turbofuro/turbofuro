@@ -312,7 +312,7 @@ pub async fn respond_with_sse_stream<'a>(
                         .registry
                         .actors
                         .get(&actor_id)
-                        .map(|r| r.value().0.clone())
+                        .map(|r| r.value().clone())
                 };
 
                 if let Some(messenger) = messenger {

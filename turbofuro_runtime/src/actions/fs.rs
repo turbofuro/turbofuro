@@ -249,7 +249,7 @@ pub async fn setup_watcher<'a>(
                                 .registry
                                 .actors
                                 .get(&actor_id)
-                                .map(|r| r.value().0.clone())
+                                .map(|r| r.value().clone())
                         };
 
                         // Send message

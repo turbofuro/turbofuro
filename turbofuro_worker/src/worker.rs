@@ -206,6 +206,12 @@ async fn handle_request(
 
     let handlers = route.handlers.clone();
 
+    let debugger = app_state
+        .global
+        .debug_state
+        .load()
+        .get_debugger(&module.module_id);
+
     let actor = Actor::new(
         StorageValue::Null(None),
         app_state.environment.clone(),
@@ -213,6 +219,7 @@ async fn handle_request(
         app_state.global.clone(),
         resources,
         handlers,
+        debugger,
     );
 
     let actor_id = actor.get_id().to_owned();

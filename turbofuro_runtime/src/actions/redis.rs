@@ -488,7 +488,7 @@ async fn setup_pubsub_coordinator(
                                     .registry
                                     .actors
                                     .get(&sub.id)
-                                    .map(|r| r.value().0.clone())
+                                    .map(|r| r.value().clone())
                                 };
 
                                 // Send message

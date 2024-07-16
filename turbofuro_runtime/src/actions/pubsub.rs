@@ -2,10 +2,10 @@ use std::{collections::hash_map::Entry, sync::Arc};
 
 use crate::{
     actor::ActorCommand,
-    evaluations::eval_optional_param,
+    evaluations::{eval_optional_param, eval_optional_param_with_default},
     resources::{Cancellation, CancellationSubject},
 };
-use tel::{ObjectBody, StorageValue};
+use tel::{ObjectBody, StorageValue, NULL};
 use tracing::{debug, instrument};
 
 use crate::{
@@ -49,6 +49,7 @@ async fn subscribe_and_schedule_runs(
     global: Arc<Global>,
     actor_id: String,
     function_ref: Option<String>,
+    context: StorageValue,
     mut receiver: tokio::sync::broadcast::Receiver<StorageValue>,
 ) {
     loop {
@@ -60,13 +61,14 @@ async fn subscribe_and_schedule_runs(
                         .registry
                         .actors
                         .get(&actor_id)
-                        .map(|r| r.value().0.clone())
+                        .map(|r| r.value().clone())
                 };
 
                 // Send message
                 if let Some(messenger) = messenger {
                     let mut storage = ObjectBody::new();
                     storage.insert("message".to_owned(), value);
+                    storage.insert("context".to_owned(), context.clone());
 
                     if let Some(ref function_ref) = function_ref {
                         messenger
@@ -119,6 +121,14 @@ pub async fn subscribe<'a>(
     let channel: String = as_string(channel_param, "channel")?;
     let handler = get_optional_handler_from_parameters("onMessage", parameters);
 
+    let context_param = eval_optional_param_with_default(
+        "context",
+        parameters,
+        &context.storage,
+        &context.environment,
+        NULL,
+    )?;
+
     let mut pub_sub = context.global.pub_sub.lock().await;
     let subscription_receiver = match pub_sub.entry(channel.clone()) {
         Entry::Occupied(e) => e.get().subscribe(),
@@ -135,7 +145,7 @@ pub async fn subscribe<'a>(
     let actor_id = context.actor_id.clone();
     tokio::spawn(async move {
         tokio::select! {
-            _ = subscribe_and_schedule_runs(global, actor_id, handler, subscription_receiver) => {
+            _ = subscribe_and_schedule_runs(global, actor_id, handler, context_param, subscription_receiver) => {
                 // Noop, just let the task end
             }
             _ = cancel_receiver => {

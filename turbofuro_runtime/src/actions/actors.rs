@@ -44,6 +44,12 @@ pub async fn spawn_actor<'a>(
 
     let handlers = get_handlers_from_parameters(parameters);
 
+    let debugger = context
+        .global
+        .debug_state
+        .load()
+        .get_debugger(&context.module.id);
+
     let actor = Actor::new(
         state_param,
         context.environment.clone(),
@@ -51,6 +57,7 @@ pub async fn spawn_actor<'a>(
         context.global.clone(),
         ActorResources::default(),
         handlers,
+        debugger,
     );
     let id = actor.get_id().to_owned();
 
@@ -84,7 +91,7 @@ pub async fn send<'a>(
             .actors
             .get(&id)
             .ok_or_else(ActorLink::missing)
-            .map(|r| r.value().0.clone())?
+            .map(|r| r.value().clone())?
     };
 
     let message_param = eval_param(
@@ -127,7 +134,7 @@ pub async fn request<'a>(
             .actors
             .get(&id)
             .ok_or_else(ActorLink::missing)
-            .map(|r| r.value().0.clone())?
+            .map(|r| r.value().clone())?
     };
 
     let message_param = eval_param(
@@ -185,7 +192,7 @@ pub async fn terminate<'a>(
             .actors
             .get(&id)
             .ok_or_else(ActorLink::missing)
-            .map(|r| r.value().0.clone())?
+            .map(|r| r.value().clone())?
     };
 
     messenger.send(ActorCommand::Terminate).await.unwrap();

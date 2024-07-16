@@ -17,7 +17,7 @@ struct LoggerStats {
 }
 
 fn check_if_should_report(report: &ExecutionReport, stats: &mut LoggerStats) -> bool {
-    let is_errored = matches!(report.log.status, ExecutionStatus::Failed);
+    let is_errored = matches!(report.status, ExecutionStatus::Failed);
     stats.count += 1;
     if is_errored {
         stats.errored += 1;
@@ -58,7 +58,7 @@ pub fn start_cloud_logger(cloud_options: CloudOptions) -> ExecutionLoggerHandle 
                         if let Some(stats) = stats {
                             check_if_should_report(&report, stats)
                         } else {
-                            let is_errored = matches!(report.log.status, ExecutionStatus::Failed);
+                            let is_errored = matches!(report.status, ExecutionStatus::Failed);
 
                             // Always report the first report
                             log_counter.insert(

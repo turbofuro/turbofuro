@@ -4,7 +4,6 @@ mod cli;
 mod cloud_agent;
 mod cloud_logger;
 mod config;
-mod director;
 mod environment_resolver;
 mod errors;
 mod module_version_resolver;
@@ -29,6 +28,7 @@ use environment_resolver::{
 use errors::WorkerError;
 use futures_util::Future;
 use module_version_resolver::SharedModuleVersionResolver;
+use nanoid::nanoid;
 use options::{
     get_cloud_options, get_http_server_options, get_name, get_turbofuro_token, CloudOptions,
     HttpServerOptions,
@@ -37,7 +37,7 @@ use reqwest::Client;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tokio::sync::{broadcast, watch, Mutex};
-use turbofuro_runtime::executor::{Global, GlobalBuilder};
+use turbofuro_runtime::executor::{DebugState, Global, GlobalBuilder};
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -162,12 +162,16 @@ async fn setup_configuration_fetching(
     let cloud_agent_module_version_resolver = module_version_resolver.clone();
     let cloud_agent_cloud_options = cloud_options.clone();
     tokio::spawn(async move {
+        let worker_id = nanoid!();
+
         let mut agent = CloudAgent {
             options: cloud_agent_cloud_options.clone(),
             global: global.clone(),
             environment_resolver: cloud_agent_environment_resolver.clone(),
             module_version_resolver: cloud_agent_module_version_resolver.clone(),
             configuration_coordinator: coordinator.clone(),
+            debug_state: DebugState::default(),
+            worker_id: worker_id.clone(),
         };
 
         // Let's try to connect with a exponential backoff
@@ -190,6 +194,8 @@ async fn setup_configuration_fetching(
                 environment_resolver: cloud_agent_environment_resolver.clone(),
                 module_version_resolver: cloud_agent_module_version_resolver.clone(),
                 configuration_coordinator: coordinator.clone(),
+                debug_state: DebugState::default(),
+                worker_id: worker_id.clone(),
             };
 
             if failed {

@@ -75,7 +75,7 @@ pub async fn set_alarm<'a>(
                     .registry
                     .actors
                     .get(&actor_id)
-                    .map(|r| r.value().0.clone())
+                    .map(|r| r.value().clone())
                 };
 
                 // Send message
@@ -139,7 +139,7 @@ async fn run_interval_inner(
                 .registry
                 .actors
                 .get(&actor_id)
-                .map(|r| r.value().0.clone())
+                .map(|r| r.value().clone())
         };
 
         // Send message
@@ -292,7 +292,7 @@ async fn run_cronjob_inner(
                         .registry
                         .actors
                         .get(&actor_id)
-                        .map(|r| r.value().0.clone())
+                        .map(|r| r.value().clone())
                 };
 
                 // Send message

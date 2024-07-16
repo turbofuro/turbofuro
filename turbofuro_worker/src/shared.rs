@@ -40,18 +40,22 @@ pub fn compile_module(module_version: ModuleVersion) -> CompiledModule {
                 parameters: _,
                 body,
                 exported: _,
+                name,
             } => Function::Normal {
                 id: id.clone(),
                 body: body.clone(),
+                name: name.clone(),
             },
             Step::DefineNativeFunction {
                 id,
                 native_id,
                 parameters: _,
                 exported: _,
+                name,
             } => Function::Native {
                 id: id.to_owned(),
                 native_id: native_id.to_owned(),
+                name: name.to_owned(),
             },
             other => {
                 panic!("Expected function definition, got step: {:?}", other)
@@ -75,17 +79,21 @@ pub fn compile_module(module_version: ModuleVersion) -> CompiledModule {
                 parameters: _,
                 body,
                 exported: _,
+                name,
             } => Function::Normal {
                 id: id.clone(),
                 body: body.clone(),
+                name: name.clone(),
             },
             Step::DefineNativeFunction {
                 id,
                 native_id,
                 parameters: _,
                 exported: _,
+                name,
             } => Function::Native {
                 id: id.to_owned(),
+                name: name.to_owned(),
                 native_id: native_id.to_owned(),
             },
             other => {

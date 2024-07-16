@@ -76,6 +76,7 @@ notify = { version = "6.1.1", default-features = false, features = [
     "macos_kqueue",
 ] }
 notify-debouncer-full = "0.3.1"
+arc-swap = "1.7.1"
 
 [dev-dependencies]
 tower = { version = "0.4.13", features = ["util"] }

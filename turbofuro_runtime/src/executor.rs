@@ -5,6 +5,7 @@ use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 use std::vec;
 
+use arc_swap::ArcSwap;
 use async_recursion::async_recursion;
 
 use nanoid::nanoid;
@@ -148,9 +149,11 @@ pub enum Step {
         #[serde(default = "default_exported")]
         exported: bool,
         body: Steps,
+        name: String,
     },
     DefineNativeFunction {
         id: String,
+        name: String,
         #[serde(rename = "nativeId")]
         native_id: String,
         parameters: Vec<ParameterDefinition>,
@@ -305,21 +308,41 @@ impl Default for ExecutionTest {
 
 impl ExecutionTest {
     pub fn get_context(&mut self) -> ExecutionContext {
-        ExecutionContext::new(
-            self.actor_id.clone(),
-            self.module.clone(),
-            self.global.clone(),
-            self.environment.clone(),
-            &mut self.resources,
-            ExecutionMode::Probe,
-        )
+        let initial_storage = ObjectBody::new();
+
+        ExecutionContext {
+            id: "test_id".to_owned(),
+            actor_id: self.actor_id.clone(),
+            log: ExecutionLog::new_started(
+                describe(StorageValue::Object(initial_storage.clone())),
+                "test",
+                "Test function",
+            ),
+            storage: initial_storage,
+            environment: self.environment.clone(),
+            resources: &mut self.resources,
+            mode: ExecutionMode::Probe,
+            loop_counts: vec![],
+            bubbling: false,
+            references: HashMap::new(),
+            module: self.module.clone(),
+            global: self.global.clone(),
+        }
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum Function {
-    Normal { id: String, body: Steps },
-    Native { id: String, native_id: String },
+    Normal {
+        id: String,
+        body: Steps,
+        name: String,
+    },
+    Native {
+        id: String,
+        native_id: String,
+        name: String,
+    },
 }
 
 impl Function {
@@ -327,6 +350,13 @@ impl Function {
         match self {
             Function::Normal { id, .. } => id,
             Function::Native { id, .. } => id,
+        }
+    }
+
+    pub fn get_name(&self) -> &str {
+        match self {
+            Function::Normal { name, .. } => name,
+            Function::Native { name, .. } => name,
         }
     }
 }
@@ -348,6 +378,22 @@ pub struct CompiledModule {
     pub imports: HashMap<String, Arc<CompiledModule>>,
 }
 
+impl CompiledModule {
+    pub fn get_function(&self, function_id: &str) -> Result<&Function, ExecutionError> {
+        self.local_functions
+            .iter()
+            .find(|f| f.get_id() == function_id)
+            .or_else(|| {
+                self.exported_functions
+                    .iter()
+                    .find(|f| f.get_id() == function_id)
+            })
+            .ok_or(ExecutionError::FunctionNotFound {
+                id: function_id.to_owned(),
+            })
+    }
+}
+
 #[derive(Debug)]
 pub struct Global {
     pub modules: RwLock<Vec<Arc<CompiledModule>>>,
@@ -355,6 +401,43 @@ pub struct Global {
     pub execution_logger: ExecutionLoggerHandle,
     pub environment: RwLock<Environment>,
     pub pub_sub: Mutex<HashMap<String, tokio::sync::broadcast::Sender<StorageValue>>>,
+    pub debug_state: ArcSwap<DebugState>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DebugEntry {
+    pub module_id: String,
+    pub debugger_handle: DebuggerHandle,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct DebugState {
+    entries: Vec<DebugEntry>,
+}
+
+impl DebugState {
+    pub fn get_debugger(&self, module_id: &str) -> Option<DebuggerHandle> {
+        self.entries
+            .iter()
+            .find(|e| e.module_id == module_id)
+            .map(|e| e.debugger_handle.clone())
+    }
+
+    pub fn has_entry(&mut self, module_id: &str) -> bool {
+        self.entries.iter().any(|e| e.module_id == module_id)
+    }
+
+    pub fn add_entry(&mut self, module_id: String, debugger_handle: DebuggerHandle) {
+        self.entries.push(DebugEntry {
+            module_id,
+            debugger_handle,
+        });
+    }
+
+    pub fn remove_entry(&mut self, module_id: &str) {
+        let mut entries = self.entries.clone();
+        entries.retain(|e| e.module_id != module_id);
+    }
 }
 
 #[derive(Debug)]
@@ -419,6 +502,7 @@ impl GlobalBuilder {
             execution_logger: self.execution_logger,
             pub_sub: self.pub_sub.into(),
             environment: RwLock::new(self.environment),
+            debug_state: ArcSwap::new(Arc::new(DebugState::default())),
         }
     }
 }
@@ -432,14 +516,13 @@ fn get_timestamp() -> u64 {
 
 #[derive(Debug, Clone)]
 pub struct DebuggerHandle {
-    pub id: String,
     pub sender: mpsc::Sender<DebugMessage>,
 }
 
 impl DebuggerHandle {
-    pub fn new(id: String) -> (Self, mpsc::Receiver<DebugMessage>) {
+    pub fn new() -> (Self, mpsc::Receiver<DebugMessage>) {
         let (sender, receiver) = mpsc::channel::<DebugMessage>(16);
-        (Self { id, sender }, receiver)
+        (Self { sender }, receiver)
     }
 }
 
@@ -455,6 +538,8 @@ pub enum ExecutionMode {
 
 #[derive(Debug)]
 pub struct ExecutionContext<'a> {
+    pub id: String,
+
     pub actor_id: String,
     pub log: ExecutionLog,
     pub storage: ObjectBody,
@@ -492,29 +577,6 @@ fn handle_logging_error(result: Result<(), SendTimeoutError<DebugMessage>>) {
 }
 
 impl<'a> ExecutionContext<'a> {
-    pub fn new(
-        actor_id: String,
-        module: Arc<CompiledModule>,
-        global: Arc<Global>,
-        environment: Arc<Environment>,
-        resources: &'a mut ActorResources,
-        mode: ExecutionMode,
-    ) -> Self {
-        ExecutionContext {
-            actor_id,
-            log: ExecutionLog::default(),
-            storage: HashMap::new(),
-            resources,
-            environment,
-            global,
-            module,
-            bubbling: false,
-            references: HashMap::new(),
-            mode,
-            loop_counts: vec![],
-        }
-    }
-
     async fn report_verbose_event(&mut self, event: ExecutionEvent) {
         match &self.mode {
             ExecutionMode::Fast => {
@@ -539,7 +601,8 @@ impl<'a> ExecutionContext<'a> {
                             debugger
                                 .sender
                                 .send_timeout(
-                                    DebugMessage::AppendEvent {
+                                    DebugMessage::AppendEventToReport {
+                                        id: self.id.clone(),
                                         event: event.clone(),
                                     },
                                     std::time::Duration::from_secs(5),
@@ -553,7 +616,8 @@ impl<'a> ExecutionContext<'a> {
                         debugger
                             .sender
                             .send_timeout(
-                                DebugMessage::AppendEvent {
+                                DebugMessage::AppendEventToReport {
+                                    id: self.id.clone(),
                                     event: event.clone(),
                                 },
                                 std::time::Duration::from_secs(5),
@@ -629,7 +693,8 @@ impl<'a> ExecutionContext<'a> {
                     debugger
                         .sender
                         .send_timeout(
-                            DebugMessage::AppendEvent {
+                            DebugMessage::AppendEventToReport {
+                                id: self.id.clone(),
                                 event: event.clone(),
                             },
                             std::time::Duration::from_secs(5),
@@ -642,18 +707,24 @@ impl<'a> ExecutionContext<'a> {
     }
 
     pub async fn start_report(&mut self) {
-        self.log = ExecutionLog::started_with_initial_storage(describe(StorageValue::Object(
-            self.storage.clone(),
-        )));
-
         if let ExecutionMode::Debug(debugger) = &self.mode {
             handle_logging_error(
                 debugger
                     .sender
                     .send_timeout(
                         DebugMessage::StartReport {
+                            id: self.id.clone(),
                             started_at: self.log.started_at,
                             initial_storage: self.log.initial_storage.clone(),
+                            module_id: self.module.module_id.clone(),
+                            module_version_id: self.module.id.clone(),
+                            environment_id: self.environment.id.clone(),
+                            function_id: self.log.function_id.clone(),
+                            function_name: self.log.function_name.clone(),
+                            status: ExecutionStatus::Started,
+                            events: vec![],
+                            finished_at: None,
+                            metadata: None,
                         },
                         std::time::Duration::from_secs(5),
                     )
@@ -673,6 +744,7 @@ impl<'a> ExecutionContext<'a> {
                     .sender
                     .send_timeout(
                         DebugMessage::EndReport {
+                            id: self.id.clone(),
                             status: self.log.status.clone(),
                             finished_at: now,
                         },
@@ -718,6 +790,8 @@ pub enum ExecutionStatus {
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionLog {
     pub status: ExecutionStatus,
+    pub function_id: String,
+    pub function_name: String,
     pub initial_storage: Description,
     pub events: Vec<ExecutionEvent>,
     pub started_at: u64,
@@ -730,16 +804,31 @@ pub struct ExecutionLog {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum ExecutionReportMetadata {
-    Http { path: String, method: String },
+    Http {
+        path: String,
+        method: String,
+        status: u16,
+    },
+    Redis {
+        command: String,
+    },
+    Alarm,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionReport {
+    pub status: ExecutionStatus,
+    pub function_id: String,
+    pub function_name: String,
+    pub initial_storage: Description,
+    pub events: Vec<ExecutionEvent>,
     pub module_id: String,
     pub module_version_id: String,
     pub environment_id: String,
-    pub log: ExecutionLog,
+    pub started_at: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub finished_at: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Value>,
 }
@@ -782,23 +871,12 @@ pub enum ExecutionEvent {
     },
 }
 
-impl Default for ExecutionLog {
-    fn default() -> Self {
-        ExecutionLog {
-            events: Vec::new(),
-            status: ExecutionStatus::Started,
-            initial_storage: Description::Object {
-                value: HashMap::new(),
-            },
-            started_at: get_timestamp(),
-            finished_at: None,
-            result: None,
-        }
-    }
-}
-
 impl ExecutionLog {
-    pub fn started_with_initial_storage(initial_storage: Description) -> Self {
+    pub fn new_started(
+        initial_storage: Description,
+        function_id: &str,
+        function_name: &str,
+    ) -> Self {
         ExecutionLog {
             status: ExecutionStatus::Started,
             initial_storage,
@@ -806,6 +884,8 @@ impl ExecutionLog {
             started_at: get_timestamp(),
             finished_at: None,
             result: None,
+            function_id: function_id.to_owned(),
+            function_name: function_name.to_owned(),
         }
     }
 }
@@ -967,104 +1047,94 @@ async fn execute_function<'a>(
     store_as: Option<&str>,
     step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let function = module
-        .exported_functions
-        .iter()
-        .find(|f| f.get_id() == function_id)
-        .or_else(|| {
-            module
-                .local_functions
-                .iter()
-                .find(|f| f.get_id() == function_id)
-        });
+    let function = module.get_function(function_id)?;
+    match function {
+        Function::Normal { id: _, body, name } => {
+            let mut initial_storage = HashMap::new();
+            let mut initial_references = HashMap::new();
 
-    if let Some(function) = function {
-        match function {
-            Function::Normal { id: _, body } => {
-                let mut initial_storage = HashMap::new();
-                let mut initial_references = HashMap::new();
-
-                let mut parameter_saver: Option<Selector> = None; // TODO(pr0gramista)#saveAs: Remove once the saveAs parameter is completely removed
-                for parameter in parameters.iter() {
-                    match parameter {
-                        // TODO(pr0gramista)#saveAs: Remove once the saveAs parameter is completely removed
-                        Parameter::Tel { name, expression } if name == "saveAs" => {
-                            parameter_saver = Some(eval_selector(
-                                expression,
-                                &context.storage,
-                                &context.environment,
-                            )?);
-                        }
-                        Parameter::Tel { name, expression } => {
-                            let value = eval(expression, &context.storage, &context.environment)?;
-                            initial_storage.insert(name.clone(), value);
-                        }
-                        Parameter::FunctionRef { name, id } => {
-                            initial_references.insert(name.clone(), id.clone());
-                        }
+            let mut parameter_saver: Option<Selector> = None; // TODO(pr0gramista)#saveAs: Remove once the saveAs parameter is completely removed
+            for parameter in parameters.iter() {
+                match parameter {
+                    // TODO(pr0gramista)#saveAs: Remove once the saveAs parameter is completely removed
+                    Parameter::Tel { name, expression } if name == "saveAs" => {
+                        parameter_saver = Some(eval_selector(
+                            expression,
+                            &context.storage,
+                            &context.environment,
+                        )?);
+                    }
+                    Parameter::Tel { name, expression } => {
+                        let value = eval(expression, &context.storage, &context.environment)?;
+                        initial_storage.insert(name.clone(), value);
+                    }
+                    Parameter::FunctionRef { name, id } => {
+                        initial_references.insert(name.clone(), id.clone());
                     }
                 }
+            }
 
+            context
+                .add_enter_function(function_id.to_owned(), initial_storage.clone())
+                .await;
+
+            let mut function_context = ExecutionContext {
+                id: context.id.clone(),
+                actor_id: context.actor_id.clone(),
+                log: ExecutionLog::new_started(
+                    describe(StorageValue::Object(initial_storage.clone())),
+                    function_id,
+                    name,
+                ),
+                storage: initial_storage,
+                environment: context.environment.clone(),
+                resources: context.resources,
+                global: context.global.clone(),
+                module: module.clone(),
+                bubbling: false,
+                references: initial_references,
+                mode: context.mode.clone(),
+                loop_counts: vec![],
+            };
+
+            let returned_value = match execute_steps(body, &mut function_context).await {
+                Ok(_) => StorageValue::Null(None),
+                Err(e) => match e {
+                    ExecutionError::Return { value } => value,
+                    e => {
+                        context.log.events.append(&mut function_context.log.events);
+                        context.add_leave_function(function_id.to_owned()).await;
+                        return Err(e);
+                    }
+                },
+            };
+
+            context.log.events.append(&mut function_context.log.events);
+            context.add_leave_function(function_id.to_owned()).await;
+
+            if let Some(expression) = store_as {
+                let selector = eval_selector(expression, &context.storage, &context.environment)?;
                 context
-                    .add_enter_function(function_id.to_owned(), initial_storage.clone())
-                    .await;
-
-                let mut function_context = ExecutionContext {
-                    actor_id: context.actor_id.clone(),
-                    log: ExecutionLog::default(),
-                    storage: initial_storage,
-                    environment: context.environment.clone(),
-                    resources: context.resources,
-                    global: context.global.clone(),
-                    module: module.clone(),
-                    bubbling: false,
-                    references: initial_references,
-                    mode: context.mode.clone(),
-                    loop_counts: vec![],
-                };
-
-                let returned_value = match execute_steps(body, &mut function_context).await {
-                    Ok(_) => StorageValue::Null(None),
-                    Err(e) => match e {
-                        ExecutionError::Return { value } => value,
-                        e => {
-                            context.log.events.append(&mut function_context.log.events);
-                            context.add_leave_function(function_id.to_owned()).await;
-                            return Err(e);
-                        }
-                    },
-                };
-
-                context.log.events.append(&mut function_context.log.events);
-                context.add_leave_function(function_id.to_owned()).await;
-
-                if let Some(expression) = store_as {
-                    let selector =
-                        eval_selector(expression, &context.storage, &context.environment)?;
-                    context
-                        .add_to_storage(step_id, selector, returned_value)
-                        .await?;
-                    return Ok(());
-                }
-
-                if let Some(saver) = parameter_saver {
-                    context
-                        .add_to_storage(step_id, saver, returned_value.clone())
-                        .await?;
-                }
-                Ok(())
+                    .add_to_storage(step_id, selector, returned_value)
+                    .await?;
+                return Ok(());
             }
-            Function::Native { id: _, native_id } => {
-                match execute_native(native_id, context, parameters, store_as, step_id).await {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(e),
-                }
+
+            if let Some(saver) = parameter_saver {
+                context
+                    .add_to_storage(step_id, saver, returned_value.clone())
+                    .await?;
             }
+            Ok(())
         }
-    } else {
-        Err(ExecutionError::FunctionNotFound {
-            id: function_id.to_owned(),
-        })
+        Function::Native {
+            id: _,
+            native_id,
+            name: _,
+        } => match execute_native(native_id, context, parameters, store_as, step_id).await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        },
     }
 }
 
@@ -1433,17 +1503,9 @@ pub async fn execute<'a>(
         serde_json::to_string_pretty(&context.environment.variables).unwrap()
     );
 
-    context.start_report().await;
-
     match execute_steps(steps, context).await {
-        Ok(_) => {
-            context.end_report(ExecutionStatus::Finished).await;
-            Ok(())
-        }
-        Err(e) => {
-            context.end_report(ExecutionStatus::Failed).await;
-            Err(e)
-        }
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
     }
 }
 
@@ -1496,7 +1558,16 @@ mod test_executor {
 
     #[test]
     fn test_execution_log_serialization() {
-        let mut log = ExecutionLog::default();
+        let mut log = ExecutionLog {
+            status: ExecutionStatus::Started,
+            initial_storage: describe(StorageValue::Object(ObjectBody::new())),
+            events: vec![],
+            function_id: "test".to_owned(),
+            function_name: "Test function".to_owned(),
+            started_at: 200100100,
+            finished_at: Some(500100200),
+            result: None,
+        };
         log.events.push(ExecutionEvent::StepStarted {
             id: "1".to_owned(),
             timestamp: 100,
@@ -1519,7 +1590,10 @@ mod test_executor {
                     "type": "object",
                     "value": {}
                 },
-                "startedAt": log.started_at,
+                "functionId": "test",
+                "functionName": "Test function",
+                "startedAt": 200100100,
+                "finishedAt": 500100200,
                 "events": [
                   { "type": "STEP_STARTED", "id": "1", "timestamp": 100 },
                   {
@@ -1543,6 +1617,7 @@ mod test_executor {
     #[test]
     fn test_define_function_step_serialization() {
         let step = Step::DefineFunction {
+            name: "Some function".to_string(),
             id: "some".to_string(),
             parameters: vec![],
             exported: false,
@@ -1556,6 +1631,7 @@ mod test_executor {
             {
                 "type": "defineFunction",
                 "id": "some",
+                "name": "Some function",
                 "parameters": [],
                 "exported": false,
                 "body": [{ "type": "break", "id": "break" }]

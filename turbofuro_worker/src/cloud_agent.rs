@@ -9,13 +9,13 @@ use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 use tracing::{debug, info, instrument, warn};
 use turbofuro_runtime::{
-    actor::Actor,
+    actor::{Actor, ActorCommand},
     debug::DebugMessage,
     executor::{
-        Callee, DebuggerHandle, ExecutionEvent, ExecutionLog, ExecutionStatus, Global, Import,
-        Parameter, Step, Steps,
+        Callee, DebugState, DebuggerHandle, ExecutionEvent, ExecutionLog, ExecutionStatus, Global,
+        Import, Parameter, Step, Steps,
     },
-    resources::ActorResources,
+    resources::{ActorLink, ActorResources},
     Description, ObjectBody, StorageValue,
 };
 
@@ -39,6 +39,7 @@ pub enum CloudAgentError {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum MachineReloadingReason {
     ConfigurationChanged,
     EnvironmentChanged,
@@ -46,6 +47,7 @@ pub enum MachineReloadingReason {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum MachineStoppingReason {
     SignalReceived,
     ConfigurationChanged,
@@ -53,6 +55,7 @@ pub enum MachineStoppingReason {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum MachineErroredReason {
     PortTaken,
     ModuleCouldNotBeLoaded,
@@ -63,46 +66,60 @@ pub enum MachineErroredReason {
 #[serde(tag = "type", rename_all = "camelCase")]
 
 pub enum MachineStatus {
-    Running { configuration_override: bool },
+    #[serde(rename_all = "camelCase")]
+    Running {
+        configuration_override: bool,
+    },
     Starting,
-    Stopping { reason: MachineStoppingReason },
-    Errored { reason: MachineErroredReason },
+    Stopping {
+        reason: MachineStoppingReason,
+    },
+    Errored {
+        reason: MachineErroredReason,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum OperatorCommand<'a> {
-    ReportDiagnostic {
+    #[serde(rename_all = "camelCase")]
+    StartDebugReport {
         id: String,
-        details: Value,
-    },
-    ReportTaskCompleted {
-        id: String,
-    },
-    ReportTaskFailed {
-        id: String,
-        error: WorkerError,
-    },
-    StartReport {
-        id: String,
-        #[serde(rename = "startedAt")]
         started_at: u64,
-        #[serde(rename = "initialStorage")]
         initial_storage: Description,
+        module_id: String,
+        module_version_id: String,
+        environment_id: String,
+        function_id: String,
+        function_name: String,
+        status: ExecutionStatus,
+        events: Vec<ExecutionEvent>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        metadata: Option<Value>,
     },
-    AppendReportEvent {
-        id: String,
-        event: ExecutionEvent,
-    },
-    EndReport {
+    #[serde(rename_all = "camelCase")]
+    AppendEventToDebugReport { id: String, event: ExecutionEvent },
+    #[serde(rename_all = "camelCase")]
+    EndDebugReport {
         id: String,
         status: ExecutionStatus,
         #[serde(rename = "finishedAt")]
         finished_at: u64,
     },
-    SendExecutionMetadata {
-        // metadata: ExecutionMetadata,
+    #[serde(rename_all = "camelCase")]
+    ReportEvent {
+        id: String,
+        started_at: u64,
+        finished_at: u64,
+        module_id: String,
+        module_version_id: String,
+        function_id: String,
+        function_name: String,
+        status: ExecutionStatus,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        metadata: Option<Value>,
     },
+    #[serde(rename_all = "camelCase")]
     UpdateState {
         version: &'static str,
         os: &'static str,
@@ -122,32 +139,27 @@ pub enum CloudAgentCommand {
         callee: Callee,
         parameters: Vec<Parameter>,
     },
-    EnableDebugger {
-        id: String,
-        module_id: String,
-    },
-    DisableDebugger {
-        id: String,
-        module_id: String,
-    },
-    ReloadConfiguration {
-        id: String,
-    },
-    ReloadEnvironment {
-        id: String,
-    },
+    #[serde(rename_all = "camelCase")]
+    EnableDebugger { id: String, module_id: String },
+    #[serde(rename_all = "camelCase")]
+    DisableDebugger { id: String, module_id: String },
+    #[serde(rename_all = "camelCase")]
+    ReloadConfiguration { id: String },
+    #[serde(rename_all = "camelCase")]
+    ReloadEnvironment { id: String },
+    #[serde(rename_all = "camelCase")]
     EnableActiveDebugger {
         id: String,
         module_version: ModuleVersion,
     },
-    ProlongActiveDebugger {
-        id: String,
-        module_id: String,
-    },
+    #[serde(rename_all = "camelCase")]
+    ProlongActiveDebugger { id: String, module_id: String },
+    #[serde(rename_all = "camelCase")]
     ReloadActiveDebugger {
         id: String,
         module_version: ModuleVersion,
     },
+    #[serde(rename_all = "camelCase")]
     DisableActiveDebugger {
         id: String,
         module_version: ModuleVersion,
@@ -160,23 +172,46 @@ pub struct CloudAgent {
     pub module_version_resolver: SharedModuleVersionResolver,
     pub configuration_coordinator: ConfigurationCoordinator,
     pub global: Arc<Global>,
+    pub debug_state: DebugState,
+    pub worker_id: String,
 }
 
-fn wrap_debug_message(message: DebugMessage, id: String) -> OperatorCommand<'static> {
+fn wrap_debug_message(message: DebugMessage) -> OperatorCommand<'static> {
     match message {
         DebugMessage::StartReport {
-            started_at,
-            initial_storage,
-        } => OperatorCommand::StartReport {
             id,
             started_at,
             initial_storage,
+            module_id,
+            module_version_id,
+            environment_id,
+            function_id,
+            function_name,
+            status,
+            events,
+            metadata,
+            finished_at: _, // This comes later in end report event
+        } => OperatorCommand::StartDebugReport {
+            id,
+            started_at,
+            initial_storage,
+            module_id,
+            module_version_id,
+            environment_id,
+            function_id,
+            function_name,
+            metadata,
+            status,
+            events,
         },
-        DebugMessage::AppendEvent { event } => OperatorCommand::AppendReportEvent { id, event },
+        DebugMessage::AppendEventToReport { id, event } => {
+            OperatorCommand::AppendEventToDebugReport { id, event }
+        }
         DebugMessage::EndReport {
+            id,
             status,
             finished_at,
-        } => OperatorCommand::EndReport {
+        } => OperatorCommand::EndDebugReport {
             id,
             status,
             finished_at,
@@ -184,11 +219,34 @@ fn wrap_debug_message(message: DebugMessage, id: String) -> OperatorCommand<'sta
     }
 }
 
+fn spawn_debugger_handle_reader(
+    mut receiver: tokio::sync::mpsc::Receiver<DebugMessage>,
+    debug_writer: mpsc::Sender<Message>,
+) {
+    tokio::spawn(async move {
+        while let Some(message) = receiver.recv().await {
+            let message = wrap_debug_message(message);
+            match debug_writer
+                .send(Message::Text(serde_json::to_string(&message).unwrap()))
+                .await
+            {
+                Ok(_) => {}
+                Err(err) => {
+                    // Quite simple cancellation - when WebSocket is closed, the write will fail and we will stop the loop
+                    debug!("Cloud agent: Debug write failed: {}", err);
+                    break;
+                }
+            }
+        }
+        debug!("Cloud agent: Debug writer finished");
+    });
+}
+
 impl CloudAgent {
     fn get_operator_url(&self) -> Result<Url, CloudAgentError> {
         let query_params = serde_urlencoded::to_string([
             ("token", self.options.token.clone()),
-            ("name", self.options.name.clone()),
+            ("id", self.worker_id.clone()),
         ])
         .map_err(|_| CloudAgentError::InvalidOperatorUrl {
             url: self.options.operator_url.clone(),
@@ -202,7 +260,7 @@ impl CloudAgent {
     async fn process_cloud_agent_command(
         &mut self,
         command: CloudAgentCommand,
-        debug_writer: mpsc::Sender<Message>,
+        operator_writer: mpsc::Sender<Message>,
     ) {
         match command {
             CloudAgentCommand::RunFunction {
@@ -211,29 +269,11 @@ impl CloudAgent {
                 callee,
                 parameters,
             } => {
-                let (debugger_handle, mut receiver) = DebuggerHandle::new(id.clone());
-                let log_writer = debug_writer.clone();
-                let id_receiver = id.clone();
-                tokio::spawn(async move {
-                    while let Some(message) = receiver.recv().await {
-                        let message = wrap_debug_message(message, id_receiver.clone());
+                let (debugger_handle, receiver) = DebuggerHandle::new();
+                spawn_debugger_handle_reader(receiver, operator_writer.clone());
 
-                        match log_writer
-                            .send(Message::Text(serde_json::to_string(&message).unwrap()))
-                            .await
-                        {
-                            Ok(_) => {}
-                            Err(err) => {
-                                // Quite simple cancellation - when WebSocket is closed, the write will fail and we will stop the loop
-                                debug!("Cloud agent: Debug write failed: {}", err);
-                                break;
-                            }
-                        }
-                    }
-                    debug!("Cloud agent: Debug writer finished");
-                });
-
-                match self
+                // TODO: Error handling
+                let _ = self
                     .perform_run(
                         id.clone(),
                         module_version,
@@ -242,40 +282,7 @@ impl CloudAgent {
                         // environment_id,
                         debugger_handle,
                     )
-                    .await
-                {
-                    Ok(_) => {
-                        match debug_writer
-                            .send(Message::Text(
-                                serde_json::to_string(&OperatorCommand::ReportTaskCompleted { id })
-                                    .expect("Failed to serialize report task completed"),
-                            ))
-                            .await
-                        {
-                            Ok(_) => {}
-                            Err(e) => {
-                                warn!("Cloud agent: Failed to send task completed: {}", e);
-                            }
-                        }
-                    }
-                    Err(error) => {
-                        match debug_writer
-                            .send(Message::Text(
-                                serde_json::to_string(&OperatorCommand::ReportTaskFailed {
-                                    id,
-                                    error,
-                                })
-                                .expect("Failed to serialize task failed"),
-                            ))
-                            .await
-                        {
-                            Ok(_) => {}
-                            Err(e) => {
-                                warn!("Cloud agent: Failed to send task failed: {}", e);
-                            }
-                        }
-                    }
-                }
+                    .await;
             }
             CloudAgentCommand::ReloadConfiguration { id: _ } => {
                 debug!("Cloud agent: Received configuration update command");
@@ -291,8 +298,66 @@ impl CloudAgent {
                     }
                 }
             }
-            CloudAgentCommand::EnableDebugger { id, module_id } => todo!(),
-            CloudAgentCommand::DisableDebugger { id, module_id } => todo!(),
+            CloudAgentCommand::EnableDebugger { id, module_id } => {
+                let (debugger_handle, receiver) = DebuggerHandle::new();
+                spawn_debugger_handle_reader(receiver, operator_writer.clone());
+
+                if self.debug_state.has_entry(&module_id) {
+                    warn!(
+                        "Cloud agent: Debugger already enabled for module {}",
+                        module_id.clone()
+                    );
+                    return;
+                }
+
+                self.debug_state
+                    .add_entry(module_id.clone(), debugger_handle.clone());
+                self.global
+                    .debug_state
+                    .store(Arc::new(self.debug_state.clone()));
+
+                let actors_to_message = self
+                    .global
+                    .registry
+                    .actors
+                    .iter()
+                    .filter(|item| {
+                        let actor_link = item.value();
+                        actor_link.module_id == module_id
+                    })
+                    .map(|item| item.value().clone())
+                    .collect::<Vec<ActorLink>>();
+
+                for actor_link in actors_to_message {
+                    let _ = actor_link
+                        .send(ActorCommand::EnableDebugger {
+                            handle: debugger_handle.clone(),
+                        })
+                        .await;
+                }
+            }
+            CloudAgentCommand::DisableDebugger { id, module_id } => {
+                self.debug_state.remove_entry(&module_id);
+                self.global
+                    .debug_state
+                    .store(Arc::new(self.debug_state.clone()));
+
+                let actors_to_message = self
+                    .global
+                    .registry
+                    .actors
+                    .iter()
+                    .filter(|item| {
+                        let actor_link = item.value();
+                        actor_link.module_id == module_id
+                    })
+                    .map(|item| item.value().clone())
+                    .collect::<Vec<ActorLink>>();
+
+                for actor_link in actors_to_message {
+                    let _ = actor_link.send(ActorCommand::DisableDebugger {}).await;
+                }
+            }
             CloudAgentCommand::ReloadEnvironment { id } => todo!(),
             CloudAgentCommand::EnableActiveDebugger { id, module_version } => todo!(),
             CloudAgentCommand::ProlongActiveDebugger { id, module_id } => todo!(),
@@ -365,7 +430,7 @@ impl CloudAgent {
     #[instrument(level = "info", skip_all)]
     async fn perform_run(
         &mut self,
-        _id: String,
+        id: String,
         module_version: ModuleVersion,
         callee: Callee,
         parameters: Vec<Parameter>,
@@ -373,16 +438,6 @@ impl CloudAgent {
         debugger_handle: DebuggerHandle,
     ) -> Result<ExecutionLog, WorkerError> {
         let global = self.global.clone();
-        // let environment: Environment = match environment_id {
-        //     Some(environment_id) => {
-        //         self.environment_resolver
-        //             .lock()
-        //             .await
-        //             .get_environment(&environment_id)
-        //             .await?
-        //     }
-        //     None => self.global.environment.read().await.clone(),
-        // };
         let environment = { self.global.environment.read().await.clone() };
         let module_version_resolver = self.module_version_resolver.clone();
 
@@ -422,7 +477,13 @@ impl CloudAgent {
 
         let resources = ActorResources::default();
         let execution_log = actor
-            .execute_custom(&custom_steps, resources, ObjectBody::new(), debugger_handle)
+            .execute_custom(
+                &custom_steps,
+                resources,
+                ObjectBody::new(),
+                debugger_handle,
+                id,
+            )
             .await;
 
         Ok(execution_log)
@@ -439,7 +500,7 @@ mod test_cloud_agent {
     use super::*;
 
     #[test]
-    fn test_command_serialization() {
+    fn test_run_function_command_serialization() {
         let command = CloudAgentCommand::RunFunction {
             id: "123".to_string(),
             module_version: ModuleVersion {
@@ -472,6 +533,105 @@ mod test_cloud_agent {
                 "parameters": []
               }
 
+        );
+        assert_eq!(serialized, expected);
+    }
+
+    #[test]
+    fn test_start_debug_report_serialization() {
+        let command = OperatorCommand::StartDebugReport {
+            id: "debug".to_string(),
+            started_at: 200,
+            initial_storage: Description::new_base_type("string"),
+            module_id: "my_module".to_string(),
+            module_version_id: "my_module_version".to_string(),
+            environment_id: "my_environment".to_string(),
+            function_id: "my_function".to_string(),
+            function_name: "My function".to_string(),
+            status: ExecutionStatus::Finished,
+            events: vec![],
+            metadata: json!({ "test": "test" }).into(),
+        };
+
+        let serialized = serde_json::to_value(command).unwrap();
+        let expected = json!(
+            {
+                "type": "startDebugReport",
+                "id": "debug",
+                "startedAt": 200,
+                "initialStorage": {
+                    "type": "baseType",
+                    "fieldType": "string"
+                },
+                "moduleId": "my_module",
+                "moduleVersionId": "my_module_version",
+                "environmentId": "my_environment",
+                "functionId": "my_function",
+                "functionName": "My function",
+                "status": "finished",
+                "events": [],
+                "metadata": {
+                    "test": "test"
+                }
+            }
+        );
+        assert_eq!(serialized, expected);
+    }
+
+    #[test]
+    fn test_update_state_serialization() {
+        let command = OperatorCommand::UpdateState {
+            version: "1.0.0",
+            os: "macos",
+            name: "My worker",
+            status: MachineStatus::Running {
+                configuration_override: false,
+            },
+            timestamp: 200,
+        };
+
+        let serialized = serde_json::to_value(command).unwrap();
+        let expected = json!(
+            {
+                "type": "updateState",
+                "version": "1.0.0",
+                "os": "macos",
+                "name": "My worker",
+                "status": {
+                    "type": "running",
+                    "configurationOverride": false
+                },
+                "timestamp": 200
+            }
+        );
+        assert_eq!(serialized, expected);
+    }
+
+    #[test]
+    fn test_update_state_stopping_serialization() {
+        let command = OperatorCommand::UpdateState {
+            version: "1.0.0",
+            os: "macos",
+            name: "My worker",
+            status: MachineStatus::Stopping {
+                reason: MachineStoppingReason::EnvironmentChanged,
+            },
+            timestamp: 200,
+        };
+
+        let serialized = serde_json::to_value(command).unwrap();
+        let expected = json!(
+            {
+                "type": "updateState",
+                "version": "1.0.0",
+                "os": "macos",
+                "name": "My worker",
+                "status": {
+                    "type": "stopping",
+                    "reason": "environmentChanged"
+                },
+                "timestamp": 200
+            }
         );
         assert_eq!(serialized, expected);
     }

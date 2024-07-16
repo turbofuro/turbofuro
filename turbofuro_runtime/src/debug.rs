@@ -1,5 +1,6 @@
 use crate::executor::{ExecutionEvent, ExecutionReport, ExecutionStatus};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tel::Description;
 use tokio::sync::mpsc::Sender;
 
@@ -13,13 +14,26 @@ pub type ExecutionLoggerHandle = Sender<LoggerMessage>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DebugMessage {
     StartReport {
-        started_at: u64,
+        id: String,
+        status: ExecutionStatus,
+        function_id: String,
+        function_name: String,
         initial_storage: Description,
+        events: Vec<ExecutionEvent>,
+        module_id: String,
+        module_version_id: String,
+        environment_id: String,
+        started_at: u64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        finished_at: Option<u64>,
+        metadata: Option<Value>,
     },
-    AppendEvent {
+    AppendEventToReport {
+        id: String,
         event: ExecutionEvent,
     },
     EndReport {
+        id: String,
         finished_at: u64,
         status: ExecutionStatus,
     },

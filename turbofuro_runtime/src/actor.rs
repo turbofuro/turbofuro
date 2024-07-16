@@ -13,6 +13,7 @@ use tracing::error;
 use tracing::info;
 use tracing::trace;
 use tracing::warn;
+use uuid::Uuid;
 
 use crate::actions::alarms::cancellation_name;
 use crate::debug::LoggerMessage;
@@ -69,7 +70,9 @@ impl Display for ActorCommand {
                 write!(f, "Run alarm for handler {}", handler)
             }
             ActorCommand::TakeResources(_resources) => write!(f, "Take resources"),
-            ActorCommand::EnableDebugger { handle } => write!(f, "Enable debugger {}", handle.id),
+            ActorCommand::EnableDebugger { handle: _ } => {
+                write!(f, "Enable debugger")
+            }
             ActorCommand::DisableDebugger => write!(f, "Disable debugger"),
             ActorCommand::Terminate => write!(f, "Terminate"),
         }
@@ -80,6 +83,7 @@ impl Display for ActorCommand {
  * Runs service execution in a separate task
  */
 pub fn activate_actor(mut actor: Actor) -> ActorLink {
+    let module_id = actor.module.id.clone();
     let (sender, mut receiver) = mpsc::channel::<ActorCommand>(16);
     tokio::spawn(async move {
         while let Some(command) = receiver.recv().await {
@@ -128,8 +132,14 @@ pub fn activate_actor(mut actor: Actor) -> ActorLink {
                                 module_id: actor.module.module_id.clone(),
                                 module_version_id: actor.module.id.clone(),
                                 environment_id: actor.environment.id.clone(),
-                                log,
                                 metadata: None,
+                                status: log.status,
+                                function_id: log.function_id,
+                                function_name: log.function_name,
+                                initial_storage: log.initial_storage,
+                                events: log.events,
+                                started_at: log.started_at,
+                                finished_at: log.finished_at,
                             },
                         )) {
                             Ok(_) => {}
@@ -209,8 +219,14 @@ pub fn activate_actor(mut actor: Actor) -> ActorLink {
                                 module_id: actor.module.module_id.clone(),
                                 module_version_id: actor.module.id.clone(),
                                 environment_id: actor.environment.id.clone(),
-                                log,
                                 metadata: None,
+                                status: log.status,
+                                function_id: log.function_id,
+                                function_name: log.function_name,
+                                initial_storage: log.initial_storage,
+                                events: log.events,
+                                started_at: log.started_at,
+                                finished_at: log.finished_at,
                             },
                         )) {
                             Ok(_) => {}
@@ -304,8 +320,14 @@ pub fn activate_actor(mut actor: Actor) -> ActorLink {
                                     module_id: actor.module.module_id.clone(),
                                     module_version_id: actor.module.id.clone(),
                                     environment_id: actor.environment.id.clone(),
-                                    log,
                                     metadata: None,
+                                    status: log.status,
+                                    function_id: log.function_id,
+                                    function_name: log.function_name,
+                                    initial_storage: log.initial_storage,
+                                    events: log.events,
+                                    started_at: log.started_at,
+                                    finished_at: log.finished_at,
                                 },
                             )) {
                                 Ok(_) => {}
@@ -349,7 +371,7 @@ pub fn activate_actor(mut actor: Actor) -> ActorLink {
         }
     });
 
-    ActorLink(sender)
+    ActorLink::new(sender, module_id)
 }
 
 pub fn spawn_ok_or_terminate(
@@ -408,6 +430,7 @@ impl Actor {
         global: Arc<Global>,
         resources: ActorResources,
         handlers: HashMap<String, String>,
+        debugger: Option<DebuggerHandle>,
     ) -> Self {
         let id = nanoid::nanoid!();
 
@@ -419,7 +442,7 @@ impl Actor {
             environment,
             resources,
             handlers,
-            debugger: None,
+            debugger,
         }
     }
 
@@ -477,15 +500,19 @@ impl Actor {
         mut resources: ActorResources,
         initial_storage: ObjectBody,
         debugger: DebuggerHandle,
+        id: String,
     ) -> ExecutionLog {
         let mut storage = initial_storage;
         storage.insert("state".to_owned(), self.state.clone());
 
         // Build execution context
         let mut context = ExecutionContext {
+            id,
             actor_id: self.get_id().to_owned(),
-            log: ExecutionLog::started_with_initial_storage(
+            log: ExecutionLog::new_started(
                 StorageValue::Object(storage.clone()).into(),
+                "custom",
+                "custom",
             ),
             storage,
             environment: self.environment.clone(),
@@ -498,6 +525,8 @@ impl Actor {
             loop_counts: vec![],
         };
 
+        context.start_report().await;
+
         match execute(steps, &mut context).await {
             Ok(_) => {
                 self.state = context
@@ -507,6 +536,7 @@ impl Actor {
                     .clone();
 
                 debug!("Execution finished successfully");
+                context.end_report(ExecutionStatus::Finished).await;
                 context.log
             }
             Err(e) => match e {
@@ -519,10 +549,12 @@ impl Actor {
                         .clone();
 
                     debug!("Execution finished successfully (return)");
+                    context.end_report(ExecutionStatus::Finished).await;
                     context.log
                 }
                 e => {
                     debug!("Execution failed: error: ${:?}", e);
+                    context.end_report(ExecutionStatus::Failed).await;
                     context.log.status = ExecutionStatus::Failed;
                     context.log
                 }
@@ -561,30 +593,20 @@ impl Actor {
         function_ref: &str,
         initial_storage: ObjectBody,
     ) -> Result<ExecutionLog, ExecutionError> {
-        let function = self
-            .module
-            .exported_functions
-            .iter()
-            .find(|f| f.get_id() == function_ref)
-            .or_else(|| {
-                self.module
-                    .local_functions
-                    .iter()
-                    .find(|f| f.get_id() == function_ref)
-            })
-            .ok_or(ExecutionError::FunctionNotFound {
-                id: function_ref.to_owned(),
-            })?;
+        let function = self.module.get_function(function_ref)?;
 
         let mut storage = initial_storage;
         storage.insert("state".to_owned(), self.state.clone());
 
         // Build execution context
         let mut context = ExecutionContext {
+            id: Uuid::now_v7().to_string(),
             actor_id: self.get_id().to_owned(),
-            log: ExecutionLog::started_with_initial_storage(describe(StorageValue::Object(
-                storage.clone(),
-            ))),
+            log: ExecutionLog::new_started(
+                describe(StorageValue::Object(storage.clone())),
+                function_ref,
+                function.get_name(),
+            ),
             storage,
             environment: self.environment.clone(),
             resources: &mut self.resources,
@@ -608,6 +630,8 @@ impl Actor {
             }
         };
 
+        context.start_report().await;
+
         Ok(match execute(body, &mut context).await {
             Ok(_) => {
                 self.state = context
@@ -617,6 +641,7 @@ impl Actor {
                     .clone();
 
                 debug!("Execution finished successfully");
+                context.end_report(ExecutionStatus::Finished).await;
                 // TODO: Shall we return the result here?
                 // context.log.result = Some(Ok(NULL));
                 context.log
@@ -630,11 +655,15 @@ impl Actor {
                         .clone();
 
                     debug!("Execution finished successfully (return)");
+                    context.end_report(ExecutionStatus::Finished).await;
+
                     context.log.result = Some(Ok(value));
                     context.log
                 }
                 e => {
                     warn!("Execution failed: error: ${:?}", e);
+                    context.end_report(ExecutionStatus::Failed).await;
+
                     context.log.status = ExecutionStatus::Failed;
                     context.log.result = Some(Err(e));
                     context.log
