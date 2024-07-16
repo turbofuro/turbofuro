@@ -500,12 +500,14 @@ async fn setup_pubsub_coordinator(
                                             let _ = messenger.send(ActorCommand::RunFunctionRef {
                                                 function_ref: function_ref.clone(),
                                                 storage,
+                                                references: HashMap::new(),
                                                 sender: None,
                                             }).await;
                                         } else {
                                             let _ = messenger.send(ActorCommand::Run {
                                                 handler: "onMessage".to_owned(),
                                                 storage,
+                                                references: HashMap::new(),
                                                 sender: None,
                                             }).await;
                                         }

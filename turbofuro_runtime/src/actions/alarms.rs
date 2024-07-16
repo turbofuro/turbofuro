@@ -8,6 +8,7 @@ use crate::{
 use chrono::Local;
 use croner::Cron;
 use std::{
+    collections::HashMap,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -88,6 +89,7 @@ pub async fn set_alarm<'a>(
                             .send(ActorCommand::RunFunctionRef {
                                 function_ref,
                                 storage,
+                                references: HashMap::new(),
                                 sender: None,
                             })
                             .await
@@ -97,6 +99,7 @@ pub async fn set_alarm<'a>(
                             .send(ActorCommand::Run {
                                 handler: "onMessage".to_owned(),
                                 storage,
+                                references: HashMap::new(),
                                 sender: None,
                             })
                             .await
@@ -152,6 +155,7 @@ async fn run_interval_inner(
                     .send(ActorCommand::RunFunctionRef {
                         function_ref,
                         storage,
+                        references: HashMap::new(),
                         sender: None,
                     })
                     .await
@@ -161,6 +165,7 @@ async fn run_interval_inner(
                     .send(ActorCommand::Run {
                         handler: "onMessage".to_owned(),
                         storage,
+                        references: HashMap::new(),
                         sender: None,
                     })
                     .await
@@ -305,6 +310,7 @@ async fn run_cronjob_inner(
                             .send(ActorCommand::RunFunctionRef {
                                 function_ref: function_ref.clone(),
                                 storage,
+                                references: HashMap::new(),
                                 sender: None,
                             })
                             .await
@@ -314,6 +320,7 @@ async fn run_cronjob_inner(
                             .send(ActorCommand::Run {
                                 handler: "onMessage".to_owned(),
                                 storage,
+                                references: HashMap::new(),
                                 sender: None,
                             })
                             .await

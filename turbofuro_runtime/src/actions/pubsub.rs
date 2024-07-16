@@ -1,4 +1,7 @@
-use std::{collections::hash_map::Entry, sync::Arc};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    sync::Arc,
+};
 
 use crate::{
     actor::ActorCommand,
@@ -75,6 +78,7 @@ async fn subscribe_and_schedule_runs(
                             .send(ActorCommand::RunFunctionRef {
                                 function_ref: function_ref.clone(),
                                 storage,
+                                references: HashMap::new(),
                                 sender: None,
                             })
                             .await
@@ -84,6 +88,7 @@ async fn subscribe_and_schedule_runs(
                             .send(ActorCommand::Run {
                                 handler: "onMessage".to_owned(),
                                 storage,
+                                references: HashMap::new(),
                                 sender: None,
                             })
                             .await

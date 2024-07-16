@@ -897,14 +897,6 @@ async fn execute_native<'a>(
     store_as: Option<&str>,
     step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let store_as = store_as.or_else(|| {
-        // TODO(pr0gramista)#saveAs: Remove this or_else block once the saveAs parameter is completely removed
-        parameters.iter().find_map(|p| match p {
-            Parameter::Tel { name, expression } if name == "saveAs" => Some(expression.as_str()),
-            _ => None,
-        })
-    });
-
     match native_id {
         "wasm/run_wasi" => wasm::run_wasi(context, parameters, step_id, store_as).await?,
         "fs/open" => fs::open_file(context, parameters, step_id, store_as).await?,
@@ -1039,6 +1031,29 @@ async fn execute_native<'a>(
     Ok(())
 }
 
+pub fn evaluate_parameters(
+    parameters: &[Parameter],
+    storage: &ObjectBody,
+    environment: &Environment,
+) -> Result<(ObjectBody, HashMap<String, String>), ExecutionError> {
+    let mut initial_storage = HashMap::new();
+    let mut initial_references = HashMap::new();
+
+    for parameter in parameters.iter() {
+        match parameter {
+            Parameter::Tel { name, expression } => {
+                let value = eval(expression, storage, environment)?;
+                initial_storage.insert(name.clone(), value);
+            }
+            Parameter::FunctionRef { name, id } => {
+                initial_references.insert(name.clone(), id.clone());
+            }
+        }
+    }
+
+    Ok((initial_storage, initial_references))
+}
+
 async fn execute_function<'a>(
     module: Arc<CompiledModule>,
     function_id: &str,
@@ -1050,29 +1065,8 @@ async fn execute_function<'a>(
     let function = module.get_function(function_id)?;
     match function {
         Function::Normal { id: _, body, name } => {
-            let mut initial_storage = HashMap::new();
-            let mut initial_references = HashMap::new();
-
-            let mut parameter_saver: Option<Selector> = None; // TODO(pr0gramista)#saveAs: Remove once the saveAs parameter is completely removed
-            for parameter in parameters.iter() {
-                match parameter {
-                    // TODO(pr0gramista)#saveAs: Remove once the saveAs parameter is completely removed
-                    Parameter::Tel { name, expression } if name == "saveAs" => {
-                        parameter_saver = Some(eval_selector(
-                            expression,
-                            &context.storage,
-                            &context.environment,
-                        )?);
-                    }
-                    Parameter::Tel { name, expression } => {
-                        let value = eval(expression, &context.storage, &context.environment)?;
-                        initial_storage.insert(name.clone(), value);
-                    }
-                    Parameter::FunctionRef { name, id } => {
-                        initial_references.insert(name.clone(), id.clone());
-                    }
-                }
-            }
+            let (initial_storage, initial_references) =
+                evaluate_parameters(parameters, &context.storage, &context.environment)?;
 
             context
                 .add_enter_function(function_id.to_owned(), initial_storage.clone())
@@ -1118,12 +1112,6 @@ async fn execute_function<'a>(
                     .add_to_storage(step_id, selector, returned_value)
                     .await?;
                 return Ok(());
-            }
-
-            if let Some(saver) = parameter_saver {
-                context
-                    .add_to_storage(step_id, saver, returned_value.clone())
-                    .await?;
             }
             Ok(())
         }

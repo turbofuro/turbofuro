@@ -12,8 +12,8 @@ use turbofuro_runtime::{
     actor::{Actor, ActorCommand},
     debug::DebugMessage,
     executor::{
-        Callee, DebugState, DebuggerHandle, ExecutionEvent, ExecutionLog, ExecutionStatus, Global,
-        Import, Parameter, Step, Steps,
+        evaluate_parameters, Callee, DebugState, DebuggerHandle, ExecutionEvent, ExecutionLog,
+        ExecutionStatus, Global, Import, Parameter,
     },
     resources::{ActorLink, ActorResources},
     Description, ObjectBody, StorageValue,
@@ -272,14 +272,24 @@ impl CloudAgent {
                 let (debugger_handle, receiver) = DebuggerHandle::new();
                 spawn_debugger_handle_reader(receiver, operator_writer.clone());
 
+                let function_id = match callee {
+                    Callee::Local { function_id } => function_id,
+                    Callee::Import {
+                        import_name: _,
+                        function_id: _,
+                    } => {
+                        // TODO: Error handling
+                        todo!()
+                    }
+                };
+
                 // TODO: Error handling
                 let _ = self
                     .perform_run(
                         id.clone(),
                         module_version,
-                        callee,
+                        &function_id,
                         parameters,
-                        // environment_id,
                         debugger_handle,
                     )
                     .await;
@@ -432,10 +442,9 @@ impl CloudAgent {
         &mut self,
         id: String,
         module_version: ModuleVersion,
-        callee: Callee,
+        function_id: &str,
         parameters: Vec<Parameter>,
-        // environment_id: Option<String>,
-        debugger_handle: DebuggerHandle,
+        debugger: DebuggerHandle,
     ) -> Result<ExecutionLog, WorkerError> {
         let global = self.global.clone();
         let environment = { self.global.environment.read().await.clone() };
@@ -460,33 +469,23 @@ impl CloudAgent {
             global.modules.write().await.push(module.clone());
         }
 
-        let mut actor = Actor::new_module_initiator(
+        let mut actor = Actor::new(
             StorageValue::Null(None),
-            Arc::new(environment),
+            Arc::new(environment.clone()),
             module.clone(),
             self.global.clone(),
             ActorResources::default(),
+            HashMap::new(),
+            Some(debugger),
         );
 
-        let custom_steps: Steps = vec![Step::Call {
-            id: "debug".to_owned(),
-            callee,
-            parameters,
-            store_as: None,
-        }];
+        let (storage, references) =
+            evaluate_parameters(&parameters, &ObjectBody::new(), &environment)?;
 
-        let resources = ActorResources::default();
-        let execution_log = actor
-            .execute_custom(
-                &custom_steps,
-                resources,
-                ObjectBody::new(),
-                debugger_handle,
-                id,
-            )
-            .await;
-
-        Ok(execution_log)
+        actor
+            .execute_function(function_id, storage, references, Some(id))
+            .await
+            .map_err(WorkerError::from)
     }
 }
 

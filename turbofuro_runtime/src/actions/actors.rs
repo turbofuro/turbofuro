@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     actions::{as_string, get_handlers_from_parameters},
     actor::{activate_actor, Actor, ActorCommand},
@@ -109,6 +111,7 @@ pub async fn send<'a>(
         .send(ActorCommand::Run {
             handler: "onMessage".to_owned(),
             storage,
+            references: HashMap::new(),
             sender: None,
         })
         .await
@@ -154,6 +157,7 @@ pub async fn request<'a>(
         .send(ActorCommand::Run {
             handler: "onRequest".to_owned(),
             storage,
+            references: HashMap::new(),
             sender: Some(sender),
         })
         .await

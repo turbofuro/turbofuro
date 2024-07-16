@@ -67,7 +67,8 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
             .send(ActorCommand::Run {
                 handler: "onWebSocketConnection".to_owned(),
                 storage: ObjectBody::new(),
-                sender: None, // Some(response_sender),
+                references: HashMap::new(),
+                sender: None,
             })
             .await?;
     }
@@ -109,6 +110,7 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
                             .send(ActorCommand::Run {
                                 handler: "onWebSocketDisconnection".to_owned(),
                                 storage: initial_storage,
+                                references: HashMap::new(),
                                 sender: None,
                             })
                             .await?;
@@ -138,6 +140,7 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
                             .send(ActorCommand::Run {
                                 handler: "onWebSocketMessage".to_owned(),
                                 storage: initial_storage,
+                                references: HashMap::new(),
                                 sender: None,
                             })
                             .await?;
@@ -157,6 +160,7 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
                     .send(ActorCommand::Run {
                         handler: "onWebSocketDisconnection".to_owned(),
                         storage: initial_storage,
+                        references: HashMap::new(),
                         sender: None,
                     })
                     .await?;
@@ -237,6 +241,7 @@ async fn handle_request(
         .send(ActorCommand::Run {
             handler: "onHttpRequest".to_owned(),
             storage: initial_storage,
+            references: HashMap::new(),
             sender: Some(response_sender),
         })
         .await?;
@@ -535,6 +540,7 @@ impl Worker {
                 .send(ActorCommand::Run {
                     handler: "onStart".to_owned(),
                     storage: HashMap::new(),
+                    references: HashMap::new(),
                     sender: Some(run_sender),
                 })
                 .await;
