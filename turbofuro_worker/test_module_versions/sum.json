@@ -34,6 +34,7 @@
           "type": "call",
           "version": "1",
           "callee": "local/kuEVtj5go2LO-peJf1U1J",
+          "storeAs": "result",
           "parameters": [
             {
               "type": "tel",
@@ -44,11 +45,6 @@
               "type": "tel",
               "name": "b",
               "expression": "-12"
-            },
-            {
-              "type": "tel",
-              "name": "saveAs",
-              "expression": "result"
             }
           ],
           "id": "tEEyvGkXXE90Ww9bNOzy_"
@@ -88,12 +84,6 @@
         },
         {
           "name": "b",
-          "description": "",
-          "optional": false,
-          "type": "tel"
-        },
-        {
-          "name": "saveAs",
           "description": "",
           "optional": false,
           "type": "tel"

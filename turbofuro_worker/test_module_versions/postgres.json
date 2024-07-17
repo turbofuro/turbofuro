@@ -60,15 +60,6 @@
           }
         },
         {
-          "name": "saveAs",
-          "optional": false,
-          "description": "Storage location where to save the value",
-          "typeDef": {
-            "tag": "selector",
-            "strict": true
-          }
-        },
-        {
           "name": "name",
           "optional": true,
           "description": "Resource name of the Postgres pool that should be used for this action",
@@ -105,15 +96,6 @@
           "typeDef": {
             "tag": "simple",
             "type": "array",
-            "strict": true
-          }
-        },
-        {
-          "name": "saveAs",
-          "optional": false,
-          "description": "Storage location where to save the value",
-          "typeDef": {
-            "tag": "selector",
             "strict": true
           }
         },

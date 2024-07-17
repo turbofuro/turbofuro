@@ -92,17 +92,13 @@
               "expression": "state"
             },
             {
-              "type": "tel",
-              "name": "saveAs",
-              "expression": "actorId"
-            },
-            {
               "type": "functionRef",
               "name": "onMessage",
               "id": "dXT1mhSZ-_haV_ZG_ITFK"
             }
           ],
-          "id": "cfaiPeHIXWrDHx-VMrbCj"
+          "id": "cfaiPeHIXWrDHx-VMrbCj",
+          "storeAs": "actorId"
         },
         {
           "type": "call",

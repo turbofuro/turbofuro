@@ -43,15 +43,6 @@
             "type": "string",
             "strict": true
           }
-        },
-        {
-          "name": "saveAs",
-          "optional": false,
-          "description": "Storage location where to save the value",
-          "typeDef": {
-            "tag": "selector",
-            "strict": true
-          }
         }
       ],
       "nativeId": "kv/read",

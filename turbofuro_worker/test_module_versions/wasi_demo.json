@@ -48,6 +48,7 @@
             {
               "type": "call",
               "callee": "import/950c5d34-36f8-4698-9c24-849ab9768f14/run_wasi",
+              "storeAs": "output",
               "parameters": [
                 {
                   "type": "tel",
@@ -58,11 +59,6 @@
                   "type": "tel",
                   "name": "input",
                   "expression": "\"Hello World\""
-                },
-                {
-                  "type": "tel",
-                  "name": "saveAs",
-                  "expression": "output"
                 },
                 {
                   "type": "tel",
@@ -88,6 +84,7 @@
             {
               "type": "call",
               "callee": "import/950c5d34-36f8-4698-9c24-849ab9768f14/run_wasi",
+              "storeAs": "output",
               "parameters": [
                 {
                   "type": "tel",
@@ -98,11 +95,6 @@
                   "type": "tel",
                   "name": "input",
                   "expression": "code"
-                },
-                {
-                  "type": "tel",
-                  "name": "saveAs",
-                  "expression": "output"
                 },
                 {
                   "type": "tel",
@@ -123,6 +115,7 @@
             {
               "type": "call",
               "callee": "import/950c5d34-36f8-4698-9c24-849ab9768f14/run_wasi",
+              "storeAs": "output",
               "parameters": [
                 {
                   "type": "tel",
@@ -133,11 +126,6 @@
                   "type": "tel",
                   "name": "input",
                   "expression": "\"Hello World\""
-                },
-                {
-                  "type": "tel",
-                  "name": "saveAs",
-                  "expression": "output"
                 },
                 {
                   "type": "tel",

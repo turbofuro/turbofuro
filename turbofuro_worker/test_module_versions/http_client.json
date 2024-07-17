@@ -82,15 +82,6 @@
           "name": "body",
           "optional": true,
           "description": "Request body"
-        },
-        {
-          "name": "saveAs",
-          "optional": true,
-          "description": "Saver key to save the response to",
-          "typeDef": {
-            "tag": "selector",
-            "strict": true
-          }
         }
       ],
       "nativeId": "http_client/request",
