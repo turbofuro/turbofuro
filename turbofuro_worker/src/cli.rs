@@ -12,7 +12,8 @@ FLAGS:
 OPTIONS:
   --config PATH         Runs worker in a offline mode with a configuration read from given PATH
   --token TOKEN         Runs worker with a given machine TOKEN
-  --port PORT           Runs HTTP server on a given PORT
+  --port PORT           Runs HTTP server on a given PORT, defaults to 4000
+  --addr ADDR           Runs HTTP server on a given IP address, defaults to 0.0.0.0 (all interfaces)
   --cloud URL           Uses a given URL as cloud API instead of the default one (https://api.turbofuro.com)
   --operator URL        Uses a given URL as operator (debugger, stats) instead of the default one (https://operator.turbofuro.com)
   --name NAME           Sets a name of the worker
@@ -25,6 +26,7 @@ TURBOFURO_TOKEN, PORT, TURBOFURO_CLOUD_URL, TURBOFURO_OPERATOR_URL, NAME
 pub struct AppArgs {
     pub token: Option<String>,
     pub port: Option<u16>,
+    pub address: Option<String>,
     pub config: Option<std::path::PathBuf>,
     pub cloud_url: Option<String>,
     pub operator_url: Option<String>,
@@ -47,6 +49,7 @@ pub fn parse_cli_args() -> Result<AppArgs, WorkerError> {
         cloud_url: pargs.opt_value_from_str("--cloud")?,
         operator_url: pargs.opt_value_from_str("--operator")?,
         name: pargs.opt_value_from_str("--name")?,
+        address: pargs.opt_value_from_str("--addr")?,
     };
 
     // It's up to the caller what to do with the remaining arguments.

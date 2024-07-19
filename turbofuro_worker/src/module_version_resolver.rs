@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
+use crate::{errors::WorkerError, shared::ModuleVersion};
 use async_trait::async_trait;
 use futures_util::TryFutureExt;
 use moka::future::Cache;
 use reqwest::Client;
 use tokio::{fs::File, io::AsyncReadExt};
 use tracing::error;
-
-use crate::{errors::WorkerError, shared::ModuleVersion};
 
 #[async_trait]
 pub trait ModuleVersionResolver: Send + Sync {

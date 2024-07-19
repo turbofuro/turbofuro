@@ -1,3 +1,8 @@
+use std::{
+    net::{SocketAddr, SocketAddrV4},
+    str::FromStr,
+};
+
 use tracing::info;
 
 use crate::{cli::AppArgs, errors::WorkerError};
@@ -5,6 +10,31 @@ use crate::{cli::AppArgs, errors::WorkerError};
 #[derive(Debug, Clone, PartialEq)]
 pub struct HttpServerOptions {
     pub port: u16,
+    pub addr: String,
+}
+
+impl Default for HttpServerOptions {
+    fn default() -> Self {
+        Self {
+            port: 4000,
+            addr: "0.0.0.0".to_owned(),
+        }
+    }
+}
+
+impl HttpServerOptions {
+    pub fn get_socket_addr(&self) -> Result<SocketAddr, WorkerError> {
+        let socket_addr = format!("{}:{}", self.addr, self.port);
+
+        SocketAddrV4::from_str(&socket_addr)
+            .map_err(|e| WorkerError::InvalidArguments {
+                message: format!(
+                    "Could not parse socket address \"{}\", error was: {:?}",
+                    socket_addr, e
+                ),
+            })
+            .map(|socket_addr| socket_addr.into())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -54,6 +84,11 @@ pub fn get_cloud_options(args: AppArgs, name: String, token: String) -> CloudOpt
 }
 
 pub fn get_http_server_options(args: AppArgs) -> Result<HttpServerOptions, WorkerError> {
+    let addr = match args.address {
+        Some(a) => a,
+        None => "0.0.0.0".to_owned(),
+    };
+
     let port: u16 = match args.port {
         Some(p) => p,
         None => std::env::var(PORT_ENV_NAME)
@@ -66,7 +101,7 @@ pub fn get_http_server_options(args: AppArgs) -> Result<HttpServerOptions, Worke
             })?,
     };
 
-    Ok(HttpServerOptions { port })
+    Ok(HttpServerOptions { addr, port })
 }
 
 pub fn get_turbofuro_token(args: AppArgs) -> Option<String> {

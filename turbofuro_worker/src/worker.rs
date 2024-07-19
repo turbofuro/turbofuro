@@ -3,9 +3,11 @@ extern crate log;
 use crate::config::{Configuration, WorkerSettings};
 use crate::environment_resolver::SharedEnvironmentResolver;
 use crate::errors::WorkerError;
+use crate::events::{WorkerEvent, WorkerEventSender};
 use crate::module_version_resolver::SharedModuleVersionResolver;
 use crate::options::HttpServerOptions;
-use crate::shared::get_compiled_module;
+use crate::shared::{get_compiled_module, WorkerStoppingReason, WorkerWarning};
+use crate::utils::shutdown::shutdown_signal;
 use crate::utils::sse_receiver_stream::sse_handler;
 use axum::body::Body;
 use axum::extract::ws::WebSocket;
@@ -17,13 +19,17 @@ use axum::{
     response::{IntoResponse, Response},
     Router,
 };
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{SinkExt, StreamExt, TryFutureExt};
 use http::{HeaderValue, Request};
 use itertools::Itertools;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
+use tracing::{debug, error, info, info_span, warn, Instrument};
 use turbofuro_runtime::actor::{activate_actor, spawn_ok_or_terminate, Actor, ActorCommand};
 use turbofuro_runtime::errors::ExecutionError;
 use turbofuro_runtime::executor::{CompiledModule, Environment, Global};
@@ -32,12 +38,7 @@ use turbofuro_runtime::resources::{
     ActorLink, ActorResources, HttpRequestToRespond, HttpResponse, OpenWebSocket,
     PendingHttpRequestBody, Resource, Route, WebSocketCommand,
 };
-use turbofuro_runtime::{ObjectBody, StorageValue};
-
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
-use tracing::{debug, error, info, info_span, Instrument};
+use turbofuro_runtime::{handle_dangling_error, ObjectBody, StorageValue};
 
 async fn handle_websocket_with_errors<'a>(socket: WebSocket, actor: ActorLink) {
     match handle_websocket(socket, actor).await {
@@ -438,6 +439,9 @@ pub struct Worker {
 
     // To be received by worker to wait for axum app to shutdown
     router_shutdown_completed: Option<oneshot::Receiver<()>>,
+
+    // Sender to propagate worker events
+    event_sender: WorkerEventSender,
 }
 
 impl Worker {
@@ -446,6 +450,7 @@ impl Worker {
         global: Arc<Global>,
         module_version_resolver: SharedModuleVersionResolver,
         environment_resolver: SharedEnvironmentResolver,
+        event_sender: WorkerEventSender,
     ) -> Self {
         Self {
             config,
@@ -454,6 +459,7 @@ impl Worker {
             environment_resolver,
             router_shutdown: None,
             router_shutdown_completed: None,
+            event_sender,
         }
     }
 
@@ -496,9 +502,10 @@ impl Worker {
                     self.global.clone(),
                     self.module_version_resolver.clone(),
                 )
+                .map_err(|e| (e, m.module_id.clone(), m.module_version_id.clone()))
             }))
             .buffer_unordered(16)
-            .collect::<Vec<Result<Arc<CompiledModule>, WorkerError>>>()
+            .collect::<Vec<Result<Arc<CompiledModule>, (WorkerError, String, String)>>>()
             .await
         };
 
@@ -508,8 +515,20 @@ impl Worker {
                 Ok(module) => {
                     modules_to_start.push(module);
                 }
-                Err(e) => {
-                    error!("Could not get compiled module: {:?}", e);
+                Err((err, module_id, module_version_id)) => {
+                    error!(
+                        "Could not get compiled module for module id: {} version id: {}: {:?}",
+                        module_id, module_version_id, err,
+                    );
+                    self.event_sender
+                        .send(WorkerEvent::WarningRaised(
+                            WorkerWarning::ModuleCouldNotBeLoaded {
+                                module_id: module_id.clone(),
+                                module_version_id: module_version_id.clone(),
+                                error: err,
+                            },
+                        ))
+                        .await
                 }
             }
         }
@@ -519,12 +538,16 @@ impl Worker {
 
         let mut waits = vec![];
         for module in modules_to_start {
+            // Make a copy of the sender (+ module id) so we can send warnings later
+            let module_id = module.id.clone();
+            let event_sender = self.event_sender.clone();
+
             let actor = Actor::new_module_initiator(
                 StorageValue::Null(None),
                 environment.clone(),
                 module,
                 self.global.clone(),
-                ActorResources::default(), // TODO: Add router here?
+                ActorResources::default(),
             );
             let actor_id = actor.get_id().to_owned();
             let actor_link = activate_actor(actor);
@@ -545,7 +568,40 @@ impl Worker {
                 })
                 .await;
 
-            waits.push(run_receiver);
+            waits.push(async move {
+                let response = run_receiver.await;
+                match response {
+                    Ok(result) => {
+                        match result {
+                            Ok(_) => {
+                                // All went well, do nothing
+                            }
+                            Err(err) => {
+                                event_sender
+                                    .send(WorkerEvent::WarningRaised(
+                                        WorkerWarning::ModuleStartupFailed {
+                                            module_id,
+                                            error: WorkerError::from(err),
+                                        },
+                                    ))
+                                    .await;
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        event_sender
+                            .send(WorkerEvent::WarningRaised(
+                                WorkerWarning::ModuleStartupFailed {
+                                    module_id,
+                                    error: WorkerError::from(
+                                        ExecutionError::new_missing_response_from_actor(),
+                                    ),
+                                },
+                            ))
+                            .await;
+                    }
+                }
+            });
         }
 
         futures_util::future::join_all(waits).await;
@@ -568,6 +624,8 @@ impl Worker {
         &mut self,
         http_server_options: HttpServerOptions,
     ) -> Result<(), WorkerError> {
+        self.event_sender.send(WorkerEvent::WorkerStarting).await;
+
         let router = self.start().await?;
 
         let (shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
@@ -576,8 +634,29 @@ impl Worker {
         let (shutdown_completed_sender, shutdown_completed_receiver) = oneshot::channel::<()>();
         self.router_shutdown_completed = Some(shutdown_completed_receiver);
 
+        // The HTTP server starts in a separate task, if it fails to start the worker is not stopped
+        // Perhaps this behavior should be changed in the future
+        let event_sender = self.event_sender.clone();
         tokio::spawn(async move {
-            let addr = ([0, 0, 0, 0], http_server_options.port).into();
+            let addr = match http_server_options.get_socket_addr() {
+                Ok(addr) => addr,
+                Err(err) => {
+                    error!(
+                        "Could not get a valid socket address for HTTP server: {}",
+                        err
+                    );
+                    event_sender
+                        .send(WorkerEvent::WarningRaised(
+                            WorkerWarning::HttpServerFailedToStart {
+                                message: err.to_string(),
+                            },
+                        ))
+                        .await;
+
+                    return;
+                }
+            };
+
             info!("Starting HTTP server on {}", addr);
 
             let handle = axum_server::Handle::new();
@@ -601,22 +680,39 @@ impl Worker {
                 .serve(router.into_make_service())
                 .await
             {
-                Ok(_) => {}
-                Err(e) => {
-                    error!("HTTP server startup error: {:?}", e);
+                Ok(_) => {
+                    // The server exited normally
+                }
+                Err(err) => {
+                    error!("HTTP server startup error: {:?}", err);
+                    event_sender
+                        .send(WorkerEvent::WarningRaised(
+                            WorkerWarning::HttpServerFailedToStart {
+                                message: err.to_string(),
+                            },
+                        ))
+                        .await;
+
+                    return;
                 }
             }
 
             shutdown_completed_sender.send(()).unwrap();
         });
 
+        self.event_sender.send(WorkerEvent::WorkerStarted).await;
+
         Ok(())
     }
 
-    pub async fn stop(&mut self) {
+    pub async fn stop(&mut self, reason: WorkerStoppingReason) {
+        self.event_sender
+            .send(WorkerEvent::WorkerStopping(reason.clone()))
+            .await;
+
         if let Some(shutdown) = self.router_shutdown.take() {
             debug!("Sending shutdown to HTTP server");
-            shutdown.send(()).unwrap();
+            handle_dangling_error!(shutdown.send(()));
         }
 
         debug!("Propagating terminate to actors");
@@ -625,10 +721,19 @@ impl Worker {
         }
 
         if let Some(shutdown_completed) = self.router_shutdown_completed.take() {
-            debug!("Waiting for HTTP server to shutdown");
-            shutdown_completed.await.unwrap();
-            debug!("HTTP server shutdown");
+            tokio::select! {
+                _ = shutdown_completed => {
+                    debug!("HTTP server shutdown");
+                }
+                _ = shutdown_signal() => {
+                    info!("Force quit signal received. Terminating immediately without waiting for HTTP server to shutdown");
+                }
+            }
         }
+
+        self.event_sender
+            .send(WorkerEvent::WorkerStopped(reason))
+            .await
     }
 }
 

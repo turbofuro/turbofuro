@@ -195,6 +195,14 @@ impl Display for ExecutionError {
     }
 }
 
+impl ExecutionError {
+    pub fn new_missing_response_from_actor() -> Self {
+        ExecutionError::ActorCommandFailed {
+            message: "Missing response from actor".to_owned(),
+        }
+    }
+}
+
 impl Error for ExecutionError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         None
@@ -254,4 +262,21 @@ impl From<RedisError> for ExecutionError {
             message: error.to_string(),
         }
     }
+}
+
+#[macro_export]
+macro_rules! handle_dangling_error {
+    ($e:expr) => {
+        match $e {
+            Ok(val) => val,
+            Err(err) => {
+                warn!(
+                    "Unexpected dangling error in {}:{} error was {:?}",
+                    file!(),
+                    line!(),
+                    err
+                );
+            }
+        }
+    };
 }

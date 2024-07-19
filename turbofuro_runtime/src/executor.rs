@@ -507,7 +507,7 @@ impl GlobalBuilder {
     }
 }
 
-fn get_timestamp() -> u64 {
+pub fn get_timestamp() -> u64 {
     match SystemTime::now().duration_since(UNIX_EPOCH) {
         Ok(n) => n.as_millis().try_into().unwrap_or_default(),
         Err(_) => 0,

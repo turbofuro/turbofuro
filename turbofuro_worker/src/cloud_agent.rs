@@ -1,31 +1,32 @@
 use std::{collections::HashMap, sync::Arc};
 
-use futures_util::{SinkExt, StreamExt};
-use reqwest::Url;
-use serde_derive::{Deserialize, Serialize};
-use serde_json::Value;
-use tokio::sync::mpsc;
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-
-use tracing::{debug, info, instrument, warn};
-use turbofuro_runtime::{
-    actor::{Actor, ActorCommand},
-    debug::DebugMessage,
-    executor::{
-        evaluate_parameters, Callee, DebugState, DebuggerHandle, ExecutionEvent, ExecutionLog,
-        ExecutionStatus, Global, Import, Parameter,
-    },
-    resources::{ActorLink, ActorResources},
-    Description, ObjectBody, StorageValue,
-};
-
 use crate::{
     config::{fetch_configuration, ConfigurationCoordinator},
     environment_resolver::SharedEnvironmentResolver,
     errors::WorkerError,
+    events::{WorkerEvent, WorkerEventReceiver},
     module_version_resolver::SharedModuleVersionResolver,
     options::CloudOptions,
-    shared::{compile_module, get_compiled_module, ModuleVersion},
+    shared::{compile_module, get_compiled_module, ModuleVersion, WorkerStatus},
+    VERSION,
+};
+use futures_util::{SinkExt, StreamExt};
+use reqwest::Url;
+use serde_derive::{Deserialize, Serialize};
+use serde_json::Value;
+use tokio::sync::mpsc::{self, Sender};
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
+use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
+use turbofuro_runtime::{
+    actor::{Actor, ActorCommand},
+    debug::DebugMessage,
+    executor::{
+        evaluate_parameters, get_timestamp, Callee, DebugState, DebuggerHandle, Environment,
+        ExecutionEvent, ExecutionLog, ExecutionStatus, Global, Import, Parameter,
+    },
+    handle_dangling_error,
+    resources::{ActorLink, ActorResources},
+    Description, ObjectBody, StorageValue,
 };
 
 #[derive(Debug)]
@@ -39,49 +40,8 @@ pub enum CloudAgentError {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum MachineReloadingReason {
-    ConfigurationChanged,
-    EnvironmentChanged,
-    RequestedByUser,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum MachineStoppingReason {
-    SignalReceived,
-    ConfigurationChanged,
-    EnvironmentChanged,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum MachineErroredReason {
-    PortTaken,
-    ModuleCouldNotBeLoaded,
-    EnvironmentCouldNotBeLoaded,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
-
-pub enum MachineStatus {
-    #[serde(rename_all = "camelCase")]
-    Running {
-        configuration_override: bool,
-    },
-    Starting,
-    Stopping {
-        reason: MachineStoppingReason,
-    },
-    Errored {
-        reason: MachineErroredReason,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
-pub enum OperatorCommand<'a> {
+pub enum OperatorCommand {
     #[serde(rename_all = "camelCase")]
     StartDebugReport {
         id: String,
@@ -123,10 +83,12 @@ pub enum OperatorCommand<'a> {
     UpdateState {
         version: &'static str,
         os: &'static str,
-        name: &'a str,
-        status: MachineStatus,
+        name: String,
+        status: WorkerStatus,
         timestamp: u64,
     },
+    #[serde(rename_all = "camelCase")]
+    ReportError { id: String, error: WorkerError },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -174,9 +136,11 @@ pub struct CloudAgent {
     pub global: Arc<Global>,
     pub debug_state: DebugState,
     pub worker_id: String,
+    pub worker_event_receiver: WorkerEventReceiver,
+    pub status: WorkerStatus,
 }
 
-fn wrap_debug_message(message: DebugMessage) -> OperatorCommand<'static> {
+fn wrap_debug_message(message: DebugMessage) -> OperatorCommand {
     match message {
         DebugMessage::StartReport {
             id,
@@ -221,15 +185,12 @@ fn wrap_debug_message(message: DebugMessage) -> OperatorCommand<'static> {
 
 fn spawn_debugger_handle_reader(
     mut receiver: tokio::sync::mpsc::Receiver<DebugMessage>,
-    debug_writer: mpsc::Sender<Message>,
+    operator_sender: mpsc::Sender<OperatorCommand>,
 ) {
     tokio::spawn(async move {
         while let Some(message) = receiver.recv().await {
             let message = wrap_debug_message(message);
-            match debug_writer
-                .send(Message::Text(serde_json::to_string(&message).unwrap()))
-                .await
-            {
+            match operator_sender.send(message).await {
                 Ok(_) => {}
                 Err(err) => {
                     // Quite simple cancellation - when WebSocket is closed, the write will fail and we will stop the loop
@@ -260,7 +221,7 @@ impl CloudAgent {
     async fn process_cloud_agent_command(
         &mut self,
         command: CloudAgentCommand,
-        operator_writer: mpsc::Sender<Message>,
+        operator_sender: mpsc::Sender<OperatorCommand>,
     ) {
         match command {
             CloudAgentCommand::RunFunction {
@@ -270,7 +231,7 @@ impl CloudAgent {
                 parameters,
             } => {
                 let (debugger_handle, receiver) = DebuggerHandle::new();
-                spawn_debugger_handle_reader(receiver, operator_writer.clone());
+                spawn_debugger_handle_reader(receiver, operator_sender.clone());
 
                 let function_id = match callee {
                     Callee::Local { function_id } => function_id,
@@ -278,13 +239,23 @@ impl CloudAgent {
                         import_name: _,
                         function_id: _,
                     } => {
-                        // TODO: Error handling
-                        todo!()
+                        handle_dangling_error!(
+                            operator_sender
+                                .send(OperatorCommand::ReportError {
+                                    id: id.clone(),
+                                    error: WorkerError::InvalidCloudAgentCommand {
+                                        message:
+                                            "Running imported functions is currently not supported"
+                                                .to_owned(),
+                                    },
+                                })
+                                .await
+                        );
+                        return;
                     }
                 };
 
-                // TODO: Error handling
-                let _ = self
+                match self
                     .perform_run(
                         id.clone(),
                         module_version,
@@ -292,10 +263,30 @@ impl CloudAgent {
                         parameters,
                         debugger_handle,
                     )
-                    .await;
+                    .await
+                {
+                    Ok(_) => {}
+                    Err(err) => {
+                        match err {
+                            WorkerError::ExecutionFailed { error: _ } => {
+                                // No-op as execution failure are still reported in reports
+                            }
+                            err => {
+                                handle_dangling_error!(
+                                    operator_sender
+                                        .send(OperatorCommand::ReportError {
+                                            id: id.clone(),
+                                            error: err,
+                                        })
+                                        .await
+                                )
+                            }
+                        }
+                    }
+                }
             }
             CloudAgentCommand::ReloadConfiguration { id: _ } => {
-                debug!("Cloud agent: Received configuration update command");
+                debug!("Cloud agent: Received configuration reload command");
                 let result = fetch_configuration(&self.options).await;
                 match result {
                     Ok(configuration) => {
@@ -308,9 +299,9 @@ impl CloudAgent {
                     }
                 }
             }
-            CloudAgentCommand::EnableDebugger { id, module_id } => {
+            CloudAgentCommand::EnableDebugger { module_id, .. } => {
                 let (debugger_handle, receiver) = DebuggerHandle::new();
-                spawn_debugger_handle_reader(receiver, operator_writer.clone());
+                spawn_debugger_handle_reader(receiver, operator_sender.clone());
 
                 if self.debug_state.has_entry(&module_id) {
                     warn!(
@@ -346,7 +337,7 @@ impl CloudAgent {
                         .await;
                 }
             }
-            CloudAgentCommand::DisableDebugger { id, module_id } => {
+            CloudAgentCommand::DisableDebugger { module_id, .. } => {
                 self.debug_state.remove_entry(&module_id);
                 self.global
                     .debug_state
@@ -368,15 +359,46 @@ impl CloudAgent {
                     let _ = actor_link.send(ActorCommand::DisableDebugger {}).await;
                 }
             }
-            CloudAgentCommand::ReloadEnvironment { id } => todo!(),
-            CloudAgentCommand::EnableActiveDebugger { id, module_version } => todo!(),
-            CloudAgentCommand::ProlongActiveDebugger { id, module_id } => todo!(),
-            CloudAgentCommand::ReloadActiveDebugger { id, module_version } => todo!(),
-            CloudAgentCommand::DisableActiveDebugger { id, module_version } => todo!(),
+            CloudAgentCommand::ReloadEnvironment { id } => {
+                debug!("Cloud agent: Received environment reload command");
+                let environment: Environment = match self
+                    .environment_resolver
+                    .lock()
+                    .await
+                    .get_environment(&id)
+                    .instrument(info_span!("get_environment"))
+                    .await
+                {
+                    Ok(environment) => environment,
+                    Err(e) => {
+                        error!("Could not fetch environment: {:?}", e);
+                        return;
+                    }
+                };
+
+                let mut global_environment = self.global.environment.write().await;
+                *global_environment = environment;
+            }
+            CloudAgentCommand::EnableActiveDebugger { .. } => {
+                // todo!() but we don't want to it to crash right now
+            }
+            CloudAgentCommand::ProlongActiveDebugger { .. } => {
+                // todo!() but we don't want to it to crash right now
+            }
+            CloudAgentCommand::ReloadActiveDebugger { .. } => {
+                // todo!() but we don't want to it to crash right now
+            }
+            CloudAgentCommand::DisableActiveDebugger { .. } => {
+                // todo!() but we don't want to it to crash right now
+            }
         }
     }
 
-    async fn process_message(&mut self, message: Message, debug_writer: mpsc::Sender<Message>) {
+    async fn process_message(
+        &mut self,
+        message: Message,
+        operator_sender: mpsc::Sender<OperatorCommand>,
+    ) {
         match message {
             Message::Text(payload) => {
                 debug!("Cloud agent: Received command: {}", payload);
@@ -387,13 +409,25 @@ impl CloudAgent {
                         return;
                     }
                 };
-                self.process_cloud_agent_command(command, debug_writer)
+                self.process_cloud_agent_command(command, operator_sender)
                     .await;
             }
             m => {
                 warn!("Cloud agent: Received a unhandled message: {:?}", m);
             }
         }
+    }
+
+    async fn update_state(&mut self, write_sender: Sender<OperatorCommand>) {
+        let _ = write_sender
+            .send(OperatorCommand::UpdateState {
+                version: VERSION,
+                os: std::env::consts::OS,
+                name: self.options.name.clone(),
+                status: self.status.clone(),
+                timestamp: get_timestamp(),
+            })
+            .await;
     }
 
     pub async fn start(mut self) -> Result<(), CloudAgentError> {
@@ -408,10 +442,12 @@ impl CloudAgent {
 
         info!("Cloud agent: Connected to operator");
 
-        // Start writer
-        let (write_sender, mut write_receiver) = mpsc::channel(16);
+        // Start WebSocket command writer
+        let (write_sender, mut write_receiver) = mpsc::channel::<OperatorCommand>(16);
         tokio::spawn(async move {
             while let Some(message) = write_receiver.recv().await {
+                debug!("Cloud agent: Sending command to operator: {:?}", message);
+                let message = Message::Text(serde_json::to_string(&message).unwrap());
                 match write.send(message).await {
                     Ok(_) => {}
                     Err(err) => {
@@ -423,7 +459,7 @@ impl CloudAgent {
             }
         });
 
-        // Start reader
+        // Start WebSocket command reader
         while let Some(result) = read.next().await {
             match result {
                 Ok(message) => self.process_message(message, write_sender.clone()).await,
@@ -433,6 +469,43 @@ impl CloudAgent {
                 }
             }
         }
+
+        tokio::spawn(async move {
+            while let Ok(event) = self.worker_event_receiver.recv().await {
+                match event {
+                    WorkerEvent::WorkerStarting => {
+                        // Make sure to clear warnings
+                        self.status = WorkerStatus::Starting { warnings: vec![] };
+                        self.update_state(write_sender.clone()).await;
+                    }
+                    WorkerEvent::WorkerStarted => {
+                        self.status = WorkerStatus::Running {
+                            warnings: self.status.get_warnings(),
+                        };
+                        self.update_state(write_sender.clone()).await;
+                    }
+                    WorkerEvent::WorkerStopping(reason) => {
+                        self.status = WorkerStatus::Stopping {
+                            warnings: self.status.get_warnings(),
+                            reason,
+                        };
+                        self.update_state(write_sender.clone()).await;
+                    }
+                    WorkerEvent::WorkerStopped(reason) => {
+                        self.status = WorkerStatus::Stopped {
+                            warnings: self.status.get_warnings(),
+                            reason,
+                        };
+                        self.update_state(write_sender.clone()).await;
+                    }
+                    WorkerEvent::WarningRaised(warning) => {
+                        self.status.add_warning(warning.clone());
+                        self.update_state(write_sender.clone()).await;
+                    }
+                }
+            }
+            debug!("Cloud agent: Worker event receiver closed");
+        });
 
         Ok(())
     }
@@ -495,6 +568,8 @@ mod test_cloud_agent {
 
     use serde_json::json;
     use turbofuro_runtime::executor::Callee;
+
+    use crate::shared::{WorkerStoppingReason, WorkerWarning};
 
     use super::*;
 
@@ -582,9 +657,11 @@ mod test_cloud_agent {
         let command = OperatorCommand::UpdateState {
             version: "1.0.0",
             os: "macos",
-            name: "My worker",
-            status: MachineStatus::Running {
-                configuration_override: false,
+            name: "My worker".to_owned(),
+            status: WorkerStatus::Running {
+                warnings: vec![WorkerWarning::DebuggerActive {
+                    modules: vec!["test".to_owned()],
+                }],
             },
             timestamp: 200,
         };
@@ -598,7 +675,12 @@ mod test_cloud_agent {
                 "name": "My worker",
                 "status": {
                     "type": "running",
-                    "configurationOverride": false
+                    "warnings": [
+                        {
+                            "type": "debuggerActive",
+                            "modules": ["test"]
+                        }
+                    ]
                 },
                 "timestamp": 200
             }
@@ -611,9 +693,10 @@ mod test_cloud_agent {
         let command = OperatorCommand::UpdateState {
             version: "1.0.0",
             os: "macos",
-            name: "My worker",
-            status: MachineStatus::Stopping {
-                reason: MachineStoppingReason::EnvironmentChanged,
+            name: "My worker".to_owned(),
+            status: WorkerStatus::Stopping {
+                reason: WorkerStoppingReason::EnvironmentChanged,
+                warnings: vec![],
             },
             timestamp: 200,
         };
@@ -627,7 +710,8 @@ mod test_cloud_agent {
                 "name": "My worker",
                 "status": {
                     "type": "stopping",
-                    "reason": "environmentChanged"
+                    "reason": "ENVIRONMENT_CHANGED",
+                    "warnings": []
                 },
                 "timestamp": 200
             }

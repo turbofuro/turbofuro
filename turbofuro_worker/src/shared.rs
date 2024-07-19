@@ -1,12 +1,79 @@
 use std::{collections::HashMap, sync::Arc};
 
+use crate::{errors::WorkerError, module_version_resolver::SharedModuleVersionResolver};
 use async_recursion::async_recursion;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info_span, instrument, Instrument};
 use turbofuro_runtime::executor::{CompiledModule, Function, Global, Import, Step, Steps};
 
-use crate::{errors::WorkerError, module_version_resolver::SharedModuleVersionResolver};
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum WorkerWarning {
+    #[serde(rename_all = "camelCase")]
+    ModuleCouldNotBeLoaded {
+        module_id: String,
+        module_version_id: String,
+        error: WorkerError,
+    },
+    #[serde(rename_all = "camelCase")]
+    ModuleStartupFailed {
+        module_id: String,
+        error: WorkerError,
+    },
+    #[serde(rename_all = "camelCase")]
+    DebuggerActive { modules: Vec<String> },
+    #[serde(rename_all = "camelCase")]
+    HttpServerFailedToStart { message: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum WorkerStoppingReason {
+    SignalReceived,
+    ConfigurationChanged,
+    EnvironmentChanged,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum WorkerStatus {
+    #[serde(rename_all = "camelCase")]
+    Running {
+        warnings: Vec<WorkerWarning>,
+    },
+    Starting {
+        warnings: Vec<WorkerWarning>,
+    },
+    Stopping {
+        reason: WorkerStoppingReason,
+        warnings: Vec<WorkerWarning>,
+    },
+    Stopped {
+        reason: WorkerStoppingReason,
+        warnings: Vec<WorkerWarning>,
+    },
+}
+
+impl WorkerStatus {
+    pub fn get_warnings(&self) -> Vec<WorkerWarning> {
+        match self {
+            WorkerStatus::Running { warnings } => warnings.clone(),
+            WorkerStatus::Starting { warnings } => warnings.clone(),
+            WorkerStatus::Stopping { warnings, .. } => warnings.clone(),
+            WorkerStatus::Stopped { warnings, .. } => warnings.clone(),
+        }
+    }
+
+    pub fn add_warning(&mut self, warning: WorkerWarning) {
+        match self {
+            WorkerStatus::Running { warnings } => warnings.push(warning),
+            WorkerStatus::Starting { warnings } => warnings.push(warning),
+            WorkerStatus::Stopping { warnings, .. } => warnings.push(warning),
+            WorkerStatus::Stopped { warnings, .. } => warnings.push(warning),
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ModuleVersion {

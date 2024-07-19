@@ -11,7 +11,7 @@ pub enum WorkerError {
     MalformedModuleVersion,
     EnvironmentNotFound,
     MalformedEnvironment,
-    InvalidCommandLineArguments {
+    InvalidArguments {
         message: String,
     },
     InvalidEnvironmentVariable {
@@ -28,11 +28,14 @@ pub enum WorkerError {
     MalformedConfiguration {
         message: String,
     },
+    InvalidCloudAgentCommand {
+        message: String,
+    },
 }
 
 impl From<pico_args::Error> for WorkerError {
     fn from(error: pico_args::Error) -> Self {
-        WorkerError::InvalidCommandLineArguments {
+        WorkerError::InvalidArguments {
             message: error.to_string(),
         }
     }
@@ -60,8 +63,8 @@ impl Display for WorkerError {
             WorkerError::MalformedModuleVersion => write!(f, "Malformed module version"),
             WorkerError::EnvironmentNotFound => write!(f, "Environment not found"),
             WorkerError::MalformedEnvironment => write!(f, "Malformed environment"),
-            WorkerError::InvalidCommandLineArguments { message } => {
-                write!(f, "Invalid command line arguments: {}", message)
+            WorkerError::InvalidArguments { message } => {
+                write!(f, "Invalid arguments: {}", message)
             }
             WorkerError::InvalidEnvironmentVariable { name, message } => {
                 write!(f, "Invalid environment variable {}: {}", name, message)
@@ -74,6 +77,9 @@ impl Display for WorkerError {
             }
             WorkerError::MalformedConfiguration { message } => {
                 write!(f, "Malformed configuration: {}", message)
+            }
+            WorkerError::InvalidCloudAgentCommand { message } => {
+                write!(f, "Invalid cloud agent command: {}", message)
             }
         }
     }
