@@ -95,8 +95,24 @@ impl Resource for OpenSseStream {
     }
 }
 
-#[derive(Debug)]
-pub struct ActorLink(pub mpsc::Sender<ActorCommand>);
+#[derive(Debug, Clone)]
+pub struct ActorLink {
+    pub sender: mpsc::Sender<ActorCommand>,
+    pub module_id: String,
+}
+
+impl ActorLink {
+    pub fn new(sender: mpsc::Sender<ActorCommand>, module_id: String) -> Self {
+        Self { sender, module_id }
+    }
+
+    pub async fn send(&self, command: ActorCommand) -> Result<(), ExecutionError> {
+        self.sender
+            .send(command)
+            .await
+            .map_err(ExecutionError::from)
+    }
+}
 
 impl Resource for ActorLink {
     fn get_type() -> &'static str {

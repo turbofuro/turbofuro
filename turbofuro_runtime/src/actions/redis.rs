@@ -488,7 +488,7 @@ async fn setup_pubsub_coordinator(
                                     .registry
                                     .actors
                                     .get(&sub.id)
-                                    .map(|r| r.value().0.clone())
+                                    .map(|r| r.value().clone())
                                 };
 
                                 // Send message
@@ -500,12 +500,14 @@ async fn setup_pubsub_coordinator(
                                             let _ = messenger.send(ActorCommand::RunFunctionRef {
                                                 function_ref: function_ref.clone(),
                                                 storage,
+                                                references: HashMap::new(),
                                                 sender: None,
                                             }).await;
                                         } else {
                                             let _ = messenger.send(ActorCommand::Run {
                                                 handler: "onMessage".to_owned(),
                                                 storage,
+                                                references: HashMap::new(),
                                                 sender: None,
                                             }).await;
                                         }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     actions::{as_string, get_handlers_from_parameters},
     actor::{activate_actor, Actor, ActorCommand},
@@ -44,6 +46,12 @@ pub async fn spawn_actor<'a>(
 
     let handlers = get_handlers_from_parameters(parameters);
 
+    let debugger = context
+        .global
+        .debug_state
+        .load()
+        .get_debugger(&context.module.id);
+
     let actor = Actor::new(
         state_param,
         context.environment.clone(),
@@ -51,18 +59,19 @@ pub async fn spawn_actor<'a>(
         context.global.clone(),
         ActorResources::default(),
         handlers,
+        debugger,
     );
     let id = actor.get_id().to_owned();
 
     debug!("Spawning actor id: {}, module: {}", id, context.module.id);
 
-    let sender = activate_actor(actor);
+    let actor_link = activate_actor(actor);
 
     context
         .global
         .registry
         .actors
-        .insert(id.clone(), ActorLink(sender));
+        .insert(id.clone(), actor_link);
 
     store_value(store_as, context, step_id, id.into()).await?;
     Ok(())
@@ -84,7 +93,7 @@ pub async fn send<'a>(
             .actors
             .get(&id)
             .ok_or_else(ActorLink::missing)
-            .map(|r| r.value().0.clone())?
+            .map(|r| r.value().clone())?
     };
 
     let message_param = eval_param(
@@ -102,6 +111,7 @@ pub async fn send<'a>(
         .send(ActorCommand::Run {
             handler: "onMessage".to_owned(),
             storage,
+            references: HashMap::new(),
             sender: None,
         })
         .await
@@ -127,7 +137,7 @@ pub async fn request<'a>(
             .actors
             .get(&id)
             .ok_or_else(ActorLink::missing)
-            .map(|r| r.value().0.clone())?
+            .map(|r| r.value().clone())?
     };
 
     let message_param = eval_param(
@@ -147,6 +157,7 @@ pub async fn request<'a>(
         .send(ActorCommand::Run {
             handler: "onRequest".to_owned(),
             storage,
+            references: HashMap::new(),
             sender: Some(sender),
         })
         .await
@@ -185,7 +196,7 @@ pub async fn terminate<'a>(
             .actors
             .get(&id)
             .ok_or_else(ActorLink::missing)
-            .map(|r| r.value().0.clone())?
+            .map(|r| r.value().clone())?
     };
 
     messenger.send(ActorCommand::Terminate).await.unwrap();

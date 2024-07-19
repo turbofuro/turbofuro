@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::sync::Arc;
 use std::vec;
 use tel::describe;
@@ -8,9 +9,11 @@ use tel::NULL;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tracing::debug;
+use tracing::error;
 use tracing::info;
 use tracing::trace;
 use tracing::warn;
+use uuid::Uuid;
 
 use crate::actions::alarms::cancellation_name;
 use crate::debug::LoggerMessage;
@@ -26,7 +29,7 @@ use crate::executor::ExecutionReport;
 use crate::executor::ExecutionStatus;
 use crate::executor::Function;
 use crate::executor::Global;
-use crate::executor::Steps;
+use crate::resources::ActorLink;
 use crate::resources::ActorResources;
 
 #[derive(Debug)]
@@ -35,28 +38,54 @@ pub enum ActorCommand {
     Run {
         handler: String,
         storage: ObjectBody,
+        references: HashMap<String, String>,
         sender: Option<oneshot::Sender<Result<StorageValue, ExecutionError>>>, // TODO: Add action reply
     },
     RunFunctionRef {
         function_ref: String,
         storage: ObjectBody,
+        references: HashMap<String, String>,
         sender: Option<oneshot::Sender<Result<StorageValue, ExecutionError>>>, // TODO: Add action reply
     },
     RunAlarm {
         handler: String,
         storage: ObjectBody,
+        references: HashMap<String, String>,
         alarm_id: u64,
     },
-    TakeResource {
-        resources: ActorResources,
+    TakeResources(ActorResources),
+    EnableDebugger {
+        handle: DebuggerHandle,
     },
+    DisableDebugger,
     Terminate,
+}
+
+impl Display for ActorCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ActorCommand::Run { handler, .. } => write!(f, "Run handler {}", handler),
+            ActorCommand::RunFunctionRef { function_ref, .. } => {
+                write!(f, "Run function ref {}", function_ref)
+            }
+            ActorCommand::RunAlarm { handler, .. } => {
+                write!(f, "Run alarm for handler {}", handler)
+            }
+            ActorCommand::TakeResources(_resources) => write!(f, "Take resources"),
+            ActorCommand::EnableDebugger { handle: _ } => {
+                write!(f, "Enable debugger")
+            }
+            ActorCommand::DisableDebugger => write!(f, "Disable debugger"),
+            ActorCommand::Terminate => write!(f, "Terminate"),
+        }
+    }
 }
 
 /**
  * Runs service execution in a separate task
  */
-pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
+pub fn activate_actor(mut actor: Actor) -> ActorLink {
+    let module_id = actor.module.id.clone();
     let (sender, mut receiver) = mpsc::channel::<ActorCommand>(16);
     tokio::spawn(async move {
         while let Some(command) = receiver.recv().await {
@@ -64,8 +93,9 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                 ActorCommand::Run {
                     handler,
                     storage,
+                    references,
                     sender,
-                } => match actor.execute_handler(&handler, storage).await {
+                } => match actor.execute_handler(&handler, storage, references).await {
                     Ok(log) => {
                         match log.status {
                             ExecutionStatus::Finished => {
@@ -105,8 +135,14 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                                 module_id: actor.module.module_id.clone(),
                                 module_version_id: actor.module.id.clone(),
                                 environment_id: actor.environment.id.clone(),
-                                log,
                                 metadata: None,
+                                status: log.status,
+                                function_id: log.function_id,
+                                function_name: log.function_name,
+                                initial_storage: log.initial_storage,
+                                events: log.events,
+                                started_at: log.started_at,
+                                finished_at: log.finished_at,
                             },
                         )) {
                             Ok(_) => {}
@@ -141,8 +177,12 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                 ActorCommand::RunFunctionRef {
                     function_ref,
                     storage,
+                    references,
                     sender,
-                } => match actor.execute_function_ref(&function_ref, storage).await {
+                } => match actor
+                    .execute_function(&function_ref, storage, references, None)
+                    .await
+                {
                     Ok(log) => {
                         match log.status {
                             ExecutionStatus::Finished => {
@@ -186,8 +226,14 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                                 module_id: actor.module.module_id.clone(),
                                 module_version_id: actor.module.id.clone(),
                                 environment_id: actor.environment.id.clone(),
-                                log,
                                 metadata: None,
+                                status: log.status,
+                                function_id: log.function_id,
+                                function_name: log.function_name,
+                                initial_storage: log.initial_storage,
+                                events: log.events,
+                                started_at: log.started_at,
+                                finished_at: log.finished_at,
                             },
                         )) {
                             Ok(_) => {}
@@ -238,6 +284,7 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                 ActorCommand::RunAlarm {
                     handler,
                     storage,
+                    references,
                     alarm_id,
                 } => {
                     // Remove alarm in place from actor resources (not cloneable)
@@ -252,7 +299,7 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                         actor.resources.cancellations.remove(i);
                     }
 
-                    match actor.execute_handler(&handler, storage).await {
+                    match actor.execute_handler(&handler, storage, references).await {
                         Ok(log) => {
                             match log.status {
                                 ExecutionStatus::Finished => {
@@ -281,8 +328,14 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                                     module_id: actor.module.module_id.clone(),
                                     module_version_id: actor.module.id.clone(),
                                     environment_id: actor.environment.id.clone(),
-                                    log,
                                     metadata: None,
+                                    status: log.status,
+                                    function_id: log.function_id,
+                                    function_name: log.function_name,
+                                    initial_storage: log.initial_storage,
+                                    events: log.events,
+                                    started_at: log.started_at,
+                                    finished_at: log.finished_at,
                                 },
                             )) {
                                 Ok(_) => {}
@@ -305,7 +358,7 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                 ActorCommand::Terminate => {
                     actor.terminate();
                 }
-                ActorCommand::TakeResource { mut resources } => {
+                ActorCommand::TakeResources(mut resources) => {
                     actor
                         .resources
                         .http_requests_to_respond
@@ -316,10 +369,47 @@ pub fn activate_actor(mut actor: Actor) -> mpsc::Sender<ActorCommand> {
                         .cancellations
                         .append(&mut resources.cancellations);
                 }
+                ActorCommand::EnableDebugger { handle } => {
+                    actor.debugger = Some(handle);
+                }
+                ActorCommand::DisableDebugger => {
+                    actor.debugger = None;
+                }
             }
         }
     });
-    sender
+
+    ActorLink::new(sender, module_id)
+}
+
+pub fn spawn_ok_or_terminate(
+    actor_link: ActorLink,
+    response_receiver: oneshot::Receiver<Result<StorageValue, ExecutionError>>,
+) {
+    tokio::spawn(async move {
+        match response_receiver.await {
+            Ok(resp) => {
+                match resp {
+                    Ok(_) => {
+                        // Do nothing
+                    }
+                    Err(_e) => {
+                        // If the execution has failed we should terminate the actor
+                        match actor_link.send(ActorCommand::Terminate).await {
+                            Ok(_) => {}
+                            Err(_) => warn!("Failed to terminate actor after errored response"),
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                error!(
+                    "Error receiving response from actor (run response): {:?}",
+                    e
+                );
+            }
+        }
+    });
 }
 
 #[derive(Debug)]
@@ -331,6 +421,7 @@ pub struct Actor {
     environment: Arc<Environment>,
     resources: ActorResources,
     handlers: HashMap<String, String>,
+    debugger: Option<DebuggerHandle>,
 }
 
 impl Drop for Actor {
@@ -347,6 +438,7 @@ impl Actor {
         global: Arc<Global>,
         resources: ActorResources,
         handlers: HashMap<String, String>,
+        debugger: Option<DebuggerHandle>,
     ) -> Self {
         let id = nanoid::nanoid!();
 
@@ -358,6 +450,7 @@ impl Actor {
             environment,
             resources,
             handlers,
+            debugger,
         }
     }
 
@@ -378,6 +471,7 @@ impl Actor {
             environment,
             resources,
             handlers: module.handlers.clone(),
+            debugger: None,
         }
     }
 
@@ -408,69 +502,11 @@ impl Actor {
         self.global.registry.actors.remove(&self.id);
     }
 
-    pub async fn execute_custom(
-        &mut self,
-        steps: &Steps,
-        mut resources: ActorResources,
-        initial_storage: ObjectBody,
-        debugger: DebuggerHandle,
-    ) -> ExecutionLog {
-        let mut storage = initial_storage;
-        storage.insert("state".to_owned(), self.state.clone());
-
-        // Build execution context
-        let mut context = ExecutionContext {
-            actor_id: self.get_id().to_owned(),
-            log: ExecutionLog::started_with_initial_storage(
-                StorageValue::Object(storage.clone()).into(),
-            ),
-            storage,
-            environment: self.environment.clone(),
-            resources: &mut resources,
-            module: self.module.clone(),
-            global: self.global.clone(),
-            bubbling: false,
-            references: HashMap::new(),
-            mode: ExecutionMode::Debug(debugger),
-            loop_counts: vec![],
-        };
-
-        match execute(steps, &mut context).await {
-            Ok(_) => {
-                self.state = context
-                    .storage
-                    .get("state")
-                    .unwrap_or(&StorageValue::Null(None))
-                    .clone();
-
-                debug!("Execution finished successfully");
-                context.log
-            }
-            Err(e) => match e {
-                // Case where early return was called
-                ExecutionError::Return { .. } => {
-                    self.state = context
-                        .storage
-                        .get("state")
-                        .unwrap_or(&StorageValue::Null(None))
-                        .clone();
-
-                    debug!("Execution finished successfully (return)");
-                    context.log
-                }
-                e => {
-                    debug!("Execution failed: error: ${:?}", e);
-                    context.log.status = ExecutionStatus::Failed;
-                    context.log
-                }
-            },
-        }
-    }
-
     pub async fn execute_handler(
         &mut self,
         handler_name: &str,
         initial_storage: ObjectBody,
+        references: HashMap<String, String>,
     ) -> Result<ExecutionLog, ExecutionError> {
         let handler_function_id = {
             match self.handlers.get(handler_name) {
@@ -489,47 +525,42 @@ impl Actor {
             }
         };
 
-        self.execute_function_ref(&handler_function_id, initial_storage)
+        self.execute_function(&handler_function_id, initial_storage, references, None)
             .await
     }
 
-    pub async fn execute_function_ref(
+    pub async fn execute_function(
         &mut self,
-        function_ref: &str,
+        function_id: &str,
         initial_storage: ObjectBody,
+        references: HashMap<String, String>,
+        execution_id: Option<String>,
     ) -> Result<ExecutionLog, ExecutionError> {
-        let function = self
-            .module
-            .exported_functions
-            .iter()
-            .find(|f| f.get_id() == function_ref)
-            .or_else(|| {
-                self.module
-                    .local_functions
-                    .iter()
-                    .find(|f| f.get_id() == function_ref)
-            })
-            .ok_or(ExecutionError::FunctionNotFound {
-                id: function_ref.to_owned(),
-            })?;
+        let function = self.module.get_function(function_id)?;
 
         let mut storage = initial_storage;
         storage.insert("state".to_owned(), self.state.clone());
 
         // Build execution context
         let mut context = ExecutionContext {
+            id: execution_id.unwrap_or_else(|| Uuid::now_v7().to_string()),
             actor_id: self.get_id().to_owned(),
-            log: ExecutionLog::started_with_initial_storage(describe(StorageValue::Object(
-                storage.clone(),
-            ))),
+            log: ExecutionLog::new_started(
+                describe(StorageValue::Object(storage.clone())),
+                function_id,
+                function.get_name(),
+            ),
             storage,
             environment: self.environment.clone(),
             resources: &mut self.resources,
             module: self.module.clone(),
             global: self.global.clone(),
             bubbling: false,
-            references: HashMap::new(),
-            mode: ExecutionMode::Probe, // TODO: Roll the dice or something to prefer fast mode
+            references,
+            mode: match &self.debugger {
+                Some(handle) => ExecutionMode::Debug(handle.clone()),
+                None => ExecutionMode::Probe, // TODO: Roll the dice or something to prefer fast mode
+            },
             loop_counts: vec![],
         };
 
@@ -542,6 +573,8 @@ impl Actor {
             }
         };
 
+        context.start_report().await;
+
         Ok(match execute(body, &mut context).await {
             Ok(_) => {
                 self.state = context
@@ -551,6 +584,7 @@ impl Actor {
                     .clone();
 
                 debug!("Execution finished successfully");
+                context.end_report(ExecutionStatus::Finished).await;
                 // TODO: Shall we return the result here?
                 // context.log.result = Some(Ok(NULL));
                 context.log
@@ -564,11 +598,15 @@ impl Actor {
                         .clone();
 
                     debug!("Execution finished successfully (return)");
+                    context.end_report(ExecutionStatus::Finished).await;
+
                     context.log.result = Some(Ok(value));
                     context.log
                 }
                 e => {
                     warn!("Execution failed: error: ${:?}", e);
+                    context.end_report(ExecutionStatus::Failed).await;
+
                     context.log.status = ExecutionStatus::Failed;
                     context.log.result = Some(Err(e));
                     context.log

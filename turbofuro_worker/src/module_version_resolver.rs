@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::{errors::WorkerError, shared::ModuleVersion};
 use async_trait::async_trait;
 use futures_util::TryFutureExt;
 use moka::future::Cache;
@@ -7,12 +8,9 @@ use reqwest::Client;
 use tokio::{fs::File, io::AsyncReadExt};
 use tracing::error;
 
-use crate::worker::{AppError, ModuleVersion};
-
-/// A trait for module (versions) resolvers
 #[async_trait]
 pub trait ModuleVersionResolver: Send + Sync {
-    async fn get_module_version(&self, id: &str) -> Result<ModuleVersion, AppError>;
+    async fn get_module_version(&self, id: &str) -> Result<ModuleVersion, WorkerError>;
 }
 
 pub type SharedModuleVersionResolver = Arc<dyn ModuleVersionResolver>;
@@ -21,20 +19,20 @@ pub struct FileSystemModuleVersionResolver {}
 
 #[async_trait]
 impl ModuleVersionResolver for FileSystemModuleVersionResolver {
-    async fn get_module_version(&self, id: &str) -> Result<ModuleVersion, AppError> {
+    async fn get_module_version(&self, id: &str) -> Result<ModuleVersion, WorkerError> {
         let path = format!("test_module_versions/{}.json", id);
         let mut file = File::open(path)
-            .map_err(|_| AppError::ModuleVersionNotFound)
+            .map_err(|_| WorkerError::ModuleVersionNotFound)
             .await?;
 
         let mut buffer = String::new();
         file.read_to_string(&mut buffer)
-            .map_err(|_| AppError::MalformedModuleVersion)
+            .map_err(|_| WorkerError::MalformedModuleVersion)
             .await?;
 
         let service: ModuleVersion = serde_json::from_str(&buffer).map_err(|_| {
             error!("Failed to parse module version: {}", buffer);
-            AppError::MalformedModuleVersion
+            WorkerError::MalformedModuleVersion
         })?;
 
         Ok(service)
@@ -64,7 +62,7 @@ impl CloudModuleVersionResolver {
 
 #[async_trait]
 impl ModuleVersionResolver for CloudModuleVersionResolver {
-    async fn get_module_version(&self, id: &str) -> Result<ModuleVersion, AppError> {
+    async fn get_module_version(&self, id: &str) -> Result<ModuleVersion, WorkerError> {
         if let Some(cached) = self.cache.get(id).await {
             return Ok(cached);
         }
@@ -80,12 +78,12 @@ impl ModuleVersionResolver for CloudModuleVersionResolver {
                     "Failed to get module version id: {}, error was: {}",
                     id, err
                 );
-                AppError::ModuleVersionNotFound
+                WorkerError::ModuleVersionNotFound
             })?;
 
         let module_version: ModuleVersion = response.json().await.map_err(|err| {
             error!("Malformed module version id: {}, error was: {}", id, err);
-            AppError::MalformedModuleVersion
+            WorkerError::MalformedModuleVersion
         })?;
 
         self.cache

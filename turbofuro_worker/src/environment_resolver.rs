@@ -7,11 +7,11 @@ use tokio::{fs::File, io::AsyncReadExt, sync::Mutex};
 use tracing::error;
 use turbofuro_runtime::executor::Environment;
 
-use crate::worker::AppError;
+use crate::errors::WorkerError;
 
 #[async_trait]
 pub trait EnvironmentResolver: Send + Sync {
-    async fn get_environment(&mut self, id: &str) -> Result<Environment, AppError>;
+    async fn get_environment(&mut self, id: &str) -> Result<Environment, WorkerError>;
 }
 
 pub type SharedEnvironmentResolver = Arc<Mutex<dyn EnvironmentResolver>>;
@@ -20,20 +20,20 @@ pub struct FileSystemEnvironmentResolver {}
 
 #[async_trait]
 impl EnvironmentResolver for FileSystemEnvironmentResolver {
-    async fn get_environment(&mut self, id: &str) -> Result<Environment, AppError> {
+    async fn get_environment(&mut self, id: &str) -> Result<Environment, WorkerError> {
         let path = format!("test_environments/{}.json", id);
         let mut file = File::open(path)
-            .map_err(|_| AppError::EnvironmentNotFound)
+            .map_err(|_| WorkerError::EnvironmentNotFound)
             .await?;
 
         let mut buffer = String::new();
         file.read_to_string(&mut buffer)
-            .map_err(|_| AppError::MalformedEnvironment)
+            .map_err(|_| WorkerError::MalformedEnvironment)
             .await?;
 
         let environment: Environment = serde_json::from_str(&buffer).map_err(|_| {
             error!("Failed to parse environment: {}", buffer);
-            AppError::MalformedEnvironment
+            WorkerError::MalformedEnvironment
         })?;
 
         Ok(environment)
@@ -63,7 +63,7 @@ impl CloudEnvironmentResolver {
 
 #[async_trait]
 impl EnvironmentResolver for CloudEnvironmentResolver {
-    async fn get_environment(&mut self, id: &str) -> Result<Environment, AppError> {
+    async fn get_environment(&mut self, id: &str) -> Result<Environment, WorkerError> {
         if let Some(cached) = self.cache.get(id).await {
             return Ok(cached);
         }
@@ -83,13 +83,13 @@ impl EnvironmentResolver for CloudEnvironmentResolver {
             // })
             .map_err(|err| {
                 error!("Failed to get environment: {}", err);
-                AppError::EnvironmentNotFound
+                WorkerError::EnvironmentNotFound
             })?
             .json()
             .await
             .map_err(|err| {
                 error!("Malformed environment {}", err);
-                AppError::MalformedEnvironment
+                WorkerError::MalformedEnvironment
             })?;
 
         self.cache.insert(id.to_string(), environment.clone()).await;

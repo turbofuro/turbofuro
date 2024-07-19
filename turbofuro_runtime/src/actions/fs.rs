@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     sync::atomic::{AtomicU64, Ordering},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -249,7 +250,7 @@ pub async fn setup_watcher<'a>(
                                 .registry
                                 .actors
                                 .get(&actor_id)
-                                .map(|r| r.value().0.clone())
+                                .map(|r| r.value().clone())
                         };
 
                         // Send message
@@ -342,6 +343,7 @@ pub async fn setup_watcher<'a>(
                                     .send(ActorCommand::RunFunctionRef {
                                         function_ref: function_ref.clone(),
                                         storage,
+                                        references: HashMap::new(),
                                         sender: None,
                                     })
                                     .await
@@ -351,6 +353,7 @@ pub async fn setup_watcher<'a>(
                                     .send(ActorCommand::Run {
                                         handler: "onMessage".to_owned(),
                                         storage,
+                                        references: HashMap::new(),
                                         sender: None,
                                     })
                                     .await

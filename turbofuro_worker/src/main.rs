@@ -5,7 +5,11 @@ mod cloud_agent;
 mod cloud_logger;
 mod config;
 mod environment_resolver;
+mod errors;
+mod events;
 mod module_version_resolver;
+mod options;
+mod shared;
 mod tracing_setup;
 mod utils;
 mod worker;
@@ -22,84 +26,50 @@ use config::{
 use environment_resolver::{
     CloudEnvironmentResolver, EnvironmentResolver, SharedEnvironmentResolver,
 };
+use errors::WorkerError;
+use events::{spawn_console_observer, WorkerEvent, WorkerEventSender};
 use futures_util::Future;
 use module_version_resolver::SharedModuleVersionResolver;
+use nanoid::nanoid;
+use options::{
+    get_cloud_options, get_http_server_options, get_name, get_turbofuro_token, CloudOptions,
+    HttpServerOptions,
+};
 use reqwest::Client;
-use tokio::fs::File;
-use tokio::io::AsyncReadExt;
-use tokio::sync::{broadcast, watch, Mutex};
-use turbofuro_runtime::executor::{Global, GlobalBuilder};
-use worker::WorkerError;
-
+use shared::{WorkerStatus, WorkerStoppingReason};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::signal;
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
+use tokio::sync::{broadcast, Mutex};
 use tracing::{debug, error, info, warn};
+use turbofuro_runtime::executor::{DebugState, Global, GlobalBuilder};
+use utils::exponential_delay::ExponentialDelay;
+use utils::shutdown::shutdown_signal;
 
-static BASE_DELAY: u64 = 50;
-static MAX_ATTEMPTS_EXPONENT: u32 = 15;
-
-async fn shutdown_signal(
-    configuration_change: impl Future<Output = ()>,
-    closing_flag: Arc<Mutex<bool>>,
-) {
-    let ctrl_c = async {
-        signal::ctrl_c()
-            .await
-            .expect("Failed to install Ctrl+C handler");
-
-        let mut flag = closing_flag.lock().await;
-        *flag = true;
-    };
-
-    #[cfg(unix)]
-    let terminate = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("Failed to install signal handler")
-            .recv()
-            .await;
-
-        let mut flag = closing_flag.lock().await;
-        *flag = true;
-    };
-
-    #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
-
-    tokio::select! {
-        _ = ctrl_c => {
-            info!("Signal received, starting graceful shutdown");
-        },
-        _ = terminate => {
-            info!("Signal received, starting graceful shutdown");
-        },
-        _ = configuration_change => {
-            info!("Configuration changed, starting graceful shutdown");
-        },
-    }
-}
-
-async fn start_worker(
+async fn run_worker(
     config: Configuration,
-    environments_resolver: SharedEnvironmentResolver,
     http_server_options: HttpServerOptions,
     global: Arc<Global>,
     module_version_resolver: SharedModuleVersionResolver,
-    shutdown_signal: impl Future<Output = ()>,
+    environment_resolver: SharedEnvironmentResolver,
+    observer: WorkerEventSender,
+    stop_signal: impl Future<Output = WorkerStoppingReason>,
 ) -> Result<(), WorkerError> {
     let mut worker = Worker::new(
         config,
         global,
         module_version_resolver,
-        environments_resolver,
+        environment_resolver,
+        observer,
     );
 
     worker.start_with_http_server(http_server_options).await?;
 
-    shutdown_signal.await;
+    let reason = stop_signal.await;
 
-    worker.stop().await;
+    worker.stop(reason).await;
 
     Ok(())
 }
@@ -118,7 +88,7 @@ async fn load_config_from_file(file_path: PathBuf) -> Result<Configuration, Work
     Ok(config)
 }
 
-async fn setup_configuration_fetching(
+async fn run_worker_with_cloud_agent(
     cloud_options: CloudOptions,
     http_server_options: HttpServerOptions,
 ) -> Result<(), WorkerError> {
@@ -132,6 +102,8 @@ async fn setup_configuration_fetching(
     // Setup configuration updates
     let (config_id_update_sender, mut config_id_update_receiver) = broadcast::channel::<String>(3);
     let coordinator = run_configuration_coordinator(config.clone(), config_id_update_sender);
+
+    let (worker_event_sender, worker_event_receiver) = WorkerEvent::create_channel();
 
     // Start passive fetcher
     run_configuration_fetcher(cloud_options.clone(), coordinator.clone());
@@ -154,48 +126,57 @@ async fn setup_configuration_fetching(
     let cloud_agent_module_version_resolver = module_version_resolver.clone();
     let cloud_agent_cloud_options = cloud_options.clone();
     tokio::spawn(async move {
+        let worker_id = nanoid!();
+
         let mut agent = CloudAgent {
-            cloud_options: cloud_agent_cloud_options.clone(),
+            options: cloud_agent_cloud_options.clone(),
             global: global.clone(),
             environment_resolver: cloud_agent_environment_resolver.clone(),
             module_version_resolver: cloud_agent_module_version_resolver.clone(),
             configuration_coordinator: coordinator.clone(),
-            name: cloud_agent_cloud_options.name.clone(),
+            debug_state: DebugState::default(),
+            worker_id: worker_id.clone(),
+            worker_event_receiver: worker_event_receiver.clone(),
+            status: WorkerStatus::Starting { warnings: vec![] },
         };
 
         // Let's try to connect with a exponential backoff
-        let mut attempts = 1;
+        let mut exponential_delay = ExponentialDelay::default();
         loop {
             let mut failed = false;
+
+            // Start the agent, this will block until the agent errors or all senders are dropped
             match agent.start().await {
                 Ok(()) => {
-                    attempts = 1;
+                    exponential_delay.reset();
                 }
                 Err(e) => {
                     error!("Cloud agent failed to connect: {:?}", e);
-                    attempts += 1;
                     failed = true;
                 }
             }
+
+            // Create a fresh instance
             agent = CloudAgent {
-                cloud_options: cloud_agent_cloud_options.clone(),
+                options: cloud_agent_cloud_options.clone(),
                 global: global.clone(),
                 environment_resolver: cloud_agent_environment_resolver.clone(),
                 module_version_resolver: cloud_agent_module_version_resolver.clone(),
                 configuration_coordinator: coordinator.clone(),
-                name: cloud_agent_cloud_options.name.clone(),
+                debug_state: DebugState::default(),
+                worker_id: worker_id.clone(),
+                worker_event_receiver: worker_event_receiver.clone(),
+                status: WorkerStatus::Starting { warnings: vec![] },
             };
 
+            // If failed
             if failed {
-                // Cap delay at ~1h
-                let delay = Duration::from_millis(
-                    2_u64.pow(attempts.min(MAX_ATTEMPTS_EXPONENT)) * BASE_DELAY,
-                );
+                let sleep_duration = exponential_delay.next();
                 warn!(
-                    "Cloud agent failed to connect, waiting {} milliseconds before retry...",
-                    delay.as_millis()
+                    "Cloud agent failed to connect, waiting {:?} milliseconds before retry...",
+                    sleep_duration
                 );
-                tokio::time::sleep(delay).await;
+                tokio::time::sleep(sleep_duration).await;
             }
         }
     });
@@ -205,18 +186,28 @@ async fn setup_configuration_fetching(
         // Fetch current config
         let current_config = { worker_mutex.lock().await.clone() };
 
-        start_worker(
+        run_worker(
             current_config,
-            environment_resolver.clone(),
             http_server_options.clone(),
             worker_global.clone(),
             module_version_resolver.clone(),
-            shutdown_signal(
-                async {
-                    config_id_update_receiver.recv().await.ok();
-                },
-                closing_flag.clone(),
-            ),
+            environment_resolver.clone(),
+            worker_event_sender.clone(),
+            async {
+                tokio::select! {
+                    _ = config_id_update_receiver.recv() => {
+                        // Config update received, we should restart the worker
+                        info!("Configuration changed, stopping gracefully");
+                        WorkerStoppingReason::ConfigurationChanged
+                    }
+                    _ = shutdown_signal() => {
+                        info!("Signal received, stopping gracefully");
+                        let mut closing_flag = closing_flag.lock().await;
+                        *closing_flag = true;
+                        WorkerStoppingReason::SignalReceived
+                    }
+                }
+            },
         )
         .await?;
 
@@ -227,8 +218,8 @@ async fn setup_configuration_fetching(
         } else {
             info!("Restarting worker...");
 
-            // Sleep for a second before restarting to prevent a devastating restart loop
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            // Sleep for a 10 milliseconds before restarting to prevent a devastating restart loop
+            tokio::time::sleep(Duration::from_millis(10)).await;
         }
     }
 
@@ -251,126 +242,55 @@ pub fn get_environment_resolver(cloud_options: &CloudOptions) -> SharedEnvironme
     )))
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct HttpServerOptions {
-    pub port: u16,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct CloudOptions {
-    pub cloud_url: String,
-    pub operator_url: String,
-    pub token: String,
-    pub name: String,
-}
-
-// Remember to update the help message in cli.rs when changing those
-static DEFAULT_CLOUD_URL: &str = "https://api.turbofuro.com";
-static DEFAULT_OPERATOR_URL: &str = "wss://operator.turbofuro.com";
-static TURBOFURO_TOKEN_ENV_NAME: &str = "TURBOFURO_TOKEN";
-static TURBOFURO_CLOUD_URL_ENV_NAME: &str = "TURBOFURO_CLOUD_URL";
-static TURBOFURO_OPERATOR_URL_ENV_NAME: &str = "TURBOFURO_OPERATOR_URL";
-static PORT_ENV_NAME: &str = "PORT";
-static NAME_ENV_NAME: &str = "NAME";
+static VERSION: &str = env!("CARGO_PKG_VERSION");
 
 async fn startup() -> Result<(), WorkerError> {
-    let args = parse_cli_args().map_err(|e| WorkerError::IncorrectParameters(e.to_string()))?;
+    let args = parse_cli_args()?;
+    let config_path_arg = args.config.clone();
+    let http_server_options = get_http_server_options(args.clone())?;
+    let turbofuro_token = get_turbofuro_token(args.clone());
+    let name = get_name(args.clone());
 
-    let turbofuro_token = args
-        .token
-        .or_else(|| std::env::var(TURBOFURO_TOKEN_ENV_NAME).ok());
-    let config_path_env = args.config;
-    let port = match args.port.ok_or_else(|| {
-        std::env::var(PORT_ENV_NAME)
-            .ok()
-            .unwrap_or("4000".to_owned())
-            .parse::<u16>()
-            .map_err(|e| {
-                WorkerError::IncorrectEnvironmentVariable(PORT_ENV_NAME.into(), e.to_string())
-            })
-    }) {
-        Ok(p) => p,
-        Err(p) => p?,
-    };
-
-    let name = args
-        .name
-        .or_else(|| std::env::var(NAME_ENV_NAME).ok())
-        .or_else(|| {
-            {
-                hostname::get()
-                    .map(|s| s.to_string_lossy().into_owned())
-                    .ok()
-            }
-            .map(|s| s.chars().take(200).collect())
-        })
-        .unwrap_or("Unknown".to_owned());
-
-    let http_server_options = HttpServerOptions { port };
-
-    info!("Starting Turbofuro Worker {}", env!("CARGO_PKG_VERSION"));
-    match (turbofuro_token, config_path_env) {
+    info!("Starting Turbofuro Worker {}", VERSION);
+    match (turbofuro_token, config_path_arg) {
         (Some(token), None) => {
-            let cloud_options = CloudOptions {
-                cloud_url: args
-                    .cloud_url
-                    .or_else(|| std::env::var(TURBOFURO_CLOUD_URL_ENV_NAME).ok())
-                    .unwrap_or(DEFAULT_CLOUD_URL.to_owned()),
-                operator_url: args
-                    .operator_url
-                    .or_else(|| std::env::var(TURBOFURO_OPERATOR_URL_ENV_NAME).ok())
-                    .unwrap_or(DEFAULT_OPERATOR_URL.to_owned()),
-                token,
-                name,
-            };
-
-            if cloud_options.cloud_url != DEFAULT_CLOUD_URL {
-                info!(
-                    "Using custom cloud URL: {}",
-                    cloud_options.cloud_url.clone()
-                );
-            }
-
-            if cloud_options.operator_url != DEFAULT_OPERATOR_URL {
-                info!(
-                    "Using custom operator URL: {}",
-                    cloud_options.operator_url.clone()
-                );
-            }
-
-            setup_configuration_fetching(cloud_options, http_server_options).await
+            let cloud_options = get_cloud_options(args.clone(), name, token);
+            run_worker_with_cloud_agent(cloud_options, http_server_options).await
         }
         (None, Some(path)) => {
             let config = load_config_from_file(path).await?;
-            let (_tx, mut rx) = watch::channel::<String>(config.id.clone());
-            let closing_flag = Arc::new(Mutex::new(false));
 
             // You can replace resolvers for quick local testing
             let module_version_resolver = Arc::new(FileSystemModuleVersionResolver {});
             let environment_resolver = Arc::new(Mutex::new(FileSystemEnvironmentResolver {}));
             let global = Arc::new(GlobalBuilder::new().build());
 
-            Ok(start_worker(
+            let (worker_observer_sender, worker_observer_receiver) = WorkerEvent::create_channel();
+            spawn_console_observer(worker_observer_receiver);
+
+            Ok(run_worker(
                 config,
-                environment_resolver,
                 http_server_options,
                 global,
                 module_version_resolver,
-                shutdown_signal(
-                    async {
-                        rx.changed().await.ok();
-                    },
-                    closing_flag,
-                ),
+                environment_resolver,
+                worker_observer_sender,
+                async {
+                    // The only way to reload/stop the worker is to send a signal
+                    // Although murdering the process (kill -9 PID) is always an option, not recommended though
+                    shutdown_signal().await;
+                    WorkerStoppingReason::SignalReceived
+                },
             )
             .await?)
         }
-        (None, None) => Err(WorkerError::IncorrectParameters(
-            "Either token or config must be provided".to_string(),
-        )),
-        (Some(_), Some(_)) => Err(WorkerError::IncorrectParameters(
-            "Either token or config must be provided, but not both at the same time".to_string(),
-        )),
+        (None, None) => Err(WorkerError::InvalidArguments {
+            message: "Either token or config must be provided".to_string(),
+        }),
+        (Some(_), Some(_)) => Err(WorkerError::InvalidArguments {
+            message: "Either token or config must be provided, but not both at the same time"
+                .to_string(),
+        }),
     }
 }
 
@@ -422,11 +342,15 @@ mod tests {
 
         let global = Arc::new(GlobalBuilder::new().build());
 
+        let (worker_observer_sender, worker_observer_receiver) = WorkerEvent::create_channel();
+        spawn_console_observer(worker_observer_receiver);
+
         let mut worker = Worker::new(
             config,
             global,
             module_version_resolver,
             environment_resolver,
+            worker_observer_sender,
         );
 
         worker.start().await.unwrap()

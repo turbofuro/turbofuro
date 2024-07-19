@@ -41,16 +41,12 @@
         {
           "type": "call",
           "callee": "import/a816bac0-336e-4f5c-be43-db999b3e08da/read",
+          "storeAs": "actorId",
           "parameters": [
             {
               "type": "tel",
               "name": "key",
               "expression": "\"test\""
-            },
-            {
-              "type": "tel",
-              "name": "saveAs",
-              "expression": "actorId"
             }
           ],
           "id": "uf7YBto6VkVpubfT98Wz0"

@@ -45,13 +45,8 @@
         {
           "type": "call",
           "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/get_actor_id",
-          "parameters": [
-            {
-              "type": "tel",
-              "name": "saveAs",
-              "expression": "actorId"
-            }
-          ],
+          "storeAs": "actorId",
+          "parameters": [],
           "id": "L5kBKLLtev-ofc2QiaJkw"
         },
         {

@@ -85,16 +85,12 @@
           "type": "call",
           "version": "1",
           "callee": "import/a816bac0-336e-4f5c-be43-db999b3e08da/read",
+          "storeAs": "actor",
           "parameters": [
             {
               "type": "tel",
               "name": "key",
               "expression": "\"actor\""
-            },
-            {
-              "type": "tel",
-              "name": "saveAs",
-              "expression": "actor"
             }
           ],
           "id": "h4pUkMePR2UekzBhqwz1_"
@@ -148,13 +144,8 @@
           "type": "call",
           "version": "1",
           "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/get_actor_id",
-          "parameters": [
-            {
-              "type": "tel",
-              "name": "saveAs",
-              "expression": "actorId"
-            }
-          ],
+          "storeAs": "actorId",
+          "parameters": [],
           "id": "eH0PeOwb1Yk2FZ_x-iP_R"
         },
         {
