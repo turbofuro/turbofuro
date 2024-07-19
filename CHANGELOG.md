@@ -1,3 +1,13 @@
+## 0.1.15
+* Added support for live debugging  
+* Worker status reporting
+* Better error handling
+* Code reorganization
+* Add context parameter to PubSub subscription
+* Add more data to execution reports
+* Add --addr command line argument for setting the address to bind to
+* Remove `saveAs` leftovers
+
 ## 0.1.14
 * Added `mail` module for sending emails via SMTP
 * Added `pretty` parameter to JSON stringify function
