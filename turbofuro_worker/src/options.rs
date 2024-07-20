@@ -3,6 +3,7 @@ use std::{
     str::FromStr,
 };
 
+use reqwest::Url;
 use tracing::info;
 
 use crate::{cli::AppArgs, errors::WorkerError};
@@ -43,6 +44,20 @@ pub struct CloudOptions {
     pub operator_url: String,
     pub token: String,
     pub name: String,
+}
+
+impl CloudOptions {
+    pub fn get_operator_url(&self, worker_id: String) -> Result<Url, WorkerError> {
+        let query_params =
+            serde_urlencoded::to_string([("token", self.token.clone()), ("id", worker_id)])
+                .map_err(|_| WorkerError::InvalidOperatorUrl {
+                    url: self.operator_url.clone(),
+                })?;
+        let url_string = format!("{}/server?{}", self.operator_url, query_params,);
+        Url::parse(&url_string).map_err(|_| WorkerError::InvalidOperatorUrl {
+            url: url_string.clone(),
+        })
+    }
 }
 
 // Remember to update the help message in cli.rs when changing those

@@ -24,8 +24,6 @@ pub enum DebugMessage {
         module_version_id: String,
         environment_id: String,
         started_at: u64,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        finished_at: Option<u64>,
         metadata: Option<Value>,
     },
     AppendEventToReport {

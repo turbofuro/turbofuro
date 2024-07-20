@@ -1,8 +1,7 @@
 extern crate log;
 
 mod cli;
-mod cloud_agent;
-mod cloud_logger;
+mod cloud;
 mod config;
 mod environment_resolver;
 mod errors;
@@ -18,34 +17,31 @@ use crate::cli::parse_cli_args;
 use crate::environment_resolver::FileSystemEnvironmentResolver;
 use crate::module_version_resolver::{CloudModuleVersionResolver, FileSystemModuleVersionResolver};
 use crate::worker::Worker;
-use cloud_agent::CloudAgent;
-use cloud_logger::start_cloud_logger;
+use cloud::agent::CloudAgentHandle;
+use cloud::logger::start_cloud_logger;
 use config::{
     fetch_configuration, run_configuration_coordinator, run_configuration_fetcher, Configuration,
 };
-use environment_resolver::{
-    CloudEnvironmentResolver, EnvironmentResolver, SharedEnvironmentResolver,
-};
+use environment_resolver::{CloudEnvironmentResolver, SharedEnvironmentResolver};
 use errors::WorkerError;
-use events::{spawn_console_observer, WorkerEvent, WorkerEventSender};
+use events::{spawn_cloud_agent_observer, spawn_console_observer, WorkerEvent, WorkerEventSender};
 use futures_util::Future;
 use module_version_resolver::SharedModuleVersionResolver;
-use nanoid::nanoid;
 use options::{
     get_cloud_options, get_http_server_options, get_name, get_turbofuro_token, CloudOptions,
     HttpServerOptions,
 };
 use reqwest::Client;
-use shared::{WorkerStatus, WorkerStoppingReason};
+use shared::WorkerStoppingReason;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tokio::sync::{broadcast, Mutex};
-use tracing::{debug, error, info, warn};
-use turbofuro_runtime::executor::{DebugState, Global, GlobalBuilder};
-use utils::exponential_delay::ExponentialDelay;
+use tracing::{debug, error, info};
+use turbofuro_runtime::executor::{Global, GlobalBuilder};
+
 use utils::shutdown::shutdown_signal;
 
 async fn run_worker(
@@ -121,65 +117,17 @@ async fn run_worker_with_cloud_agent(
     let worker_global = Arc::clone(&global);
 
     // Start cloud agent
-    let cloud_agent_environment_resolver: Arc<Mutex<dyn EnvironmentResolver>> =
-        environment_resolver.clone();
-    let cloud_agent_module_version_resolver = module_version_resolver.clone();
-    let cloud_agent_cloud_options = cloud_options.clone();
-    tokio::spawn(async move {
-        let worker_id = nanoid!();
+    let cloud_agent_handle = CloudAgentHandle::new(
+        cloud_options.clone(),
+        global.clone(),
+        module_version_resolver.clone(),
+        environment_resolver.clone(),
+        coordinator.clone(),
+    )?;
 
-        let mut agent = CloudAgent {
-            options: cloud_agent_cloud_options.clone(),
-            global: global.clone(),
-            environment_resolver: cloud_agent_environment_resolver.clone(),
-            module_version_resolver: cloud_agent_module_version_resolver.clone(),
-            configuration_coordinator: coordinator.clone(),
-            debug_state: DebugState::default(),
-            worker_id: worker_id.clone(),
-            worker_event_receiver: worker_event_receiver.clone(),
-            status: WorkerStatus::Starting { warnings: vec![] },
-        };
+    cloud_agent_handle.start().await;
 
-        // Let's try to connect with a exponential backoff
-        let mut exponential_delay = ExponentialDelay::default();
-        loop {
-            let mut failed = false;
-
-            // Start the agent, this will block until the agent errors or all senders are dropped
-            match agent.start().await {
-                Ok(()) => {
-                    exponential_delay.reset();
-                }
-                Err(e) => {
-                    error!("Cloud agent failed to connect: {:?}", e);
-                    failed = true;
-                }
-            }
-
-            // Create a fresh instance
-            agent = CloudAgent {
-                options: cloud_agent_cloud_options.clone(),
-                global: global.clone(),
-                environment_resolver: cloud_agent_environment_resolver.clone(),
-                module_version_resolver: cloud_agent_module_version_resolver.clone(),
-                configuration_coordinator: coordinator.clone(),
-                debug_state: DebugState::default(),
-                worker_id: worker_id.clone(),
-                worker_event_receiver: worker_event_receiver.clone(),
-                status: WorkerStatus::Starting { warnings: vec![] },
-            };
-
-            // If failed
-            if failed {
-                let sleep_duration = exponential_delay.next();
-                warn!(
-                    "Cloud agent failed to connect, waiting {:?} milliseconds before retry...",
-                    sleep_duration
-                );
-                tokio::time::sleep(sleep_duration).await;
-            }
-        }
-    });
+    spawn_cloud_agent_observer(worker_event_receiver.clone(), cloud_agent_handle.clone());
 
     // Run worker indefinitely until a closing flag is raised
     loop {
@@ -222,6 +170,8 @@ async fn run_worker_with_cloud_agent(
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
     }
+
+    drop(cloud_agent_handle);
 
     Ok(())
 }

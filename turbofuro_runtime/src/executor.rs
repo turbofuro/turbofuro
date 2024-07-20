@@ -723,7 +723,6 @@ impl<'a> ExecutionContext<'a> {
                             function_name: self.log.function_name.clone(),
                             status: ExecutionStatus::Started,
                             events: vec![],
-                            finished_at: None,
                             metadata: None,
                         },
                         std::time::Duration::from_secs(5),

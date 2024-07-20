@@ -1,7 +1,10 @@
 use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
 
-use crate::shared::{WorkerStoppingReason, WorkerWarning};
+use crate::{
+    cloud::agent::CloudAgentHandle,
+    shared::{WorkerStoppingReason, WorkerWarning},
+};
 
 #[derive(Debug, Clone)]
 pub enum WorkerEvent {
@@ -68,6 +71,17 @@ pub fn spawn_console_observer(mut receiver: WorkerEventReceiver) {
                     warn!("Worker warning raised: {:?}", warning);
                 }
             }
+        }
+    });
+}
+
+pub fn spawn_cloud_agent_observer(
+    mut receiver: WorkerEventReceiver,
+    cloud_agent: CloudAgentHandle,
+) {
+    tokio::spawn(async move {
+        while let Ok(event) = receiver.recv().await {
+            cloud_agent.handle_worker_event(event).await;
         }
     });
 }

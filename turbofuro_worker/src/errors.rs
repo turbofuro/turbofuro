@@ -31,6 +31,12 @@ pub enum WorkerError {
     InvalidCloudAgentCommand {
         message: String,
     },
+    InvalidOperatorUrl {
+        url: String,
+    },
+    Unsupported {
+        message: String,
+    },
 }
 
 impl From<pico_args::Error> for WorkerError {
@@ -80,6 +86,12 @@ impl Display for WorkerError {
             }
             WorkerError::InvalidCloudAgentCommand { message } => {
                 write!(f, "Invalid cloud agent command: {}", message)
+            }
+            WorkerError::InvalidOperatorUrl { url } => {
+                write!(f, "Invalid operator URL: {}", url)
+            }
+            WorkerError::Unsupported { message } => {
+                write!(f, "Unsupported operation: {}", message)
             }
         }
     }
