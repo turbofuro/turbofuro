@@ -6,6 +6,7 @@ use crate::{
     utils::exponential_delay::ExponentialDelay,
 };
 use futures_util::{SinkExt, StreamExt};
+use log::info;
 use reqwest::Url;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
@@ -212,6 +213,7 @@ impl OperatorClient {
                     .map_err(|e| OperatorClientError::WebSocketError { error: e })
                 {
                     Ok((ws_stream, _response)) => {
+                        info!("Connected to operator");
                         let (write, mut read) = ws_stream.split();
                         let mut write = write.buffer(16);
 

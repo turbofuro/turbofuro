@@ -12,7 +12,7 @@ use crate::{
     VERSION,
 };
 use tokio::sync::mpsc::{self};
-use tracing::{debug, error, info_span, instrument, warn, Instrument};
+use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 use turbofuro_runtime::{
     actor::{Actor, ActorCommand},
     debug::DebugMessage,
@@ -82,7 +82,7 @@ fn spawn_debugger_handle_reader(
 
 impl CloudAgent {
     async fn handle_message(&mut self, message: CloudAgentMessage) {
-        debug!("Cloud agent: Handling message: {:?}", message);
+        debug!("Handling message: {:?}", message);
         match message {
             CloudAgentMessage::HandleWorkerEvent { event } => {
                 match event {
@@ -141,10 +141,7 @@ impl CloudAgent {
                 spawn_debugger_handle_reader(receiver, self.operator_client.clone());
 
                 if self.debug_state.has_entry(&module_id) {
-                    warn!(
-                        "Cloud agent: Debugger already enabled for module {}",
-                        module_id.clone()
-                    );
+                    warn!("Debugger already enabled for module {}", module_id.clone());
                     return;
                 }
 
@@ -197,6 +194,7 @@ impl CloudAgent {
                 }
             }
             CloudAgentMessage::ReloadConfiguration => {
+                info!("Reloading configuration");
                 let result = fetch_configuration(&self.options).await;
                 match result {
                     Ok(configuration) => {
@@ -205,7 +203,7 @@ impl CloudAgent {
                             .await;
                     }
                     Err(e) => {
-                        warn!("Cloud agent: Failed to fetch configuration: {}", e);
+                        warn!("Failed to fetch configuration: {}", e);
                     }
                 }
             }
@@ -232,6 +230,7 @@ impl CloudAgent {
 
                 let mut global_environment = self.global.environment.write().await;
                 *global_environment = environment;
+                info!("Environment updated");
             }
             CloudAgentMessage::Start => self.operator_client.connect().await,
         }
