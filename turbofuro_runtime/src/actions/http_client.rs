@@ -7,7 +7,7 @@ use hyper::{
 };
 use mime::{Mime, TEXT_PLAIN};
 use once_cell::sync::Lazy;
-use reqwest::{Body, Client, RequestBuilder, Response};
+use reqwest::{Body, Certificate, Client, RequestBuilder, Response};
 use tel::{describe, Description, ObjectBody, StorageValue};
 use tracing::{info, instrument};
 
@@ -16,17 +16,21 @@ use crate::{
     evaluations::{eval_optional_param, eval_optional_param_with_default, eval_param},
     executor::{ExecutionContext, Parameter},
     http_utils::decode_text_with_encoding,
-    resources::{FormDataDraft, HttpRequestToRespond, PendingHttpResponseBody, Resource},
+    resources::{
+        FormDataDraft, HttpClient, HttpRequestToRespond, PendingHttpResponseBody, Resource,
+    },
 };
 
-use super::{as_string, store_value};
+use super::{as_boolean, as_string, as_u64, store_value};
+
+static DEFAULT_TIMEOUT: u64 = 60_000;
 
 static USER_AGENT: &str = concat!("turbofuro/", env!("CARGO_PKG_VERSION"));
 
 static CLIENT: Lazy<Client> = Lazy::new(|| {
     reqwest::Client::builder()
         .user_agent(USER_AGENT)
-        .timeout(Duration::from_secs(60))
+        .timeout(Duration::from_millis(DEFAULT_TIMEOUT))
         .build()
         .unwrap()
 });
@@ -255,7 +259,22 @@ async fn bare_http_request<'a>(
             inner: e.to_string(),
         })?;
 
-    let response = match CLIENT
+    let client: Client =
+        match eval_optional_param("name", parameters, &context.storage, &context.environment)? {
+            Some(param) => {
+                let name = as_string(param, "name")?;
+                context
+                    .global
+                    .registry
+                    .http_clients
+                    .get(&name)
+                    .ok_or_else(HttpClient::missing)
+                    .map(|r| r.value().clone().0)?
+            }
+            None => CLIENT.clone(),
+        };
+
+    let response = match client
         .execute(request)
         .await
         .map_err(|e| ExecutionError::StateInvalid {
@@ -305,6 +324,108 @@ async fn collect_body(
             Err(_) => StorageValue::String(text),
         }),
     }
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn build_client<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let name = eval_param("name", parameters, &context.storage, &context.environment)?;
+    let name = as_string(name, "name")?;
+
+    let certificates = eval_optional_param_with_default(
+        "rootCertificates",
+        parameters,
+        &context.storage,
+        &context.environment,
+        StorageValue::Array(vec![]),
+    )?;
+
+    let certificates = match certificates {
+        StorageValue::Array(arr) => {
+            let mut result = Vec::new();
+            for cert in arr {
+                let cert = as_string(cert, "rootCertificates")?;
+                result.push(Certificate::from_pem(cert.as_bytes()).map_err(|e| {
+                    ExecutionError::ParameterInvalid {
+                        name: "rootCertificates".to_string(),
+                        message: e.to_string(),
+                    }
+                })?);
+            }
+            Ok(result)
+        }
+        StorageValue::String(cert) => {
+            let cert = Certificate::from_pem(cert.as_bytes()).map_err(|e| {
+                ExecutionError::ParameterInvalid {
+                    name: "rootCertificates".to_string(),
+                    message: e.to_string(),
+                }
+            })?;
+            Ok(vec![cert])
+        }
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: "rootCertificates".to_string(),
+            expected: Description::new_base_type("array"),
+            actual: describe(s),
+        }),
+    }?;
+
+    let accept_invalid_certificates = eval_optional_param_with_default(
+        "acceptInvalidCertificates",
+        parameters,
+        &context.storage,
+        &context.environment,
+        false.into(),
+    )?;
+    let accept_invalid_certificates =
+        as_boolean(accept_invalid_certificates, "acceptInvalidCertificates")?;
+
+    let user_agent = eval_optional_param_with_default(
+        "userAgent",
+        parameters,
+        &context.storage,
+        &context.environment,
+        USER_AGENT.into(),
+    )?;
+    let user_agent = as_string(user_agent, "userAgent")?;
+
+    let timeout_param = eval_optional_param_with_default(
+        "timeout",
+        parameters,
+        &context.storage,
+        &context.environment,
+        StorageValue::Number(DEFAULT_TIMEOUT as f64),
+    )?;
+    let timeout = as_u64(timeout_param, "timeout")?;
+
+    // TODO: Add support for default headers
+
+    let mut builder = reqwest::Client::builder()
+        .user_agent(user_agent)
+        .danger_accept_invalid_certs(accept_invalid_certificates)
+        .timeout(Duration::from_millis(timeout));
+
+    for certificate in certificates {
+        builder = builder.add_root_certificate(certificate);
+    }
+
+    let client = builder.build().map_err(|e| ExecutionError::StateInvalid {
+        message: e.to_string(),
+        subject: "http_client".into(),
+        inner: "client".into(),
+    })?;
+
+    context
+        .global
+        .registry
+        .http_clients
+        .insert(name, HttpClient(client));
+
+    Ok(())
 }
 
 #[instrument(level = "trace", skip_all)]

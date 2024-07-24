@@ -955,6 +955,9 @@ async fn execute_native<'a>(
             http_client::stream_http_request_with_form_data(context, parameters, step_id, store_as)
                 .await?
         }
+        "http_client/build_client" => {
+            http_client::build_client(context, parameters, step_id, store_as).await?
+        }
         "form_data/create" => form_data::create_form_data(context, parameters, step_id, store_as)?,
         "form_data/add_stream_part" => {
             form_data::add_stream_part_to_form_data(context, parameters, step_id, store_as).await?

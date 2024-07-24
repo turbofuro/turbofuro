@@ -30,6 +30,7 @@ const WEBSOCKET_RESOURCE_TYPE: &str = "websocket";
 const SSE_RESOURCE_TYPE: &str = "sse";
 const POSTGRES_CONNECTION_RESOURCE_TYPE: &str = "postgres_connection";
 const REDIS_CONNECTION_RESOURCE_TYPE: &str = "redis_connection";
+const HTTP_CLIENT_RESOURCE_TYPE: &str = "http_client";
 const HTTP_REQUEST_RESOURCE_TYPE: &str = "http_request";
 const PENDING_HTTP_RESPONSE_TYPE: &str = "pending_http_response";
 const PENDING_HTTP_REQUEST_TYPE: &str = "pending_http_request";
@@ -117,6 +118,15 @@ impl ActorLink {
 impl Resource for ActorLink {
     fn get_type() -> &'static str {
         ACTOR_LINK_TYPE
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct HttpClient(pub reqwest::Client);
+
+impl Resource for HttpClient {
+    fn get_type() -> &'static str {
+        HTTP_CLIENT_RESOURCE_TYPE
     }
 }
 
@@ -357,6 +367,7 @@ pub struct ResourceRegistry {
     pub redis_pools: DashMap<String, RedisPool>,
     pub postgres_pools: DashMap<String, PostgresPool>,
     pub actors: DashMap<String, ActorLink>,
+    pub http_clients: DashMap<String, HttpClient>,
     pub router: Arc<Mutex<RegisteringRouter>>,
 }
 
