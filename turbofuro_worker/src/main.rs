@@ -99,6 +99,9 @@ async fn run_worker_with_cloud_agent(
     let (config_id_update_sender, mut config_id_update_receiver) = broadcast::channel::<String>(3);
     let coordinator = run_configuration_coordinator(config.clone(), config_id_update_sender);
 
+    // Cloud agent reloader
+    let (cloud_reload_sender, mut cloud_reload_receiver) = broadcast::channel::<()>(3);
+
     let (worker_event_sender, worker_event_receiver) = WorkerEvent::create_channel();
 
     // Start passive fetcher
@@ -123,6 +126,7 @@ async fn run_worker_with_cloud_agent(
         module_version_resolver.clone(),
         environment_resolver.clone(),
         coordinator.clone(),
+        cloud_reload_sender.clone(),
     )?;
 
     cloud_agent_handle.start().await;
@@ -147,6 +151,10 @@ async fn run_worker_with_cloud_agent(
                         // Config update received, we should restart the worker
                         info!("Configuration changed, stopping gracefully");
                         WorkerStoppingReason::ConfigurationChanged
+                    }
+                    _ = cloud_reload_receiver.recv() => {
+                        info!("Worker restarting by cloud agent");
+                        WorkerStoppingReason::RequestedByCloudAgent
                     }
                     _ = shutdown_signal() => {
                         info!("Signal received, stopping gracefully");

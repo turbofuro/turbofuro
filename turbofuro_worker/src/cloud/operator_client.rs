@@ -84,30 +84,16 @@ pub enum ReceivingCommand {
         parameters: Vec<Parameter>,
     },
     #[serde(rename_all = "camelCase")]
-    EnableDebugger { id: String, module_id: String },
+    EnableDebugger {
+        module_id: String,
+        module_version: Option<ModuleVersion>,
+    },
     #[serde(rename_all = "camelCase")]
     DisableDebugger { id: String, module_id: String },
     #[serde(rename_all = "camelCase")]
     ReloadConfiguration { id: String },
     #[serde(rename_all = "camelCase")]
     ReloadEnvironment { id: String },
-    #[serde(rename_all = "camelCase")]
-    EnableActiveDebugger {
-        id: String,
-        module_version: ModuleVersion,
-    },
-    #[serde(rename_all = "camelCase")]
-    ProlongActiveDebugger { id: String, module_id: String },
-    #[serde(rename_all = "camelCase")]
-    ReloadActiveDebugger {
-        id: String,
-        module_version: ModuleVersion,
-    },
-    #[serde(rename_all = "camelCase")]
-    DisableActiveDebugger {
-        id: String,
-        module_version: ModuleVersion,
-    },
 }
 
 static PING_PAYLOAD: &[u8; 4] = b"ping";
@@ -235,6 +221,7 @@ impl OperatorClient {
                                                     Ok(command) => command,
                                                     Err(err) => {
                                                         warn!("Could not parse command: {}", err);
+                                                        debug!("Command was {:?}", text);
                                                         continue;
                                                     }
                                                 };
@@ -322,8 +309,15 @@ impl OperatorClient {
                         .perform_run(id, module_version, callee, parameters)
                         .await;
                 }
-                ReceivingCommand::EnableDebugger { module_id, .. } => {
-                    let _ = self.cloud_agent_handler.enable_debugger(module_id).await;
+                ReceivingCommand::EnableDebugger {
+                    module_id,
+                    module_version,
+                    ..
+                } => {
+                    let _ = self
+                        .cloud_agent_handler
+                        .enable_debugger(module_id, module_version)
+                        .await;
                 }
                 ReceivingCommand::DisableDebugger { module_id, .. } => {
                     let _ = self.cloud_agent_handler.disable_debugger(module_id).await;
@@ -333,22 +327,6 @@ impl OperatorClient {
                 }
                 ReceivingCommand::ReloadEnvironment { .. } => {
                     let _ = self.cloud_agent_handler.reload_environment().await;
-                }
-                ReceivingCommand::EnableActiveDebugger { .. } => {
-                    // todo!(), but let's not panic
-                    warn!("Enable active debugger not implemented");
-                }
-                ReceivingCommand::ProlongActiveDebugger { .. } => {
-                    // todo!(), but let's not panic
-                    warn!("Prolong active debugger not implemented");
-                }
-                ReceivingCommand::ReloadActiveDebugger { .. } => {
-                    // todo!(), but let's not panic
-                    warn!("Reload active debugger not implemented");
-                }
-                ReceivingCommand::DisableActiveDebugger { .. } => {
-                    // todo!(), but let's not panic
-                    warn!("Disable active debugger not implemented");
                 }
             },
             OperatorClientMessage::ReconnectWithDelay => {

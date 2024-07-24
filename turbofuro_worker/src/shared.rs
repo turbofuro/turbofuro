@@ -33,6 +33,7 @@ pub enum WorkerStoppingReason {
     SignalReceived,
     ConfigurationChanged,
     EnvironmentChanged,
+    RequestedByCloudAgent,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,16 +77,16 @@ impl WorkerStatus {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ModuleVersion {
     pub id: String,
-    #[serde(rename = "moduleId")]
     pub module_id: String,
     pub instructions: Steps,
     pub handlers: HashMap<String, String>,
     pub imports: HashMap<String, Import>,
 }
 
-pub fn compile_module(module_version: ModuleVersion) -> CompiledModule {
+pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
     let local_functions: Vec<Function> = module_version
         .instructions
         .iter()
@@ -170,18 +171,76 @@ pub fn compile_module(module_version: ModuleVersion) -> CompiledModule {
         .collect_vec();
 
     CompiledModule {
-        id: module_version.id,
-        module_id: module_version.module_id,
+        id: module_version.id.clone(),
+        module_id: module_version.module_id.clone(),
         local_functions,
         exported_functions,
-        handlers: module_version.handlers,
+        handlers: module_version.handlers.clone(),
         imports: HashMap::new(),
     }
 }
 
+#[instrument(skip_all, level = "debug")]
+pub async fn resolve_imports(
+    global: Arc<Global>,
+    module_version_resolver: SharedModuleVersionResolver,
+    imports: &HashMap<String, Import>,
+) -> Result<HashMap<String, Arc<CompiledModule>>, WorkerError> {
+    let mut resolved_imports: HashMap<String, Arc<CompiledModule>> = HashMap::new();
+    for (import_name, import) in imports {
+        debug!("Fetching import: {}", import_name);
+        let imported = match import {
+            Import::Cloud { id: _, version_id } => {
+                resolve_and_install_module(
+                    version_id,
+                    global.clone(),
+                    module_version_resolver.clone(),
+                )
+                .await?
+            }
+        };
+        resolved_imports.insert(import_name.to_owned(), imported);
+    }
+    Ok(resolved_imports)
+}
+
+#[async_recursion]
+pub async fn install_module(
+    module_version: ModuleVersion,
+    global: Arc<Global>,
+    module_version_resolver: SharedModuleVersionResolver,
+) -> Result<Arc<CompiledModule>, WorkerError> {
+    let mut compiled_module = compile_module(&module_version);
+    compiled_module.imports = resolve_imports(
+        global.clone(),
+        module_version_resolver.clone(),
+        &module_version.imports,
+    )
+    .await?;
+    let module = Arc::new(compiled_module);
+    {
+        global.modules.write().await.push(module.clone());
+    }
+    Ok(module)
+}
+
+pub async fn get_compiled_module(
+    id: &str,
+    global: Arc<Global>,
+) -> Result<Arc<CompiledModule>, WorkerError> {
+    global
+        .modules
+        .read()
+        .await
+        .iter()
+        .find(|m| m.id == id)
+        .cloned()
+        .ok_or_else(|| WorkerError::ModuleVersionNotFound)
+}
+
 #[async_recursion]
 #[instrument(skip(global, module_version_resolver), level = "debug")]
-pub async fn get_compiled_module(
+pub async fn resolve_and_install_module(
     id: &str,
     global: Arc<Global>,
     module_version_resolver: SharedModuleVersionResolver,
@@ -209,26 +268,7 @@ pub async fn get_compiled_module(
             .await?
     };
 
-    // Resolve module version for each import
-    let mut imports = HashMap::new();
-    for (import_name, import) in &module_version.imports {
-        debug!("Fetching import: {}", import_name);
-        let imported = match import {
-            Import::Cloud { id: _, version_id } => {
-                get_compiled_module(version_id, global.clone(), module_version_resolver.clone())
-                    .await?
-            }
-        };
-        imports.insert(import_name.to_owned(), imported);
-    }
-
-    let mut compiled_module = compile_module(module_version);
-    compiled_module.imports = imports;
-    let module = Arc::new(compiled_module);
-    {
-        global.modules.write().await.push(module.clone());
-    }
-    Ok(module)
+    install_module(module_version, global, module_version_resolver).await
 }
 
 #[cfg(test)]

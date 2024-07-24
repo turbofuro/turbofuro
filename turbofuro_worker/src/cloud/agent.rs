@@ -8,17 +8,20 @@ use crate::{
     events::WorkerEvent,
     module_version_resolver::SharedModuleVersionResolver,
     options::CloudOptions,
-    shared::{compile_module, get_compiled_module, ModuleVersion, WorkerStatus},
+    shared::{install_module, ModuleVersion, WorkerStatus},
     VERSION,
 };
-use tokio::sync::mpsc::{self};
+use tokio::sync::{
+    broadcast,
+    mpsc::{self},
+};
 use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 use turbofuro_runtime::{
     actor::{Actor, ActorCommand},
     debug::DebugMessage,
     executor::{
         evaluate_parameters, get_timestamp, Callee, DebugState, DebuggerHandle, Environment,
-        ExecutionLog, Global, Import, Parameter,
+        ExecutionLog, Global, Parameter,
     },
     resources::{ActorLink, ActorResources},
     ObjectBody, StorageValue,
@@ -40,6 +43,7 @@ enum CloudAgentMessage {
     },
     EnableDebugger {
         module_id: String,
+        module_version: Option<ModuleVersion>,
     },
     DisableDebugger {
         module_id: String,
@@ -63,6 +67,8 @@ struct CloudAgent {
 
     // The main receiver, which we don't have sender for as it owning the agent
     main_receiver: mpsc::Receiver<CloudAgentMessage>,
+
+    worker_reload_sender: broadcast::Sender<()>,
 
     // The child receiver, which we have sender for, never dropped, but used to let operator client pass messages back to the agent
     child_receiver: mpsc::Receiver<CloudAgentMessage>,
@@ -136,61 +142,96 @@ impl CloudAgent {
                     .perform_debug_run(id, module_version, callee, parameters, debugger_handle)
                     .await;
             }
-            CloudAgentMessage::EnableDebugger { module_id } => {
+            CloudAgentMessage::EnableDebugger {
+                module_id,
+                module_version,
+            } => {
                 let (debugger_handle, receiver) = DebuggerHandle::new();
                 spawn_debugger_handle_reader(receiver, self.operator_client.clone());
 
-                if self.debug_state.has_entry(&module_id) {
-                    warn!("Debugger already enabled for module {}", module_id.clone());
-                    return;
-                }
+                let mut should_reload_worker = false;
+                let module = match module_version {
+                    Some(module_version) => {
+                        let module = install_module(
+                            module_version,
+                            self.global.clone(),
+                            self.module_version_resolver.clone(),
+                        )
+                        .await
+                        .unwrap(); // TODO: Handle errors
 
-                self.debug_state
-                    .add_entry(module_id.clone(), debugger_handle.clone());
+                        should_reload_worker = true;
+                        Some(module)
+                    }
+                    None => None,
+                };
+
+                self.debug_state.add_or_update_entry(
+                    module_id.clone(),
+                    debugger_handle.clone(),
+                    module,
+                );
+
                 self.global
                     .debug_state
                     .store(Arc::new(self.debug_state.clone()));
 
-                let actors_to_message = self
-                    .global
-                    .registry
-                    .actors
-                    .iter()
-                    .filter(|item| {
-                        let actor_link = item.value();
-                        actor_link.module_id == module_id
-                    })
-                    .map(|item| item.value().clone())
-                    .collect::<Vec<ActorLink>>();
-
-                for actor_link in actors_to_message {
-                    let _ = actor_link
-                        .send(ActorCommand::EnableDebugger {
-                            handle: debugger_handle.clone(),
+                if should_reload_worker {
+                    self.worker_reload_sender.send(()).unwrap();
+                } else {
+                    let actors_to_message = self
+                        .global
+                        .registry
+                        .actors
+                        .iter()
+                        .filter(|item| {
+                            let actor_link = item.value();
+                            actor_link.module_id == module_id
                         })
-                        .await;
+                        .map(|item| item.value().clone())
+                        .collect::<Vec<ActorLink>>();
+
+                    for actor_link in actors_to_message {
+                        let _ = actor_link
+                            .send(ActorCommand::EnableDebugger {
+                                handle: debugger_handle.clone(),
+                            })
+                            .await;
+                    }
                 }
             }
             CloudAgentMessage::DisableDebugger { module_id } => {
-                self.debug_state.remove_entry(&module_id);
-                self.global
-                    .debug_state
-                    .store(Arc::new(self.debug_state.clone()));
+                let removed = self.debug_state.remove_entry(&module_id);
+                if let Some(removed) = removed {
+                    self.global
+                        .debug_state
+                        .store(Arc::new(self.debug_state.clone()));
 
-                let actors_to_message = self
-                    .global
-                    .registry
-                    .actors
-                    .iter()
-                    .filter(|item| {
-                        let actor_link = item.value();
-                        actor_link.module_id == module_id
-                    })
-                    .map(|item| item.value().clone())
-                    .collect::<Vec<ActorLink>>();
+                    let should_reload_worker = removed.module.is_some();
+                    if should_reload_worker {
+                        self.worker_reload_sender.send(()).unwrap();
+                    } else {
+                        let actors_to_message = self
+                            .global
+                            .registry
+                            .actors
+                            .iter()
+                            .filter(|item| {
+                                let actor_link = item.value();
+                                actor_link.module_id == module_id
+                            })
+                            .map(|item| item.value().clone())
+                            .collect::<Vec<ActorLink>>();
 
-                for actor_link in actors_to_message {
-                    let _ = actor_link.send(ActorCommand::DisableDebugger {}).await;
+                        for actor_link in actors_to_message {
+                            let _ = actor_link.send(ActorCommand::DisableDebugger {}).await;
+                        }
+                    }
+                } else {
+                    warn!(
+                        "Debug entry not found, command was for module {}",
+                        module_id.clone()
+                    );
                 }
             }
             CloudAgentMessage::ReloadConfiguration => {
@@ -273,30 +314,17 @@ impl CloudAgent {
         let global = self.global.clone();
         let environment = { self.global.environment.read().await.clone() };
         let module_version_resolver = self.module_version_resolver.clone();
-
-        // Resolve module version for each import
-        let mut imports = HashMap::new();
-        for (import_name, import) in &module_version.imports {
-            let imported = match import {
-                Import::Cloud { id: _, version_id } => {
-                    get_compiled_module(version_id, global.clone(), module_version_resolver.clone())
-                        .await?
-                }
-            };
-            imports.insert(import_name.to_owned(), imported);
-        }
-
-        let mut compiled_module = compile_module(module_version);
-        compiled_module.imports = imports;
-        let module = Arc::new(compiled_module);
-        {
-            global.modules.write().await.push(module.clone());
-        }
+        let compiled_module = install_module(
+            module_version,
+            global.clone(),
+            module_version_resolver.clone(),
+        )
+        .await?;
 
         let mut actor = Actor::new(
             StorageValue::Null(None),
             Arc::new(environment.clone()),
-            module.clone(),
+            compiled_module.clone(),
             self.global.clone(),
             ActorResources::default(),
             HashMap::new(),
@@ -355,6 +383,7 @@ impl CloudAgentHandle {
         module_version_resolver: SharedModuleVersionResolver,
         environment_resolver: SharedEnvironmentResolver,
         configuration_coordinator: ConfigurationCoordinator,
+        worker_reload_sender: broadcast::Sender<()>,
     ) -> Result<Self, WorkerError> {
         let (sender, receiver) = mpsc::channel(16);
         let (child_sender, child_receiver) = mpsc::channel(16);
@@ -381,6 +410,7 @@ impl CloudAgentHandle {
             child_receiver,
             child_sender,
             operator_client,
+            worker_reload_sender,
         };
 
         tokio::spawn(run_cloud_agent(actor));
@@ -419,10 +449,17 @@ impl CloudAgentHandle {
             .await;
     }
 
-    pub async fn enable_debugger(&mut self, module_id: String) {
+    pub async fn enable_debugger(
+        &mut self,
+        module_id: String,
+        module_version: Option<ModuleVersion>,
+    ) {
         let _ = self
             .sender
-            .send(CloudAgentMessage::EnableDebugger { module_id })
+            .send(CloudAgentMessage::EnableDebugger {
+                module_id,
+                module_version,
+            })
             .await;
     }
 

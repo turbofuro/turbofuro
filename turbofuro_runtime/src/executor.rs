@@ -22,6 +22,7 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::SendTimeoutError;
 use tokio::sync::Mutex;
 use tokio::sync::RwLock;
+use tokio::time::Instant;
 use tracing::info;
 use tracing::warn;
 use tracing::{debug, instrument};
@@ -408,11 +409,13 @@ pub struct Global {
 pub struct DebugEntry {
     pub module_id: String,
     pub debugger_handle: DebuggerHandle,
+    pub last_activity: Instant,
+    pub module: Option<Arc<CompiledModule>>, // If specified, this module will be applied to the configuration
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct DebugState {
-    entries: Vec<DebugEntry>,
+    pub entries: Vec<DebugEntry>,
 }
 
 impl DebugState {
@@ -423,20 +426,40 @@ impl DebugState {
             .map(|e| e.debugger_handle.clone())
     }
 
-    pub fn has_entry(&mut self, module_id: &str) -> bool {
-        self.entries.iter().any(|e| e.module_id == module_id)
+    pub fn get_entry(&self, module_id: &str) -> Option<&DebugEntry> {
+        self.entries.iter().find(|e| e.module_id == module_id)
     }
 
-    pub fn add_entry(&mut self, module_id: String, debugger_handle: DebuggerHandle) {
-        self.entries.push(DebugEntry {
-            module_id,
-            debugger_handle,
-        });
+    pub fn add_or_update_entry(
+        &mut self,
+        module_id: String,
+        debugger_handle: DebuggerHandle,
+        module: Option<Arc<CompiledModule>>,
+    ) {
+        let entry = self.entries.iter_mut().find(|e| e.module_id == module_id);
+        if let Some(entry) = entry {
+            entry.debugger_handle = debugger_handle;
+            entry.last_activity = Instant::now();
+            entry.module = module;
+        } else {
+            self.entries.push(DebugEntry {
+                module_id,
+                debugger_handle,
+                last_activity: Instant::now(),
+                module,
+            });
+        }
     }
 
-    pub fn remove_entry(&mut self, module_id: &str) {
-        let mut entries = self.entries.clone();
-        entries.retain(|e| e.module_id != module_id);
+    pub fn remove_entry(&mut self, module_id: &str) -> Option<DebugEntry> {
+        let entry = self.entries.iter_mut().find(|e| e.module_id == module_id);
+        if let Some(entry) = entry {
+            let entry = entry.clone();
+            self.entries.retain(|e| e.module_id != module_id);
+            Some(entry)
+        } else {
+            None
+        }
     }
 }
 

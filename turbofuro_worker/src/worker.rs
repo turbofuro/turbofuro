@@ -6,7 +6,9 @@ use crate::errors::WorkerError;
 use crate::events::{WorkerEvent, WorkerEventSender};
 use crate::module_version_resolver::SharedModuleVersionResolver;
 use crate::options::HttpServerOptions;
-use crate::shared::{get_compiled_module, WorkerStoppingReason, WorkerWarning};
+use crate::shared::{
+    get_compiled_module, resolve_and_install_module, WorkerStoppingReason, WorkerWarning,
+};
 use crate::utils::shutdown::shutdown_signal;
 use crate::utils::sse_receiver_stream::sse_handler;
 use axum::body::Body;
@@ -180,12 +182,8 @@ async fn handle_request(
     mut request: Request<Body>,
     route: Route,
 ) -> Result<Response, WorkerError> {
-    let module = get_compiled_module(
-        route.module_version_id.as_str(),
-        app_state.global.clone(),
-        app_state.module_version_resolver,
-    )
-    .await?;
+    let module =
+        get_compiled_module(route.module_version_id.as_str(), app_state.global.clone()).await?;
 
     let ws = request.extract_parts::<WebSocketUpgrade>().await.ok();
 
@@ -435,7 +433,7 @@ pub struct Worker {
     environment_resolver: SharedEnvironmentResolver,
 
     // To be send by worker to shutdown axum app
-    router_shutdown: Option<oneshot::Sender<()>>,
+    router_shutdown: Option<oneshot::Sender<bool>>,
 
     // To be received by worker to wait for axum app to shutdown
     router_shutdown_completed: Option<oneshot::Receiver<()>>,
@@ -495,12 +493,17 @@ impl Worker {
         }
         let environment = Arc::new(environment);
 
+        let debug_state = self.global.debug_state.load();
+
         let modules = {
             futures_util::stream::iter(self.config.modules.iter().map(|m| {
-                get_compiled_module(
+                let debug_entry = debug_state.get_entry(m.module_id.as_str());
+
+                resolve_and_install_module_or_get(
                     &m.module_version_id,
                     self.global.clone(),
                     self.module_version_resolver.clone(),
+                    debug_entry.and_then(|e| e.module.clone()),
                 )
                 .map_err(|e| (e, m.module_id.clone(), m.module_version_id.clone()))
             }))
@@ -529,6 +532,20 @@ impl Worker {
                             },
                         ))
                         .await
+                }
+            }
+        }
+
+        // Include modules that are not in the configuration, but are in the debug state
+        for debug_entry in debug_state.entries.iter() {
+            if !self
+                .config
+                .modules
+                .iter()
+                .any(|m| m.module_id == debug_entry.module_id)
+            {
+                if let Some(module) = debug_entry.module.clone() {
+                    modules_to_start.push(module);
                 }
             }
         }
@@ -628,7 +645,7 @@ impl Worker {
 
         let router = self.start().await?;
 
-        let (shutdown_sender, shutdown_receiver) = oneshot::channel::<()>();
+        let (shutdown_sender, shutdown_receiver) = oneshot::channel::<bool>();
         self.router_shutdown = Some(shutdown_sender);
 
         let (shutdown_completed_sender, shutdown_completed_receiver) = oneshot::channel::<()>();
@@ -665,8 +682,12 @@ impl Worker {
             let listener_handle = handle.clone();
             tokio::spawn(async move {
                 match shutdown_receiver.await {
-                    Ok(_) => {
-                        listener_handle.graceful_shutdown(Some(Duration::from_secs(15)));
+                    Ok(force_quit) => {
+                        if force_quit {
+                            listener_handle.shutdown()
+                        } else {
+                            listener_handle.graceful_shutdown(Some(Duration::from_secs(15)));
+                        }
                     }
                     Err(err) => {
                         error!("Error receiving shutdown signal: {:?}", err);
@@ -712,7 +733,9 @@ impl Worker {
 
         if let Some(shutdown) = self.router_shutdown.take() {
             debug!("Sending shutdown to HTTP server");
-            handle_dangling_error!(shutdown.send(()));
+
+            let force_quit = matches!(reason, WorkerStoppingReason::RequestedByCloudAgent);
+            handle_dangling_error!(shutdown.send(force_quit));
         }
 
         debug!("Propagating terminate to actors");
@@ -734,6 +757,19 @@ impl Worker {
         self.event_sender
             .send(WorkerEvent::WorkerStopped(reason))
             .await
+    }
+}
+
+// Just a helper function to avoid type annotations in the resolver loop
+async fn resolve_and_install_module_or_get(
+    id: &str,
+    global: Arc<Global>,
+    module_version_resolver: SharedModuleVersionResolver,
+    option: Option<Arc<CompiledModule>>,
+) -> Result<Arc<CompiledModule>, WorkerError> {
+    match option {
+        Some(module) => Ok(module),
+        None => resolve_and_install_module(id, global, module_version_resolver).await,
     }
 }
 
