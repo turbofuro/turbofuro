@@ -6,7 +6,7 @@ use crate::{
     environment_resolver::SharedEnvironmentResolver,
     errors::WorkerError,
     events::WorkerEvent,
-    module_version_resolver::SharedModuleVersionResolver,
+    module_version_resolver::{ModuleVersionResolver, SharedModuleVersionResolver},
     options::CloudOptions,
     shared::{install_module, ModuleVersion, WorkerStatus},
     VERSION,
@@ -249,10 +249,7 @@ impl CloudAgent {
                 }
             }
             CloudAgentMessage::ReloadEnvironment => {
-                let environment_id = {
-                    let environment = self.global.environment.read().await;
-                    environment.id.clone()
-                };
+                let environment_id = self.global.environment.load().id.clone();
 
                 let environment: Environment = match self
                     .environment_resolver
@@ -269,8 +266,7 @@ impl CloudAgent {
                     }
                 };
 
-                let mut global_environment = self.global.environment.write().await;
-                *global_environment = environment;
+                self.global.environment.swap(Arc::new(environment));
                 info!("Environment updated");
             }
             CloudAgentMessage::Start => self.operator_client.connect().await,
@@ -311,10 +307,11 @@ impl CloudAgent {
             }
         };
 
-        let global = self.global.clone();
-        let environment = { self.global.environment.read().await.clone() };
-        let module_version_resolver = self.module_version_resolver.clone();
-        let compiled_module = install_module(
+        let global: Arc<Global> = self.global.clone();
+        let environment: Arc<Environment> = self.global.environment.load().clone();
+        let module_version_resolver: Arc<dyn ModuleVersionResolver> =
+            self.module_version_resolver.clone();
+        let compiled_module: Arc<turbofuro_runtime::executor::CompiledModule> = install_module(
             module_version,
             global.clone(),
             module_version_resolver.clone(),
@@ -323,7 +320,7 @@ impl CloudAgent {
 
         let mut actor = Actor::new(
             StorageValue::Null(None),
-            Arc::new(environment.clone()),
+            environment.clone(),
             compiled_module.clone(),
             self.global.clone(),
             ActorResources::default(),

@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use futures_util::TryFutureExt;
-use moka::future::Cache;
 use reqwest::Client;
 use std::sync::Arc;
 use tokio::{fs::File, io::AsyncReadExt, sync::Mutex};
@@ -45,17 +44,13 @@ pub struct CloudEnvironmentResolver {
     pub base_url: String,
 
     token: String,
-    cache: Cache<String, Environment>,
 }
 
 impl CloudEnvironmentResolver {
     pub fn new(client: Client, base_url: String, token: String) -> Self {
-        let cache = Cache::<String, Environment>::new(4);
-
         Self {
             client,
             base_url,
-            cache,
             token,
         }
     }
@@ -64,10 +59,6 @@ impl CloudEnvironmentResolver {
 #[async_trait]
 impl EnvironmentResolver for CloudEnvironmentResolver {
     async fn get_environment(&mut self, id: &str) -> Result<Environment, WorkerError> {
-        if let Some(cached) = self.cache.get(id).await {
-            return Ok(cached);
-        }
-
         let environment: Environment = self
             .client
             .get(format!(
@@ -91,8 +82,6 @@ impl EnvironmentResolver for CloudEnvironmentResolver {
                 error!("Malformed environment {}", err);
                 WorkerError::MalformedEnvironment
             })?;
-
-        self.cache.insert(id.to_string(), environment.clone()).await;
 
         Ok(environment)
     }

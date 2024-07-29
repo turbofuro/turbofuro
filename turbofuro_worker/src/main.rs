@@ -14,14 +14,14 @@ mod utils;
 mod worker;
 
 use crate::cli::parse_cli_args;
+use crate::environment_resolver::EnvironmentResolver;
 use crate::environment_resolver::FileSystemEnvironmentResolver;
 use crate::module_version_resolver::{CloudModuleVersionResolver, FileSystemModuleVersionResolver};
 use crate::worker::Worker;
 use cloud::agent::CloudAgentHandle;
 use cloud::logger::start_cloud_logger;
-use config::{
-    fetch_configuration, run_configuration_coordinator, run_configuration_fetcher, Configuration,
-};
+use config::run_configuration_fetcher;
+use config::{fetch_configuration, run_configuration_coordinator, Configuration};
 use environment_resolver::{CloudEnvironmentResolver, SharedEnvironmentResolver};
 use errors::WorkerError;
 use events::{spawn_cloud_agent_observer, spawn_console_observer, WorkerEvent, WorkerEventSender};
@@ -40,7 +40,7 @@ use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tokio::sync::{broadcast, Mutex};
 use tracing::{debug, error, info};
-use turbofuro_runtime::executor::{Global, GlobalBuilder};
+use turbofuro_runtime::executor::{Environment, Global, GlobalBuilder};
 
 use utils::shutdown::shutdown_signal;
 
@@ -49,17 +49,10 @@ async fn run_worker(
     http_server_options: HttpServerOptions,
     global: Arc<Global>,
     module_version_resolver: SharedModuleVersionResolver,
-    environment_resolver: SharedEnvironmentResolver,
     observer: WorkerEventSender,
     stop_signal: impl Future<Output = WorkerStoppingReason>,
 ) -> Result<(), WorkerError> {
-    let mut worker = Worker::new(
-        config,
-        global,
-        module_version_resolver,
-        environment_resolver,
-        observer,
-    );
+    let mut worker = Worker::new(config, global, module_version_resolver, observer);
 
     worker.start_with_http_server(http_server_options).await?;
 
@@ -84,40 +77,58 @@ async fn load_config_from_file(file_path: PathBuf) -> Result<Configuration, Work
     Ok(config)
 }
 
+async fn get_environment(
+    id: Option<&str>,
+    environment_resolver: Arc<Mutex<dyn EnvironmentResolver>>,
+) -> Result<Environment, WorkerError> {
+    match id {
+        Some(id) => environment_resolver.lock().await.get_environment(id).await,
+        None => {
+            info!("No environment specified in the config, using empty environment");
+            Ok(Environment::default())
+        }
+    }
+}
+
 async fn run_worker_with_cloud_agent(
     cloud_options: CloudOptions,
     http_server_options: HttpServerOptions,
 ) -> Result<(), WorkerError> {
-    // Flag to indicate when the worker should stop
-    let closing_flag = Arc::new(Mutex::new(false));
+    let module_version_resolver = get_module_version_resolver(&cloud_options);
+    let environment_resolver = get_environment_resolver(&cloud_options);
 
-    // Fetch first configuration
+    // Flag to indicate when the worker should stop
+    let mut shutdown_flag = false;
+
+    // Load first configuration and environment
     let first_config = fetch_configuration(&cloud_options).await?;
-    let config = Arc::new(Mutex::new(first_config));
+    let config = Arc::new(Mutex::new(first_config.clone()));
+    let environment = get_environment(
+        first_config.environment_id.as_deref(),
+        environment_resolver.clone(),
+    )
+    .await?;
 
     // Setup configuration updates
     let (config_id_update_sender, mut config_id_update_receiver) = broadcast::channel::<String>(3);
     let coordinator = run_configuration_coordinator(config.clone(), config_id_update_sender);
 
+    // Run passive fetcher
+    run_configuration_fetcher(cloud_options.clone(), coordinator.clone());
+
     // Cloud agent reloader
     let (cloud_reload_sender, mut cloud_reload_receiver) = broadcast::channel::<()>(3);
 
+    // Worker events
     let (worker_event_sender, worker_event_receiver) = WorkerEvent::create_channel();
-
-    // Start passive fetcher
-    run_configuration_fetcher(cloud_options.clone(), coordinator.clone());
-
-    let worker_mutex = config.clone();
-    let module_version_resolver = get_module_version_resolver(&cloud_options);
-    let environment_resolver = get_environment_resolver(&cloud_options);
 
     // Setup global
     let global = Arc::new(
         GlobalBuilder::new()
+            .environment(environment)
             .execution_logger(start_cloud_logger(cloud_options.clone()))
             .build(),
     );
-    let worker_global = Arc::clone(&global);
 
     // Start cloud agent
     let cloud_agent_handle = CloudAgentHandle::new(
@@ -128,22 +139,30 @@ async fn run_worker_with_cloud_agent(
         coordinator.clone(),
         cloud_reload_sender.clone(),
     )?;
-
     cloud_agent_handle.start().await;
-
     spawn_cloud_agent_observer(worker_event_receiver.clone(), cloud_agent_handle.clone());
 
-    // Run worker indefinitely until a closing flag is raised
+    // Run worker indefinitely until a shutdown flag is raised
     loop {
-        // Fetch current config
-        let current_config = { worker_mutex.lock().await.clone() };
+        // Get current config
+        let current_config = { config.lock().await.clone() };
+
+        // Fetch and swap environment if needed
+        if current_config.clone().environment_id.unwrap_or_default() != global.environment.load().id
+        {
+            let environment = get_environment(
+                current_config.environment_id.as_deref(),
+                environment_resolver.clone(),
+            )
+            .await?;
+            global.environment.swap(Arc::new(environment));
+        }
 
         run_worker(
             current_config,
             http_server_options.clone(),
-            worker_global.clone(),
+            global.clone(),
             module_version_resolver.clone(),
-            environment_resolver.clone(),
             worker_event_sender.clone(),
             async {
                 tokio::select! {
@@ -158,8 +177,7 @@ async fn run_worker_with_cloud_agent(
                     }
                     _ = shutdown_signal() => {
                         info!("Signal received, stopping gracefully");
-                        let mut closing_flag = closing_flag.lock().await;
-                        *closing_flag = true;
+                        shutdown_flag = true;
                         WorkerStoppingReason::SignalReceived
                     }
                 }
@@ -167,8 +185,7 @@ async fn run_worker_with_cloud_agent(
         )
         .await?;
 
-        let guard = closing_flag.lock().await;
-        if *guard {
+        if shutdown_flag {
             info!("Shutting down...");
             break;
         } else {
@@ -216,22 +233,28 @@ async fn startup() -> Result<(), WorkerError> {
             run_worker_with_cloud_agent(cloud_options, http_server_options).await
         }
         (None, Some(path)) => {
-            let config = load_config_from_file(path).await?;
-
             // You can replace resolvers for quick local testing
             let module_version_resolver = Arc::new(FileSystemModuleVersionResolver {});
             let environment_resolver = Arc::new(Mutex::new(FileSystemEnvironmentResolver {}));
-            let global = Arc::new(GlobalBuilder::new().build());
+
+            // Load first configuration and environment
+            let config = load_config_from_file(path).await?;
+            let environment = get_environment(
+                config.environment_id.as_deref(),
+                environment_resolver.clone(),
+            )
+            .await?;
 
             let (worker_observer_sender, worker_observer_receiver) = WorkerEvent::create_channel();
             spawn_console_observer(worker_observer_receiver);
+
+            let global = Arc::new(GlobalBuilder::new().environment(environment).build());
 
             Ok(run_worker(
                 config,
                 http_server_options,
                 global,
                 module_version_resolver,
-                environment_resolver,
                 worker_observer_sender,
                 async {
                     // The only way to reload/stop the worker is to send a signal
@@ -295,7 +318,6 @@ mod tests {
         // Uncomment to enable logs
         tracing_setup::init();
         let module_version_resolver = Arc::new(FileSystemModuleVersionResolver {});
-        let environment_resolver = Arc::new(Mutex::new(FileSystemEnvironmentResolver {}));
         let config: Configuration = serde_json::from_str(TEST_CONFIG).unwrap();
 
         let global = Arc::new(GlobalBuilder::new().build());
@@ -307,7 +329,6 @@ mod tests {
             config,
             global,
             module_version_resolver,
-            environment_resolver,
             worker_observer_sender,
         );
 

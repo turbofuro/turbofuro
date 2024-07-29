@@ -1,7 +1,6 @@
 extern crate log;
 
 use crate::config::{Configuration, WorkerSettings};
-use crate::environment_resolver::SharedEnvironmentResolver;
 use crate::errors::WorkerError;
 use crate::events::{WorkerEvent, WorkerEventSender};
 use crate::module_version_resolver::SharedModuleVersionResolver;
@@ -31,7 +30,7 @@ use tokio::sync::{mpsc, oneshot};
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::timeout::TimeoutLayer;
-use tracing::{debug, error, info, info_span, warn, Instrument};
+use tracing::{debug, error, info, warn};
 use turbofuro_runtime::actor::{activate_actor, spawn_ok_or_terminate, Actor, ActorCommand};
 use turbofuro_runtime::errors::ExecutionError;
 use turbofuro_runtime::executor::{CompiledModule, Environment, Global};
@@ -178,12 +177,11 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
 }
 
 async fn handle_request(
-    State(app_state): State<AppState>,
+    State(global): State<Arc<Global>>,
     mut request: Request<Body>,
     route: Route,
 ) -> Result<Response, WorkerError> {
-    let module =
-        get_compiled_module(route.module_version_id.as_str(), app_state.global.clone()).await?;
+    let module = get_compiled_module(route.module_version_id.as_str(), global.clone()).await?;
 
     let ws = request.extract_parts::<WebSocketUpgrade>().await.ok();
 
@@ -209,17 +207,13 @@ async fn handle_request(
 
     let handlers = route.handlers.clone();
 
-    let debugger = app_state
-        .global
-        .debug_state
-        .load()
-        .get_debugger(&module.module_id);
+    let debugger = global.debug_state.load().get_debugger(&module.module_id);
 
     let actor = Actor::new(
         StorageValue::Null(None),
-        app_state.environment.clone(),
+        global.environment.load().clone(),
         module,
-        app_state.global.clone(),
+        global.clone(),
         resources,
         handlers,
         debugger,
@@ -227,8 +221,7 @@ async fn handle_request(
 
     let actor_id = actor.get_id().to_owned();
     let actor_link = activate_actor(actor);
-    app_state
-        .global
+    global
         .registry
         .actors
         .insert(actor_id.clone(), actor_link.clone());
@@ -289,13 +282,6 @@ async fn handle_request(
     }
 }
 
-#[derive(Clone)]
-struct AppState {
-    module_version_resolver: SharedModuleVersionResolver,
-    environment: Arc<Environment>,
-    global: Arc<Global>,
-}
-
 pub struct WorkerHttpServer {
     routes: Vec<Route>,
 }
@@ -308,8 +294,6 @@ impl WorkerHttpServer {
     pub fn materialize(
         &self,
         global: Arc<Global>,
-        module_version_resolver: SharedModuleVersionResolver,
-        environment: Arc<Environment>,
         settings: WorkerSettings,
     ) -> Result<Router, WorkerError> {
         let mut router = Router::new();
@@ -353,7 +337,7 @@ impl WorkerHttpServer {
                             .head(move |state, req| handle_request(state, req, route_cloned))
                     }
                     "options" => {
-                        method_router = method_router.options(move |d: State<AppState>, r| {
+                        method_router = method_router.options(move |d: State<Arc<Global>>, r| {
                             handle_request(d, r, route_cloned)
                         })
                     }
@@ -418,11 +402,7 @@ impl WorkerHttpServer {
             crate::config::Compression::Automatic => router = router.layer(CompressionLayer::new()),
         }
 
-        Ok(router.with_state(AppState {
-            module_version_resolver,
-            global,
-            environment,
-        }))
+        Ok(router.with_state(global))
     }
 }
 
@@ -430,7 +410,6 @@ pub struct Worker {
     config: Configuration,
     global: Arc<Global>,
     module_version_resolver: SharedModuleVersionResolver,
-    environment_resolver: SharedEnvironmentResolver,
 
     // To be send by worker to shutdown axum app
     router_shutdown: Option<oneshot::Sender<bool>>,
@@ -447,14 +426,12 @@ impl Worker {
         config: Configuration,
         global: Arc<Global>,
         module_version_resolver: SharedModuleVersionResolver,
-        environment_resolver: SharedEnvironmentResolver,
         event_sender: WorkerEventSender,
     ) -> Self {
         Self {
             config,
             global,
             module_version_resolver,
-            environment_resolver,
             router_shutdown: None,
             router_shutdown_completed: None,
             event_sender,
@@ -462,44 +439,13 @@ impl Worker {
     }
 
     pub async fn start(&mut self) -> Result<Router, WorkerError> {
-        let environment: Environment = match &self.config.environment_id {
-            Some(id) => {
-                // Let's fetch environment
-                match self
-                    .environment_resolver
-                    .lock()
-                    .await
-                    .get_environment(id)
-                    .instrument(info_span!("get_environment"))
-                    .await
-                {
-                    Ok(environment) => environment,
-                    Err(e) => {
-                        error!("Could not fetch environment: {:?}", e);
-                        Environment::new("empty".into())
-                    }
-                }
-            }
-            None => {
-                info!("No environment specified in the config, using empty environment");
-                Environment::new("empty".into())
-            }
-        };
-
-        // Update global environment
-        {
-            let mut e = self.global.environment.write().await;
-            *e = environment.clone()
-        }
-        let environment = Arc::new(environment);
-
         let debug_state = self.global.debug_state.load();
 
         let modules = {
             futures_util::stream::iter(self.config.modules.iter().map(|m| {
                 let debug_entry = debug_state.get_entry(m.module_id.as_str());
 
-                resolve_and_install_module_or_get(
+                get_or_resolve_and_install(
                     &m.module_version_id,
                     self.global.clone(),
                     self.module_version_resolver.clone(),
@@ -550,6 +496,8 @@ impl Worker {
             }
         }
 
+        let environment: Arc<Environment> = self.global.environment.load().clone();
+
         // We would prepare a HTTP server, but the default value is OK for now
         // TODO: Disable HTTP server when no routes are defined
 
@@ -558,13 +506,16 @@ impl Worker {
             // Make a copy of the sender (+ module id) so we can send warnings later
             let module_id = module.id.clone();
             let event_sender = self.event_sender.clone();
+            let handlers = module.handlers.clone();
 
-            let actor = Actor::new_module_initiator(
+            let actor = Actor::new(
                 StorageValue::Null(None),
                 environment.clone(),
                 module,
                 self.global.clone(),
                 ActorResources::default(),
+                handlers,
+                None,
             );
             let actor_id = actor.get_id().to_owned();
             let actor_link = activate_actor(actor);
@@ -627,12 +578,7 @@ impl Worker {
         let http_server = WorkerHttpServer::new(routes.get_routes().clone());
         routes.clear();
 
-        let router = http_server.materialize(
-            self.global.clone(),
-            self.module_version_resolver.clone(),
-            environment.clone(),
-            self.config.settings.clone(),
-        )?;
+        let router = http_server.materialize(self.global.clone(), self.config.settings.clone())?;
 
         Ok(router)
     }
@@ -761,7 +707,7 @@ impl Worker {
 }
 
 // Just a helper function to avoid type annotations in the resolver loop
-async fn resolve_and_install_module_or_get(
+async fn get_or_resolve_and_install(
     id: &str,
     global: Arc<Global>,
     module_version_resolver: SharedModuleVersionResolver,

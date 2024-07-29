@@ -454,27 +454,6 @@ impl Actor {
         }
     }
 
-    pub fn new_module_initiator(
-        state: StorageValue,
-        environment: Arc<Environment>,
-        module: Arc<CompiledModule>,
-        global: Arc<Global>,
-        resources: ActorResources,
-    ) -> Self {
-        let id = nanoid::nanoid!();
-
-        Self {
-            id,
-            state,
-            module: module.clone(),
-            global,
-            environment,
-            resources,
-            handlers: module.handlers.clone(),
-            debugger: None,
-        }
-    }
-
     pub fn get_id(&self) -> &str {
         &self.id
     }

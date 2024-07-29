@@ -240,6 +240,24 @@ impl Environment {
             secrets: HashMap::new(),
         }
     }
+
+    pub fn new_empty() -> Self {
+        Environment {
+            id: "empty".to_owned(),
+            variables: HashMap::new(),
+            secrets: HashMap::new(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.id == "empty"
+    }
+}
+
+impl Default for Environment {
+    fn default() -> Self {
+        Self::new_empty()
+    }
 }
 
 impl Step {
@@ -400,7 +418,7 @@ pub struct Global {
     pub modules: RwLock<Vec<Arc<CompiledModule>>>,
     pub registry: ResourceRegistry,
     pub execution_logger: ExecutionLoggerHandle,
-    pub environment: RwLock<Environment>,
+    pub environment: ArcSwap<Environment>,
     pub pub_sub: Mutex<HashMap<String, tokio::sync::broadcast::Sender<StorageValue>>>,
     pub debug_state: ArcSwap<DebugState>,
 }
@@ -485,7 +503,7 @@ impl GlobalBuilder {
             registry: ResourceRegistry::default(),
             execution_logger: create_console_logger(),
             pub_sub: HashMap::new(),
-            environment: Environment::new("empty".to_owned()),
+            environment: Environment::default(),
         }
     }
 
@@ -524,7 +542,7 @@ impl GlobalBuilder {
             registry: self.registry,
             execution_logger: self.execution_logger,
             pub_sub: self.pub_sub.into(),
-            environment: RwLock::new(self.environment),
+            environment: ArcSwap::new(Arc::new(self.environment)),
             debug_state: ArcSwap::new(Arc::new(DebugState::default())),
         }
     }

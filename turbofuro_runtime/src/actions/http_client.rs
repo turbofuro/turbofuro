@@ -330,8 +330,8 @@ async fn collect_body(
 pub async fn build_client<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
-    step_id: &str,
-    store_as: Option<&str>,
+    _step_id: &str,
+    _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let name = eval_param("name", parameters, &context.storage, &context.environment)?;
     let name = as_string(name, "name")?;
