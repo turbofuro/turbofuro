@@ -189,7 +189,9 @@ async fn handle_request(
     let mut resources = ActorResources::default();
     resources
         .http_requests_to_respond
-        .push(HttpRequestToRespond(http_response_sender));
+        .push(HttpRequestToRespond {
+            response_sender: http_response_sender,
+        });
 
     // Build initial storage
     let mut initial_storage = ObjectBody::new();

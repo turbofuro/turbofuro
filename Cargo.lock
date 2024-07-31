@@ -312,6 +312,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "axum-extra"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0be6ea09c9b96cb5076af0de2e383bd2bc0c18f827cf1967bdd353e0b910d733"
+dependencies = [
+ "axum 0.7.5",
+ "axum-core 0.4.3",
+ "bytes",
+ "cookie",
+ "futures-util",
+ "http 1.1.0",
+ "http-body 1.0.0",
+ "http-body-util",
+ "mime",
+ "pin-project-lite",
+ "serde",
+ "tower",
+ "tower-layer",
+ "tower-service",
+ "tracing",
+]
+
+[[package]]
 name = "axum-server"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -636,6 +659,17 @@ checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
 dependencies = [
  "cfg-if",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "cookie"
+version = "0.18.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ddef33a339a91ea89fb53151bd0a4689cfce27055c291dfa69945475d22c747"
+dependencies = [
+ "percent-encoding",
+ "time",
+ "version_check",
 ]
 
 [[package]]
@@ -3983,8 +4017,10 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "axum 0.7.5",
+ "axum-extra",
  "base64 0.21.7",
  "chrono",
+ "cookie",
  "criterion",
  "croner",
  "dashmap",
@@ -4040,6 +4076,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "axum 0.7.5",
+ "axum-extra",
  "axum-server",
  "chrono",
  "console-subscriber",

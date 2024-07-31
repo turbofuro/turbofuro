@@ -63,3 +63,4 @@ axum-server = "0.6.0"
 http-body-util = "0.1.1"
 console-subscriber = "0.2.0"
 tokio-stream = "0.1.15"
+axum-extra = { version = "0.9.3", features = ["cookie"] }

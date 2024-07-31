@@ -5,6 +5,7 @@ use axum::{
     extract::{FromRequest, FromRequestParts, Path, Query, Request},
     http::request::Parts,
 };
+use axum_extra::extract::CookieJar;
 use encoding_rs::{Encoding, UTF_8};
 use hyper::{header, HeaderMap, Method};
 use tel::{ObjectBody, StorageValue};
@@ -112,6 +113,48 @@ pub async fn build_metadata_from_parts(parts: &mut Parts) -> (ObjectBody, Detect
             "path".to_string(),
             StorageValue::String(parts.uri.path().to_string()),
         );
+
+        let cookies = CookieJar::from_request_parts(parts, &()).await.ok();
+        let mut cookies_object = ObjectBody::new();
+        if let Some(cookies) = cookies {
+            for (cookie) in cookies.iter() {
+                let mut cookie_object: ObjectBody = HashMap::new();
+                cookie_object.insert("value".to_string(), cookie.value().into());
+                if let Some(expires) = cookie.expires() {
+                    match expires {
+                        axum_extra::extract::cookie::Expiration::DateTime(datetime) => {
+                            cookie_object.insert(
+                                "expires".to_string(),
+                                (datetime.unix_timestamp() as f64).into(),
+                            );
+                        }
+                        axum_extra::extract::cookie::Expiration::Session => {
+                            cookie_object.insert("expires".to_string(), "session".into());
+                        }
+                    }
+                }
+                if let Some(max_age) = cookie.max_age() {
+                    cookie_object.insert("maxAge".to_string(), max_age.as_seconds_f64().into());
+                }
+                if let Some(secure) = cookie.secure() {
+                    cookie_object.insert("secure".to_string(), secure.into());
+                }
+                if let Some(http_only) = cookie.http_only() {
+                    cookie_object.insert("httpOnly".to_string(), http_only.into());
+                }
+                if let Some(same_site) = cookie.same_site() {
+                    cookie_object.insert(
+                        "sameSite".to_string(),
+                        StorageValue::String(same_site.to_string()),
+                    );
+                }
+                cookies_object.insert(
+                    cookie.name().to_string(),
+                    StorageValue::Object(cookie_object),
+                );
+            }
+        }
+        obj.insert("cookies".to_string(), StorageValue::Object(cookies_object));
 
         // Insert headers
         let mut headers = HashMap::new();

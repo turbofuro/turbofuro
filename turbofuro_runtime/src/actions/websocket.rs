@@ -46,7 +46,7 @@ pub async fn accept_ws<'a>(
 
     let (response, receiver) = HttpResponse::new_ws();
     http_request_to_respond
-        .0
+        .response_sender
         .send(response)
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to accept WebSocket by sending response to HTTP request".to_owned(),

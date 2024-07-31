@@ -103,6 +103,17 @@ pub fn as_boolean(s: StorageValue, name: &str) -> Result<bool, ExecutionError> {
     }
 }
 
+pub fn as_number(s: StorageValue, name: &str) -> Result<f64, ExecutionError> {
+    match s {
+        StorageValue::Number(s) => Ok(s),
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: name.to_owned(),
+            expected: Description::new_base_type("number"),
+            actual: describe(s),
+        }),
+    }
+}
+
 pub fn as_u64(s: StorageValue, name: &str) -> Result<u64, ExecutionError> {
     match s {
         StorageValue::Number(f) => Ok(f as u64),

@@ -2,8 +2,11 @@ use std::{collections::HashMap, convert::Infallible, time::Duration, vec};
 
 use axum::{
     body::Body,
+    http::response,
     response::{sse, Response},
 };
+use axum_extra::extract::cookie::Cookie;
+use cookie::time::OffsetDateTime;
 use tel::{describe, Description, StorageValue};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, instrument};
@@ -16,7 +19,7 @@ use crate::{
     resources::{HttpRequestToRespond, HttpResponse, OpenSseStream, Resource},
 };
 
-use super::{as_integer, get_handlers_from_parameters};
+use super::{as_boolean, as_integer, as_number, as_string, get_handlers_from_parameters};
 
 #[instrument(level = "debug", skip_all)]
 pub async fn setup_route<'a>(
@@ -74,6 +77,69 @@ pub async fn setup_streaming_route<'a>(
     Ok(())
 }
 
+fn fill_headers_response(
+    mut response_builder: response::Builder,
+    headers_param: StorageValue,
+    cookies_param: StorageValue,
+) -> Result<response::Builder, ExecutionError> {
+    match headers_param {
+        StorageValue::Object(object) => {
+            for (key, value) in object {
+                let value = value.to_string().map_err(ExecutionError::from)?;
+                response_builder = response_builder.header(key, value);
+            }
+        }
+        s => {
+            return Err(ExecutionError::ParameterTypeMismatch {
+                name: "headers".to_owned(),
+                expected: Description::new_union(vec![
+                    Description::new_base_type("array"),
+                    Description::new_base_type("object"),
+                ]),
+                actual: describe(s),
+            })
+        }
+    }
+
+    match cookies_param {
+        StorageValue::Array(cookie_array) => {
+            for (index, cookie) in cookie_array.into_iter().enumerate() {
+                match cookie {
+                    StorageValue::Object(cookie) => {
+                        response_builder = apply_cookie(
+                            cookie,
+                            response_builder,
+                            format!("cookies[{}]", index).as_str(),
+                        )?;
+                    }
+                    _ => {
+                        return Err(ExecutionError::ParameterTypeMismatch {
+                            name: "cookies".to_owned(),
+                            expected: Description::new_base_type("object"),
+                            actual: describe(cookie),
+                        })
+                    }
+                }
+            }
+        }
+        StorageValue::Object(cookie_object) => {
+            response_builder = apply_cookie(cookie_object, response_builder, "cookies")?;
+        }
+        s => {
+            return Err(ExecutionError::ParameterTypeMismatch {
+                name: "cookies".to_owned(),
+                expected: Description::new_union(vec![
+                    Description::new_base_type("array"),
+                    Description::new_base_type("object"),
+                ]),
+                actual: describe(s),
+            })
+        }
+    }
+
+    Ok(response_builder)
+}
+
 #[instrument(level = "debug", skip_all)]
 pub async fn respond_with<'a>(
     context: &mut ExecutionContext<'a>,
@@ -87,6 +153,20 @@ pub async fn respond_with<'a>(
         &context.environment,
         StorageValue::Number(200.0),
     )?;
+    let headers_param = eval_optional_param_with_default(
+        "headers",
+        parameters,
+        &context.storage,
+        &context.environment,
+        StorageValue::Object(HashMap::new()),
+    )?;
+    let cookies_param = eval_optional_param_with_default(
+        "cookies",
+        parameters,
+        &context.storage,
+        &context.environment,
+        StorageValue::Array(vec![]),
+    )?;
     let status = as_integer(status_type_param, "status")?;
 
     let body = eval_optional_param_with_default(
@@ -97,9 +177,14 @@ pub async fn respond_with<'a>(
         StorageValue::Null(None),
     )?;
 
-    let mut response_builder = Response::builder().status(status as u16);
+    let http_request_to_respond = context
+        .resources
+        .http_requests_to_respond
+        .pop()
+        .ok_or_else(HttpRequestToRespond::missing)?;
 
     // TODO: Make this more verbose and handle other types by specialized functions
+    let mut response_builder = Response::builder().status(status as u16);
     let response = {
         let body = match body {
             StorageValue::String(s) => {
@@ -135,31 +220,7 @@ pub async fn respond_with<'a>(
             StorageValue::Null(_) => Body::empty(),
         };
 
-        let headers_param = eval_optional_param_with_default(
-            "headers",
-            parameters,
-            &context.storage,
-            &context.environment,
-            StorageValue::Object(HashMap::new()),
-        )?;
-        match headers_param {
-            StorageValue::Object(object) => {
-                for (key, value) in object {
-                    let value = value.to_string().map_err(ExecutionError::from)?;
-                    response_builder = response_builder.header(key, value);
-                }
-            }
-            s => {
-                return Err(ExecutionError::ParameterTypeMismatch {
-                    name: "headers".to_owned(),
-                    expected: Description::new_union(vec![
-                        Description::new_base_type("array"),
-                        Description::new_base_type("object"),
-                    ]),
-                    actual: describe(s),
-                })
-            }
-        }
+        response_builder = fill_headers_response(response_builder, headers_param, cookies_param)?;
 
         response_builder
             .body(body)
@@ -169,15 +230,9 @@ pub async fn respond_with<'a>(
             })?
     };
 
-    let http_request_to_respond = context
-        .resources
-        .http_requests_to_respond
-        .pop()
-        .ok_or_else(HttpRequestToRespond::missing)?;
-
     let (response, receiver) = HttpResponse::new(response);
     http_request_to_respond
-        .0
+        .response_sender
         .send(response)
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to respond to HTTP request".to_owned(),
@@ -190,6 +245,91 @@ pub async fn respond_with<'a>(
         inner: e.to_string(),
         subject: HttpRequestToRespond::get_type().into(),
     })?
+}
+
+fn apply_cookie(
+    mut cookie: HashMap<String, StorageValue>,
+    response_builder: response::Builder,
+    path: &str,
+) -> Result<response::Builder, ExecutionError> {
+    let mut response_builder = response_builder;
+
+    let name = as_string(
+        cookie
+            .remove("name")
+            .ok_or_else(|| ExecutionError::ParameterInvalid {
+                name: "name".to_owned(),
+                message: "Cookie name is missing".to_owned(),
+            })?,
+        format!("{}.name", path).as_str(),
+    )?;
+    let value = as_string(
+        cookie
+            .remove("value")
+            .ok_or_else(|| ExecutionError::ParameterInvalid {
+                name: "value".to_owned(),
+                message: "Cookie name is missing".to_owned(),
+            })?,
+        format!("{}.value", path).as_str(),
+    )?;
+    let expires = cookie
+        .remove("expires")
+        .map(|v| as_number(v, format!("{}.expires", path).as_str()))
+        .transpose()?;
+    let max_age = cookie
+        .remove("maxAge")
+        .map(|v| as_number(v, format!("{}.maxAge", path).as_str()))
+        .transpose()?;
+    let secure = cookie
+        .remove("secure")
+        .map(|v| as_boolean(v, format!("{}.secure", path).as_str()))
+        .transpose()?;
+    let http_only = cookie
+        .remove("httpOnly")
+        .map(|v| as_boolean(v, format!("{}.httpOnly", path).as_str()))
+        .transpose()?;
+    let same_site = cookie
+        .remove("sameSite")
+        .map(|v| as_string(v, format!("{}.sameSite", path).as_str()))
+        .transpose()?;
+
+    let mut cookie_builder = Cookie::build((name, value));
+    if let Some(expires) = expires {
+        cookie_builder =
+            cookie_builder.expires(OffsetDateTime::from_unix_timestamp(expires as i64).map_err(
+                |e| ExecutionError::ParameterInvalid {
+                    name: "expires".to_owned(),
+                    message: e.to_string(),
+                },
+            )?);
+    }
+    if let Some(max_age) = max_age {
+        cookie_builder = cookie_builder.max_age(cookie::time::Duration::seconds_f64(max_age));
+    }
+    if let Some(secure) = secure {
+        cookie_builder = cookie_builder.secure(secure);
+    }
+    if let Some(http_only) = http_only {
+        cookie_builder = cookie_builder.http_only(http_only);
+    }
+    if let Some(same_site) = same_site {
+        match same_site.to_lowercase().as_str() {
+            "lax" => cookie_builder = cookie_builder.same_site(cookie::SameSite::Lax),
+            "strict" => cookie_builder = cookie_builder.same_site(cookie::SameSite::Strict),
+            "none" => cookie_builder = cookie_builder.same_site(cookie::SameSite::None),
+            _ => {
+                return Err(ExecutionError::ParameterInvalid {
+                    name: format!("{}.sameSite", path),
+                    message: "Invalid value for sameSite".to_owned(),
+                })
+            }
+        }
+    }
+
+    response_builder =
+        response_builder.header("set-cookie", cookie_builder.build().encoded().to_string());
+
+    Ok(response_builder)
 }
 
 #[instrument(level = "debug", skip_all)]
@@ -205,40 +345,29 @@ pub async fn respond_with_stream<'a>(
         &context.environment,
         StorageValue::Number(200.0),
     )?;
+    let headers_param = eval_optional_param_with_default(
+        "headers",
+        parameters,
+        &context.storage,
+        &context.environment,
+        StorageValue::Object(HashMap::new()),
+    )?;
+    let cookies_param = eval_optional_param_with_default(
+        "cookies",
+        parameters,
+        &context.storage,
+        &context.environment,
+        StorageValue::Array(vec![]),
+    )?;
     let status = as_integer(status_type_param, "status")?;
 
     let mut response_builder = Response::builder().status(status as u16);
-
     // TODO: Make this more verbose and handle other types by specialized functions
     let response = {
         let stream = context.resources.get_nearest_stream()?;
         let body = Body::from_stream(stream);
 
-        let headers_param = eval_optional_param_with_default(
-            "headers",
-            parameters,
-            &context.storage,
-            &context.environment,
-            StorageValue::Object(HashMap::new()),
-        )?;
-        match headers_param {
-            StorageValue::Object(object) => {
-                for (key, value) in object {
-                    let value = value.to_string().map_err(ExecutionError::from)?;
-                    response_builder = response_builder.header(key, value);
-                }
-            }
-            s => {
-                return Err(ExecutionError::ParameterTypeMismatch {
-                    name: "headers".to_owned(),
-                    expected: Description::new_union(vec![
-                        Description::new_base_type("array"),
-                        Description::new_base_type("object"),
-                    ]),
-                    actual: describe(s),
-                })
-            }
-        }
+        response_builder = fill_headers_response(response_builder, headers_param, cookies_param)?;
 
         response_builder
             .body(body)
@@ -256,7 +385,7 @@ pub async fn respond_with_stream<'a>(
 
     let (response, receiver) = HttpResponse::new(response);
     http_request_to_respond
-        .0
+        .response_sender
         .send(response)
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to respond to HTTP request".to_owned(),
@@ -333,7 +462,7 @@ pub async fn respond_with_sse_stream<'a>(
     let (event_sender, event_receiver) = mpsc::channel::<Result<sse::Event, Infallible>>(16);
     let (response, receiver) = HttpResponse::new_sse(event_receiver, keep_alive, disconnect_sender);
     http_request_to_respond
-        .0
+        .response_sender
         .send(response)
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to respond to HTTP request".to_owned(),

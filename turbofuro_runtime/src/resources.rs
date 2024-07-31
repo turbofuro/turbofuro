@@ -269,7 +269,9 @@ impl WebSocketCommand {
 }
 
 #[derive(Debug)]
-pub struct HttpRequestToRespond(pub oneshot::Sender<HttpResponse>);
+pub struct HttpRequestToRespond {
+    pub response_sender: oneshot::Sender<HttpResponse>,
+}
 
 impl Resource for HttpRequestToRespond {
     fn get_type() -> &'static str {
