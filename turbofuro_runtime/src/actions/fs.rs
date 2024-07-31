@@ -113,6 +113,45 @@ pub async fn open_file<'a>(
 }
 
 #[instrument(level = "trace", skip_all)]
+pub async fn read_dir<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
+    let path = as_string(path_param, "path")?;
+
+    let mut dir = tokio::fs::read_dir(path)
+        .await
+        .map_err(ExecutionError::from)?;
+
+    let mut entries = Vec::new();
+    while let Some(entry) = dir.next_entry().await.map_err(ExecutionError::from)? {
+        let metadata = entry.metadata().await.map_err(ExecutionError::from)?;
+        let file_type = metadata.file_type();
+
+        let mut entry_object = ObjectBody::new();
+        entry_object.insert(
+            "name".to_owned(),
+            entry.file_name().to_string_lossy().to_string().into(),
+        );
+        entry_object.insert(
+            "path".to_owned(),
+            entry.path().as_path().to_string_lossy().to_string().into(),
+        );
+        entry_object.insert("isDir".to_owned(), file_type.is_dir().into());
+        entry_object.insert("isFile".to_owned(), file_type.is_file().into());
+        entry_object.insert("isSymlink".to_owned(), file_type.is_symlink().into());
+        entries.push(StorageValue::Object(entry_object));
+    }
+
+    store_value(store_as, context, step_id, StorageValue::Array(entries)).await?;
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
 pub async fn write_stream<'a>(
     context: &mut ExecutionContext<'a>,
     _step_id: &str,
