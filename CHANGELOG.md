@@ -1,19 +1,29 @@
+## 0.1.17 (pending)
+* Added support for HTTP cookies
+
+## 0.1.16
+* Added support for live debugging with module reloading
+* Fixed environment reloading
+* Added ability to create custom HTTP client
+* Fixed and improved cloud agent
+* Improved worker shutdown procedure
+
 ## 0.1.15
 * Added support for live debugging  
 * Worker status reporting
 * Better error handling
 * Code reorganization
-* Add context parameter to PubSub subscription
-* Add more data to execution reports
-* Add --addr command line argument for setting the address to bind to
-* Remove `saveAs` leftovers
+* Added context parameter to PubSub subscription
+* Added more data to execution reports
+* Added --addr command line argument for setting the address to bind to
+* Removed `saveAs` leftovers
 
 ## 0.1.14
 * Added `mail` module for sending emails via SMTP
 * Added `pretty` parameter to JSON stringify function
 * Print worker version on start
-* Add worker version to stats
-* Fix leaking Redis PubSub
+* Added worker version to stats
+* Fixed leaking Redis PubSub
 
 ## 0.1.13
 * Added `form` parameter to HTTP request function
