@@ -78,6 +78,7 @@ impl ToString for DetectedContentType {
 
 pub async fn build_metadata_from_parts(parts: &mut Parts) -> (ObjectBody, DetectedContentType) {
     let mut obj = HashMap::new();
+    obj.insert("version".to_owned(), format!("{:?}", parts.version).into());
     let content_type: DetectedContentType;
     {
         let path: Path<HashMap<String, String>> =
@@ -117,7 +118,7 @@ pub async fn build_metadata_from_parts(parts: &mut Parts) -> (ObjectBody, Detect
         let cookies = CookieJar::from_request_parts(parts, &()).await.ok();
         let mut cookies_object = ObjectBody::new();
         if let Some(cookies) = cookies {
-            for (cookie) in cookies.iter() {
+            for cookie in cookies.iter() {
                 let mut cookie_object: ObjectBody = HashMap::new();
                 cookie_object.insert("value".to_string(), cookie.value().into());
                 if let Some(expires) = cookie.expires() {
