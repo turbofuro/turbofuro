@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use reqwest::Client;
 use tokio::sync::mpsc::{self};
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 use turbofuro_runtime::{
     debug::{ExecutionLoggerHandle, LoggerMessage},
     executor::{ExecutionReport, ExecutionStatus},
@@ -83,12 +83,20 @@ pub fn start_cloud_logger(cloud_options: CloudOptions) -> ExecutionLoggerHandle 
                             .send()
                             .await
                         {
-                            Ok(response) => match response.text().await {
-                                Ok(data) => {
-                                    debug!("Cloud logger: Sent log {}", data);
+                            Ok(response) => match response.status().is_client_error()
+                                || response.status().is_server_error()
+                            {
+                                true => {
+                                    warn!("Cloud logger: Failed to send log error was {:?} log was\n{}",
+                                        response.status(),
+                                        serde_json::to_string_pretty(&report).unwrap()
+                                    );
                                 }
-                                Err(e) => {
-                                    error!("Cloud logger: Failed to retrieve report ID {:?}", e)
+                                false => {
+                                    debug!(
+                                        "Cloud logger: Sent log {}",
+                                        response.text().await.unwrap()
+                                    );
                                 }
                             },
                             Err(e) => {
