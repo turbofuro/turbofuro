@@ -425,8 +425,10 @@ mod tests {
                       "content-type": "text/plain"
                     },
                     "params": {},
+                    "cookies": {},
                     "path": "/echo",
-                    "body": "Hello World!"
+                    "body": "Hello World!",
+                    "version": "HTTP/1.1"
                   }
             ))
             .unwrap()
@@ -465,7 +467,9 @@ mod tests {
                     "path": "/echo",
                     "body": {
                         "hello": "world"
-                    }
+                    },
+                    "cookies": {},
+                    "version": "HTTP/1.1"
                   }
             ))
             .unwrap()
