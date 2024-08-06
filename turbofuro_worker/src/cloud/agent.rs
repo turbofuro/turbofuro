@@ -35,7 +35,7 @@ enum CloudAgentMessage {
     HandleWorkerEvent {
         event: WorkerEvent,
     },
-    RunFunction {
+    PerformRun {
         id: String,
         module_version: ModuleVersion,
         callee: Callee,
@@ -128,7 +128,7 @@ impl CloudAgent {
                     })
                     .await;
             }
-            CloudAgentMessage::RunFunction {
+            CloudAgentMessage::PerformRun {
                 id,
                 module_version,
                 callee,
@@ -437,7 +437,7 @@ impl CloudAgentHandle {
     ) {
         let _ = self
             .sender
-            .send(CloudAgentMessage::RunFunction {
+            .send(CloudAgentMessage::PerformRun {
                 id,
                 module_version,
                 callee,

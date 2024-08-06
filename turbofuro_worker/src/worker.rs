@@ -510,6 +510,8 @@ impl Worker {
             let event_sender = self.event_sender.clone();
             let handlers = module.handlers.clone();
 
+            let debugger = debug_state.get_debugger(&module_id);
+
             let actor = Actor::new(
                 StorageValue::Null(None),
                 environment.clone(),
@@ -517,7 +519,7 @@ impl Worker {
                 self.global.clone(),
                 ActorResources::default(),
                 handlers,
-                None,
+                debugger,
             );
             let actor_id = actor.get_id().to_owned();
             let actor_link = activate_actor(actor);
