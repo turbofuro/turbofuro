@@ -23,6 +23,7 @@ pub mod os;
 pub mod postgres;
 pub mod pubsub;
 pub mod redis;
+pub mod tasks;
 pub mod time;
 pub mod wasm;
 pub mod websocket;
@@ -153,5 +154,24 @@ pub fn get_optional_handler_from_parameters(
         .map(|p| match p {
             Parameter::FunctionRef { id, .. } => id.clone(),
             _ => unreachable!(),
+        })
+}
+
+pub fn get_handler_from_parameters(
+    parameter_name: &str,
+    parameters: &[Parameter],
+) -> Result<String, ExecutionError> {
+    parameters
+        .iter()
+        .find(|p| match p {
+            Parameter::FunctionRef { name, id: _ } => name == parameter_name,
+            _ => false,
+        })
+        .map(|p| match p {
+            Parameter::FunctionRef { id, .. } => id.clone(),
+            _ => unreachable!(),
+        })
+        .ok_or_else(|| ExecutionError::MissingParameter {
+            name: parameter_name.to_owned(),
         })
 }

@@ -42,6 +42,7 @@ use crate::actions::os;
 use crate::actions::postgres;
 use crate::actions::pubsub;
 use crate::actions::redis;
+use crate::actions::tasks;
 use crate::actions::time;
 use crate::actions::wasm;
 use crate::actions::websocket;
@@ -1066,6 +1067,10 @@ async fn execute_native<'a>(
         "mail/send_smtp_text" => {
             mail::sendmail_smtp_text(context, parameters, step_id, store_as).await?
         }
+        "tasks/run_task_continuously" => {
+            tasks::run_task_continuously(context, parameters, step_id).await?
+        }
+        "tasks/cancel_task" => tasks::cancel_task(context, parameters, step_id).await?,
         id => {
             return Err(ExecutionError::Unsupported {
                 message: format!("Native function {} not found", id),

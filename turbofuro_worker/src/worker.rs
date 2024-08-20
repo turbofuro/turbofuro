@@ -506,11 +506,10 @@ impl Worker {
         let mut waits = vec![];
         for module in modules_to_start {
             // Make a copy of the sender (+ module id) so we can send warnings later
-            let module_id = module.id.clone();
+            let module_version_id = module.id.clone();
             let event_sender = self.event_sender.clone();
             let handlers = module.handlers.clone();
-
-            let debugger = debug_state.get_debugger(&module_id);
+            let debugger = debug_state.get_debugger(&module.module_id);
 
             let actor = Actor::new(
                 StorageValue::Null(None),
@@ -552,7 +551,7 @@ impl Worker {
                                 event_sender
                                     .send(WorkerEvent::WarningRaised(
                                         WorkerWarning::ModuleStartupFailed {
-                                            module_id,
+                                            module_id: module_version_id,
                                             error: WorkerError::from(err),
                                         },
                                     ))
@@ -564,7 +563,7 @@ impl Worker {
                         event_sender
                             .send(WorkerEvent::WarningRaised(
                                 WorkerWarning::ModuleStartupFailed {
-                                    module_id,
+                                    module_id: module_version_id,
                                     error: WorkerError::from(
                                         ExecutionError::new_missing_response_from_actor(),
                                     ),
