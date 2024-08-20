@@ -1,7 +1,11 @@
-## 0.1.17 (pending)
+## 0.1.18 (pending)
+
+## 0.1.17
 * Added support for HTTP cookies
 * Added HTTP version to request object
 * Add fs/read_dir native function
+* Added support for debugging module starters
+* Added basic tasks functions
 
 ## 0.1.16
 * Added support for live debugging with module reloading
