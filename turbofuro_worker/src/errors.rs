@@ -5,38 +5,20 @@ use std::fmt::Display;
 use turbofuro_runtime::errors::ExecutionError;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(tag = "app_error", rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(tag = "code", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum WorkerError {
     ModuleVersionNotFound,
     MalformedModuleVersion,
     EnvironmentNotFound,
     MalformedEnvironment,
-    InvalidArguments {
-        message: String,
-    },
-    InvalidEnvironmentVariable {
-        name: String,
-        message: String,
-    },
-    ExecutionFailed {
-        #[serde(flatten)]
-        error: ExecutionError,
-    },
-    CouldNotFetchConfiguration {
-        message: String,
-    },
-    MalformedConfiguration {
-        message: String,
-    },
-    InvalidCloudAgentCommand {
-        message: String,
-    },
-    InvalidOperatorUrl {
-        url: String,
-    },
-    Unsupported {
-        message: String,
-    },
+    InvalidArguments { message: String },
+    InvalidEnvironmentVariable { name: String, message: String },
+    ExecutionFailed { error: ExecutionError },
+    CouldNotFetchConfiguration { message: String },
+    MalformedConfiguration { message: String },
+    InvalidCloudAgentCommand { message: String },
+    InvalidOperatorUrl { url: String },
+    Unsupported { message: String },
 }
 
 impl From<pico_args::Error> for WorkerError {

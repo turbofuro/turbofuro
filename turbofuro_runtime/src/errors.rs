@@ -14,7 +14,6 @@ pub enum ExecutionError {
         value: Option<StorageValue>,
     },
     Tel {
-        #[serde(flatten)]
         error: TelError,
     },
     MissingParameter {
