@@ -7,11 +7,11 @@ use tracing::instrument;
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{eval_optional_param, eval_param},
+    evaluations::{eval_optional_param, eval_optional_param_with_default, eval_param},
     executor::{get_timestamp, ExecutionContext, Parameter},
 };
 
-use super::{as_u64, store_value};
+use super::{as_number, as_u64, store_value};
 
 #[derive(Debug, Clone)]
 struct KvValue {
@@ -81,6 +81,60 @@ pub async fn write_to_store<'a>(
     }
 
     KV.insert(key, KvValue { value, expiration });
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn increment_store<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    _step_id: &str,
+) -> Result<(), ExecutionError> {
+    let key_param = eval_param("key", parameters, &context.storage, &context.environment)?;
+    let key = key_param.to_string().map_err(ExecutionError::from)?;
+
+    let value = eval_optional_param_with_default(
+        "increment",
+        parameters,
+        &context.storage,
+        &context.environment,
+        1.into(),
+    )?;
+    let increment = as_number(value, "increment")?;
+
+    let mut expiration = None;
+    let expiration_param = eval_optional_param(
+        "expiration",
+        parameters,
+        &context.storage,
+        &context.environment,
+    )?;
+    if let Some(expiration_param) = expiration_param {
+        expiration = Some(get_timestamp() + as_u64(expiration_param, "expiration")?);
+    }
+
+    if let Some(mut existing) = KV.get_mut(key.as_str()) {
+        existing.expiration = expiration;
+        existing.value = match existing.value {
+            StorageValue::Number(n) => StorageValue::Number(n + increment),
+            _ => {
+                return Err(ExecutionError::StateInvalid {
+                    message: "Can't increment non-number".to_owned(),
+                    subject: "kv".to_owned(),
+                    inner: "increment".to_owned(),
+                })
+            }
+        };
+    } else {
+        KV.insert(
+            key,
+            KvValue {
+                value: increment.into(),
+                expiration,
+            },
+        );
+    }
 
     Ok(())
 }
@@ -156,5 +210,103 @@ mod tests {
         .unwrap();
 
         assert_eq!(context.storage.get("data"), Some(&StorageValue::Null(None)));
+    }
+
+    #[tokio::test]
+    async fn test_expiration() {
+        let mut t = ExecutionTest::default();
+        let mut context = t.get_context();
+
+        write_to_store(
+            &mut context,
+            &vec![
+                Parameter::tel("key", "\"test_key\""),
+                Parameter::tel("value", "4"),
+                Parameter::tel("expiration", "100"),
+            ],
+            "test",
+        )
+        .await
+        .unwrap();
+
+        read_from_store(
+            &mut context,
+            &vec![Parameter::tel("key", "\"test_key\"")],
+            "test",
+            Some("data"),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            context.storage.get("data"),
+            Some(&StorageValue::Number(4.0))
+        );
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        read_from_store(
+            &mut context,
+            &vec![Parameter::tel("key", "\"test_key\"")],
+            "test",
+            Some("data"),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(context.storage.get("data"), Some(&StorageValue::Null(None)));
+    }
+
+    #[tokio::test]
+    async fn test_increment() {
+        let mut t = ExecutionTest::default();
+        let mut context = t.get_context();
+
+        increment_store(
+            &mut context,
+            &vec![
+                Parameter::tel("key", "\"test_key\""),
+                Parameter::tel("increment", "2"),
+            ],
+            "test",
+        )
+        .await
+        .unwrap();
+
+        read_from_store(
+            &mut context,
+            &vec![Parameter::tel("key", "\"test_key\"")],
+            "test",
+            Some("data"),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            context.storage.get("data"),
+            Some(&StorageValue::Number(2.0))
+        );
+
+        increment_store(
+            &mut context,
+            &vec![
+                Parameter::tel("key", "\"test_key\""),
+                Parameter::tel("increment", "3"),
+            ],
+            "test",
+        )
+        .await
+        .unwrap();
+
+        read_from_store(
+            &mut context,
+            &vec![Parameter::tel("key", "\"test_key\"")],
+            "test",
+            Some("data"),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            context.storage.get("data"),
+            Some(&StorageValue::Number(5.0))
+        );
     }
 }

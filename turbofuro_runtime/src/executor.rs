@@ -1043,6 +1043,7 @@ async fn execute_native<'a>(
         "kv/write" => kv::write_to_store(context, parameters, step_id).await?,
         "kv/read" => kv::read_from_store(context, parameters, step_id, store_as).await?,
         "kv/delete" => kv::delete_from_store(context, parameters, step_id).await?,
+        "kv/increment" => kv::increment_store(context, parameters, step_id).await?,
         "convert/parse_json" => convert::parse_json(context, parameters, step_id, store_as).await?,
         "convert/to_json" => convert::to_json(context, parameters, step_id, store_as).await?,
         "convert/parse_urlencoded" => {
