@@ -31,6 +31,7 @@ use crate::actions::actors;
 use crate::actions::alarms;
 use crate::actions::convert;
 use crate::actions::crypto;
+use crate::actions::debug;
 use crate::actions::form_data;
 use crate::actions::fs;
 use crate::actions::http_client;
@@ -1071,6 +1072,14 @@ async fn execute_native<'a>(
             tasks::run_task_continuously(context, parameters, step_id).await?
         }
         "tasks/cancel_task" => tasks::cancel_task(context, parameters, step_id).await?,
+        "debug/ask_for_input" => {
+            debug::ask_for_input(context, parameters, step_id, store_as).await?
+        }
+        "debug/show_result" => debug::show_result(context, parameters, step_id, store_as).await?,
+        "debug/show_notification" => {
+            debug::show_notification(context, parameters, step_id, store_as).await?
+        }
+        "debug/play_sound" => debug::play_sound(context, parameters, step_id, store_as).await?,
         id => {
             return Err(ExecutionError::Unsupported {
                 message: format!("Native function {} not found", id),

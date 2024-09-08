@@ -91,6 +91,7 @@ pub async fn set_alarm<'a>(
                                 storage,
                                 references: HashMap::new(),
                                 sender: None,
+                                execution_id: None,
                             })
                             .await
                             .unwrap();
@@ -101,6 +102,7 @@ pub async fn set_alarm<'a>(
                                 storage,
                                 references: HashMap::new(),
                                 sender: None,
+                                execution_id: None,
                             })
                             .await
                             .unwrap();
@@ -157,6 +159,7 @@ async fn run_interval_inner(
                         storage,
                         references: HashMap::new(),
                         sender: None,
+                        execution_id: None,
                     })
                     .await
                     .unwrap();
@@ -167,6 +170,7 @@ async fn run_interval_inner(
                         storage,
                         references: HashMap::new(),
                         sender: None,
+                        execution_id: None,
                     })
                     .await
                     .unwrap();
@@ -312,6 +316,7 @@ async fn run_cronjob_inner(
                                 storage,
                                 references: HashMap::new(),
                                 sender: None,
+                                execution_id: None,
                             })
                             .await
                             .unwrap();
@@ -322,6 +327,7 @@ async fn run_cronjob_inner(
                                 storage,
                                 references: HashMap::new(),
                                 sender: None,
+                                execution_id: None,
                             })
                             .await
                             .unwrap();

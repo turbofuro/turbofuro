@@ -71,6 +71,7 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
                 storage: ObjectBody::new(),
                 references: HashMap::new(),
                 sender: None,
+                execution_id: None,
             })
             .await?;
     }
@@ -114,6 +115,7 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
                                 storage: initial_storage,
                                 references: HashMap::new(),
                                 sender: None,
+                                execution_id: None,
                             })
                             .await?;
                     }
@@ -144,6 +146,7 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
                                 storage: initial_storage,
                                 references: HashMap::new(),
                                 sender: None,
+                                execution_id: None,
                             })
                             .await?;
                     }
@@ -164,6 +167,7 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
                         storage: initial_storage,
                         references: HashMap::new(),
                         sender: None,
+                        execution_id: None,
                     })
                     .await?;
             }
@@ -237,6 +241,7 @@ async fn handle_request(
             storage: initial_storage,
             references: HashMap::new(),
             sender: Some(response_sender),
+            execution_id: None,
         })
         .await?;
 
@@ -536,6 +541,7 @@ impl Worker {
                     storage: HashMap::new(),
                     references: HashMap::new(),
                     sender: Some(run_sender),
+                    execution_id: None,
                 })
                 .await;
 

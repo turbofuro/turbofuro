@@ -384,6 +384,7 @@ pub async fn setup_watcher<'a>(
                                         storage,
                                         references: HashMap::new(),
                                         sender: None,
+                                        execution_id: None,
                                     })
                                     .await
                                     .unwrap();
@@ -394,6 +395,7 @@ pub async fn setup_watcher<'a>(
                                         storage,
                                         references: HashMap::new(),
                                         sender: None,
+                                        execution_id: None,
                                     })
                                     .await
                                     .unwrap();

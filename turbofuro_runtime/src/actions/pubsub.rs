@@ -80,6 +80,7 @@ async fn subscribe_and_schedule_runs(
                                 storage,
                                 references: HashMap::new(),
                                 sender: None,
+                                execution_id: None,
                             })
                             .await
                             .unwrap();
@@ -90,6 +91,7 @@ async fn subscribe_and_schedule_runs(
                                 storage,
                                 references: HashMap::new(),
                                 sender: None,
+                                execution_id: None,
                             })
                             .await
                             .unwrap();

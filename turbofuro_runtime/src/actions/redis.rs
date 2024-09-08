@@ -502,6 +502,7 @@ async fn setup_pubsub_coordinator(
                                                 storage,
                                                 references: HashMap::new(),
                                                 sender: None,
+                                                execution_id: None,
                                             }).await;
                                         } else {
                                             let _ = messenger.send(ActorCommand::Run {
@@ -509,6 +510,7 @@ async fn setup_pubsub_coordinator(
                                                 storage,
                                                 references: HashMap::new(),
                                                 sender: None,
+                                                execution_id: None,
                                             }).await;
                                         }
                                     });
