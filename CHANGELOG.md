@@ -1,4 +1,4 @@
-## 0.1.18 (pending)
+## 0.1.18
 * Debug actions
 * Concurrent debug runs
 * KV expiration and increment support
