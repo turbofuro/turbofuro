@@ -959,6 +959,9 @@ async fn execute_native<'a>(
         "time/get_current_time" => {
             time::get_current_time(context, parameters, step_id, store_as).await?
         }
+        "time/get_current_datetime" => {
+            time::get_current_datetime(context, parameters, step_id, store_as).await?
+        }
         "actors/spawn" => actors::spawn_actor(context, parameters, step_id, store_as).await?,
         "os/run_command" => os::run_command(context, parameters, step_id, store_as).await?,
         "os/read_environment_variable" => {

@@ -1,4 +1,8 @@
 ## 0.1.18 (pending)
+* Debug actions
+* Concurrent debug runs
+* KV expiration and increment support
+* Get current date and time
 
 ## 0.1.17
 * Added support for HTTP cookies

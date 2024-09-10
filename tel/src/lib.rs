@@ -73,6 +73,12 @@ impl From<i32> for StorageValue {
     }
 }
 
+impl From<u32> for StorageValue {
+    fn from(item: u32) -> Self {
+        StorageValue::Number(item.into())
+    }
+}
+
 impl From<usize> for StorageValue {
     fn from(item: usize) -> Self {
         StorageValue::Number(item as f64)
