@@ -14,14 +14,15 @@ use crate::{
 use tokio::sync::{
     broadcast,
     mpsc::{self},
+    oneshot,
 };
 use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 use turbofuro_runtime::{
-    actor::{Actor, ActorCommand},
+    actor::{activate_actor, Actor, ActorCommand},
     debug::DebugMessage,
     executor::{
         evaluate_parameters, get_timestamp, Callee, DebugState, DebuggerHandle, Environment,
-        ExecutionLog, Global, Parameter,
+        Global, Parameter,
     },
     resources::{ActorLink, ActorResources},
     ObjectBody, StorageValue,
@@ -50,11 +51,26 @@ enum CloudAgentMessage {
     },
     ReloadConfiguration,
     ReloadEnvironment,
+    SetupDebugListener {
+        id: String,
+        sender: oneshot::Sender<StorageValue>,
+    },
+    FulfillDebugListener {
+        id: String,
+        value: StorageValue,
+    },
+}
+
+#[derive(Debug)]
+pub struct DebugListener {
+    pub id: String,
+    pub sender: oneshot::Sender<StorageValue>,
 }
 
 struct CloudAgent {
     // Main agent state
     debug_state: DebugState,
+    debug_listeners: Vec<DebugListener>,
     status: WorkerStatus,
     operator_client: OperatorClientHandle,
     options: CloudOptions,
@@ -72,16 +88,118 @@ struct CloudAgent {
 
     // The child receiver, which we have sender for, never dropped, but used to let operator client pass messages back to the agent
     child_receiver: mpsc::Receiver<CloudAgentMessage>,
-    child_sender: mpsc::Sender<CloudAgentMessage>,
+    child_handle: CloudAgentHandle,
 }
 
 fn spawn_debugger_handle_reader(
     mut receiver: tokio::sync::mpsc::Receiver<DebugMessage>,
     operator_client: OperatorClientHandle,
+    mut cloud_agent_handler: CloudAgentHandle,
+    module_id: String,
 ) {
     tokio::spawn(async move {
         while let Some(message) = receiver.recv().await {
-            operator_client.send_command(message.into()).await;
+            match message {
+                DebugMessage::AskForInput {
+                    id,
+                    text,
+                    label,
+                    placeholder,
+                    sender,
+                } => {
+                    // Add id and sender to the debug state
+                    cloud_agent_handler
+                        .setup_debugger_listener(id.clone(), sender)
+                        .await;
+
+                    operator_client
+                        .send_command(SendingCommand::DebugAction {
+                            module_id: module_id.clone(),
+                            action: crate::cloud::operator_client::DebugAction::AskForInput {
+                                id,
+                                text,
+                                label,
+                                placeholder,
+                            },
+                        })
+                        .await;
+                }
+                DebugMessage::StartReport {
+                    id,
+                    status,
+                    function_id,
+                    function_name,
+                    initial_storage,
+                    events,
+                    module_id,
+                    module_version_id,
+                    environment_id,
+                    started_at,
+                    metadata,
+                } => {
+                    operator_client
+                        .send_command(SendingCommand::StartDebugReport {
+                            id,
+                            started_at,
+                            initial_storage,
+                            module_id,
+                            module_version_id,
+                            environment_id,
+                            function_id,
+                            function_name,
+                            status,
+                            events,
+                            metadata,
+                        })
+                        .await;
+                }
+                DebugMessage::AppendEventToReport { id, event } => {
+                    operator_client
+                        .send_command(SendingCommand::AppendEventToDebugReport { id, event })
+                        .await;
+                }
+                DebugMessage::EndReport {
+                    id,
+                    finished_at,
+                    status,
+                } => {
+                    operator_client
+                        .send_command(SendingCommand::EndDebugReport {
+                            id,
+                            status,
+                            finished_at,
+                        })
+                        .await;
+                }
+                DebugMessage::ShowResult { id, value } => {
+                    operator_client
+                        .send_command(SendingCommand::DebugAction {
+                            action: super::operator_client::DebugAction::ShowResult { id, value },
+                            module_id: module_id.clone(),
+                        })
+                        .await;
+                }
+                DebugMessage::ShowNotification { id, text, variant } => {
+                    operator_client
+                        .send_command(SendingCommand::DebugAction {
+                            action: super::operator_client::DebugAction::ShowNotification {
+                                id,
+                                text,
+                                variant,
+                            },
+                            module_id: module_id.clone(),
+                        })
+                        .await;
+                }
+                DebugMessage::PlaySound { id, sound } => {
+                    operator_client
+                        .send_command(SendingCommand::DebugAction {
+                            action: super::operator_client::DebugAction::PlaySound { id, sound },
+                            module_id: module_id.clone(),
+                        })
+                        .await;
+                }
+            }
         }
     });
 }
@@ -135,7 +253,12 @@ impl CloudAgent {
                 parameters,
             } => {
                 let (debugger_handle, receiver) = DebuggerHandle::new();
-                spawn_debugger_handle_reader(receiver, self.operator_client.clone());
+                spawn_debugger_handle_reader(
+                    receiver,
+                    self.operator_client.clone(),
+                    self.child_handle.clone(),
+                    module_version.module_id.clone(),
+                );
 
                 // TODO: Report error if the run could not be performed ie. could not resolve imported module
                 let _ = self
@@ -147,7 +270,12 @@ impl CloudAgent {
                 module_version,
             } => {
                 let (debugger_handle, receiver) = DebuggerHandle::new();
-                spawn_debugger_handle_reader(receiver, self.operator_client.clone());
+                spawn_debugger_handle_reader(
+                    receiver,
+                    self.operator_client.clone(),
+                    self.child_handle.clone(),
+                    module_id.clone(),
+                );
 
                 let mut should_reload_worker = false;
                 let module = match module_version {
@@ -270,6 +398,18 @@ impl CloudAgent {
                 info!("Environment updated");
             }
             CloudAgentMessage::Start => self.operator_client.connect().await,
+            CloudAgentMessage::SetupDebugListener { id, sender } => {
+                self.debug_listeners.push(DebugListener { id, sender });
+            }
+            CloudAgentMessage::FulfillDebugListener { id, value } => {
+                // Find and pop the listener
+                if let Some(index) = self.debug_listeners.iter().position(|l| l.id == id) {
+                    let listener = self.debug_listeners.swap_remove(index);
+
+                    // Ignore errors, the listener might be gone already
+                    let _ = listener.sender.send(value);
+                }
+            }
         }
     }
 
@@ -294,7 +434,7 @@ impl CloudAgent {
         callee: Callee,
         parameters: Vec<Parameter>,
         debugger: DebuggerHandle,
-    ) -> Result<ExecutionLog, WorkerError> {
+    ) -> Result<(), WorkerError> {
         let function_id = match callee {
             Callee::Local { function_id } => function_id,
             Callee::Import {
@@ -318,7 +458,7 @@ impl CloudAgent {
         )
         .await?;
 
-        let mut actor = Actor::new(
+        let actor = Actor::new(
             StorageValue::Null(None),
             environment.clone(),
             compiled_module.clone(),
@@ -327,14 +467,28 @@ impl CloudAgent {
             HashMap::new(),
             Some(debugger),
         );
+        let link = activate_actor(actor);
 
         let (storage, references) =
             evaluate_parameters(&parameters, &ObjectBody::new(), &environment)?;
 
-        actor
-            .execute_function(&function_id, storage, references, Some(id))
-            .await
-            .map_err(WorkerError::from)
+        let (sender, receiver) = oneshot::channel();
+        link.send(ActorCommand::RunFunctionRef {
+            function_ref: function_id,
+            storage,
+            references,
+            sender: Some(sender),
+            execution_id: Some(id),
+        })
+        .await
+        .map_err(WorkerError::from)?;
+
+        tokio::spawn(async move {
+            let _ = receiver.await;
+            let _ = link.send(ActorCommand::Terminate).await;
+        });
+
+        return Ok(());
     }
 }
 
@@ -388,15 +542,15 @@ impl CloudAgentHandle {
         let worker_id = nanoid!();
         let operator_url = options.get_operator_url(worker_id.clone())?;
 
-        let operator_client = OperatorClientHandle::new(
-            operator_url,
-            CloudAgentHandle {
-                sender: child_sender.clone(),
-            },
-        );
+        let child_handle = CloudAgentHandle {
+            sender: child_sender.clone(),
+        };
+
+        let operator_client = OperatorClientHandle::new(operator_url, child_handle.clone());
 
         let actor = CloudAgent {
             options,
+            debug_listeners: vec![],
             environment_resolver,
             module_version_resolver,
             configuration_coordinator,
@@ -405,7 +559,7 @@ impl CloudAgentHandle {
             status: WorkerStatus::Starting { warnings: vec![] },
             main_receiver: receiver,
             child_receiver,
-            child_sender,
+            child_handle,
             operator_client,
             worker_reload_sender,
         };
@@ -444,6 +598,30 @@ impl CloudAgentHandle {
                 parameters,
             })
             .await;
+    }
+
+    pub async fn setup_debugger_listener(
+        &mut self,
+        id: String,
+        sender: oneshot::Sender<StorageValue>,
+    ) {
+        let _ = self
+            .sender
+            .send(CloudAgentMessage::SetupDebugListener { id, sender })
+            .await;
+    }
+
+    pub async fn fulfill_debug_listener(
+        &mut self,
+        id: String,
+        value: StorageValue,
+    ) -> Result<(), WorkerError> {
+        let _ = self
+            .sender
+            .send(CloudAgentMessage::FulfillDebugListener { id, value })
+            .await;
+
+        Ok(())
     }
 
     pub async fn enable_debugger(

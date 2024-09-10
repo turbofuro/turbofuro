@@ -113,6 +113,7 @@ pub async fn send<'a>(
             storage,
             references: HashMap::new(),
             sender: None,
+            execution_id: None,
         })
         .await
         .expect("Failed to send message to actor");
@@ -159,6 +160,7 @@ pub async fn request<'a>(
             storage,
             references: HashMap::new(),
             sender: Some(sender),
+            execution_id: None,
         })
         .await
         .map_err(|e| ExecutionError::ActorCommandFailed {

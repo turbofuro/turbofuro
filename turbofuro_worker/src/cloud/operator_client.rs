@@ -14,12 +14,35 @@ use tokio::sync::mpsc::{self};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use tracing::{debug, warn};
 use turbofuro_runtime::{
-    debug::DebugMessage,
     executor::{Callee, ExecutionEvent, ExecutionStatus, Parameter},
-    Description,
+    Description, StorageValue,
 };
 
 use super::agent::CloudAgentHandle;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum DebugAction {
+    AskForInput {
+        id: String,
+        text: String,
+        label: String,
+        placeholder: String,
+    },
+    ShowResult {
+        id: String,
+        value: StorageValue,
+    },
+    ShowNotification {
+        id: String,
+        text: String,
+        variant: String,
+    },
+    PlaySound {
+        id: String,
+        sound: String,
+    },
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -71,6 +94,11 @@ pub enum SendingCommand {
     },
     #[serde(rename_all = "camelCase")]
     ReportError { id: String, error: WorkerError },
+    #[serde(rename_all = "camelCase")]
+    DebugAction {
+        action: DebugAction,
+        module_id: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,6 +122,8 @@ pub enum ReceivingCommand {
     ReloadConfiguration { id: String },
     #[serde(rename_all = "camelCase")]
     ReloadEnvironment { id: String },
+    #[serde(rename_all = "camelCase")]
+    FulfillDebugInput { id: String, value: StorageValue },
 }
 
 static PING_PAYLOAD: &[u8; 4] = b"ping";
@@ -124,50 +154,6 @@ enum OperatorClientMessage {
     ReconnectWithDelay,
     SendCommand { command: SendingCommand },
     ReceiveCommand { command: ReceivingCommand },
-}
-
-impl From<DebugMessage> for SendingCommand {
-    fn from(message: DebugMessage) -> Self {
-        match message {
-            DebugMessage::StartReport {
-                id,
-                started_at,
-                initial_storage,
-                module_id,
-                module_version_id,
-                environment_id,
-                function_id,
-                function_name,
-                status,
-                events,
-                metadata,
-            } => SendingCommand::StartDebugReport {
-                id,
-                started_at,
-                initial_storage,
-                module_id,
-                module_version_id,
-                environment_id,
-                function_id,
-                function_name,
-                metadata,
-                status,
-                events,
-            },
-            DebugMessage::AppendEventToReport { id, event } => {
-                SendingCommand::AppendEventToDebugReport { id, event }
-            }
-            DebugMessage::EndReport {
-                id,
-                status,
-                finished_at,
-            } => SendingCommand::EndDebugReport {
-                id,
-                status,
-                finished_at,
-            },
-        }
-    }
 }
 
 impl OperatorClient {
@@ -327,6 +313,12 @@ impl OperatorClient {
                 }
                 ReceivingCommand::ReloadEnvironment { .. } => {
                     let _ = self.cloud_agent_handler.reload_environment().await;
+                }
+                ReceivingCommand::FulfillDebugInput { id, value } => {
+                    let _ = self
+                        .cloud_agent_handler
+                        .fulfill_debug_listener(id, value)
+                        .await;
                 }
             },
             OperatorClientMessage::ReconnectWithDelay => {

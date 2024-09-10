@@ -40,12 +40,14 @@ pub enum ActorCommand {
         storage: ObjectBody,
         references: HashMap<String, String>,
         sender: Option<oneshot::Sender<Result<StorageValue, ExecutionError>>>, // TODO: Add action reply
+        execution_id: Option<String>,
     },
     RunFunctionRef {
         function_ref: String,
         storage: ObjectBody,
         references: HashMap<String, String>,
         sender: Option<oneshot::Sender<Result<StorageValue, ExecutionError>>>, // TODO: Add action reply
+        execution_id: Option<String>,
     },
     RunAlarm {
         handler: String,
@@ -95,7 +97,11 @@ pub fn activate_actor(mut actor: Actor) -> ActorLink {
                     storage,
                     references,
                     sender,
-                } => match actor.execute_handler(&handler, storage, references).await {
+                    execution_id,
+                } => match actor
+                    .execute_handler(&handler, storage, references, execution_id)
+                    .await
+                {
                     Ok(log) => {
                         match log.status {
                             ExecutionStatus::Finished => {
@@ -179,8 +185,9 @@ pub fn activate_actor(mut actor: Actor) -> ActorLink {
                     storage,
                     references,
                     sender,
+                    execution_id,
                 } => match actor
-                    .execute_function(&function_ref, storage, references, None)
+                    .execute_function(&function_ref, storage, references, execution_id)
                     .await
                 {
                     Ok(log) => {
@@ -299,7 +306,10 @@ pub fn activate_actor(mut actor: Actor) -> ActorLink {
                         actor.resources.cancellations.remove(i);
                     }
 
-                    match actor.execute_handler(&handler, storage, references).await {
+                    match actor
+                        .execute_handler(&handler, storage, references, None)
+                        .await
+                    {
                         Ok(log) => {
                             match log.status {
                                 ExecutionStatus::Finished => {
@@ -486,6 +496,7 @@ impl Actor {
         handler_name: &str,
         initial_storage: ObjectBody,
         references: HashMap<String, String>,
+        execution_id: Option<String>,
     ) -> Result<ExecutionLog, ExecutionError> {
         let handler_function_id = {
             match self.handlers.get(handler_name) {
@@ -504,8 +515,13 @@ impl Actor {
             }
         };
 
-        self.execute_function(&handler_function_id, initial_storage, references, None)
-            .await
+        self.execute_function(
+            &handler_function_id,
+            initial_storage,
+            references,
+            execution_id,
+        )
+        .await
     }
 
     pub async fn execute_function(

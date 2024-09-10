@@ -31,6 +31,7 @@ use crate::actions::actors;
 use crate::actions::alarms;
 use crate::actions::convert;
 use crate::actions::crypto;
+use crate::actions::debug;
 use crate::actions::form_data;
 use crate::actions::fs;
 use crate::actions::http_client;
@@ -342,6 +343,29 @@ impl ExecutionTest {
             environment: self.environment.clone(),
             resources: &mut self.resources,
             mode: ExecutionMode::Probe,
+            loop_counts: vec![],
+            bubbling: false,
+            references: HashMap::new(),
+            module: self.module.clone(),
+            global: self.global.clone(),
+        }
+    }
+
+    pub fn get_debug_context(&mut self, debugger_handle: DebuggerHandle) -> ExecutionContext {
+        let initial_storage = ObjectBody::new();
+
+        ExecutionContext {
+            id: "test_id".to_owned(),
+            actor_id: self.actor_id.clone(),
+            log: ExecutionLog::new_started(
+                describe(StorageValue::Object(initial_storage.clone())),
+                "test",
+                "Test function",
+            ),
+            storage: initial_storage,
+            environment: self.environment.clone(),
+            resources: &mut self.resources,
+            mode: ExecutionMode::Debug(debugger_handle),
             loop_counts: vec![],
             bubbling: false,
             references: HashMap::new(),
@@ -958,6 +982,9 @@ async fn execute_native<'a>(
         "time/get_current_time" => {
             time::get_current_time(context, parameters, step_id, store_as).await?
         }
+        "time/get_current_datetime" => {
+            time::get_current_datetime(context, parameters, step_id, store_as).await?
+        }
         "actors/spawn" => actors::spawn_actor(context, parameters, step_id, store_as).await?,
         "os/run_command" => os::run_command(context, parameters, step_id, store_as).await?,
         "os/read_environment_variable" => {
@@ -1042,6 +1069,7 @@ async fn execute_native<'a>(
         "kv/write" => kv::write_to_store(context, parameters, step_id).await?,
         "kv/read" => kv::read_from_store(context, parameters, step_id, store_as).await?,
         "kv/delete" => kv::delete_from_store(context, parameters, step_id).await?,
+        "kv/increment" => kv::increment_store(context, parameters, step_id).await?,
         "convert/parse_json" => convert::parse_json(context, parameters, step_id, store_as).await?,
         "convert/to_json" => convert::to_json(context, parameters, step_id, store_as).await?,
         "convert/parse_urlencoded" => {
@@ -1071,6 +1099,14 @@ async fn execute_native<'a>(
             tasks::run_task_continuously(context, parameters, step_id).await?
         }
         "tasks/cancel_task" => tasks::cancel_task(context, parameters, step_id).await?,
+        "debug/ask_for_input" => {
+            debug::ask_for_input(context, parameters, step_id, store_as).await?
+        }
+        "debug/show_result" => debug::show_result(context, parameters, step_id, store_as).await?,
+        "debug/show_notification" => {
+            debug::show_notification(context, parameters, step_id, store_as).await?
+        }
+        "debug/play_sound" => debug::play_sound(context, parameters, step_id, store_as).await?,
         id => {
             return Err(ExecutionError::Unsupported {
                 message: format!("Native function {} not found", id),

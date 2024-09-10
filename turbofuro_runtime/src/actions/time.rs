@@ -3,8 +3,8 @@ use crate::{
     evaluations::eval_param,
     executor::{ExecutionContext, Parameter},
 };
-use chrono::Utc;
-use tel::StorageValue;
+use chrono::{Datelike, Timelike, Utc};
+use tel::{ObjectBody, StorageValue};
 use tracing::instrument;
 
 use super::{as_integer, store_value};
@@ -55,6 +55,30 @@ pub async fn get_current_time<'a>(
     Ok(())
 }
 
+#[instrument(level = "trace", skip_all)]
+pub async fn get_current_datetime<'a>(
+    context: &mut ExecutionContext<'a>,
+    _parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let now = Utc::now();
+    let mut value: ObjectBody = ObjectBody::new();
+    value.insert("year".to_owned(), now.year().into());
+    value.insert("month".to_owned(), now.month().into());
+    value.insert("day".to_owned(), now.day().into());
+    value.insert("hour".to_owned(), now.hour().into());
+    value.insert("minute".to_owned(), now.minute().into());
+    value.insert("second".to_owned(), now.second().into());
+    value.insert(
+        "weekday".to_owned(),
+        now.weekday().num_days_from_monday().into(),
+    );
+
+    store_value(store_as, context, step_id, StorageValue::Object(value)).await?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{evaluations::eval, executor::ExecutionTest};
@@ -91,5 +115,19 @@ mod tests {
         let time = eval("time", &context.storage, &context.environment).unwrap();
 
         assert!(matches!(time, crate::StorageValue::Number(_)));
+    }
+
+    #[tokio::test]
+    async fn test_get_current_datetime() {
+        let mut t = ExecutionTest::default();
+        let mut context = t.get_context();
+
+        get_current_datetime(&mut context, &vec![], "test", Some("time"))
+            .await
+            .unwrap();
+
+        let time = eval("time", &context.storage, &context.environment).unwrap();
+
+        assert!(matches!(time, crate::StorageValue::Object(_)));
     }
 }

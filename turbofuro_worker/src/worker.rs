@@ -39,7 +39,7 @@ use turbofuro_runtime::resources::{
     ActorLink, ActorResources, HttpRequestToRespond, HttpResponse, OpenWebSocket,
     PendingHttpRequestBody, Resource, Route, WebSocketCommand,
 };
-use turbofuro_runtime::{handle_dangling_error, ObjectBody, StorageValue};
+use turbofuro_runtime::{handle_dangling_error, spawn_kv_cleaner, ObjectBody, StorageValue};
 
 async fn handle_websocket_with_errors<'a>(socket: WebSocket, actor: ActorLink) {
     match handle_websocket(socket, actor).await {
@@ -71,6 +71,7 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
                 storage: ObjectBody::new(),
                 references: HashMap::new(),
                 sender: None,
+                execution_id: None,
             })
             .await?;
     }
@@ -114,6 +115,7 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
                                 storage: initial_storage,
                                 references: HashMap::new(),
                                 sender: None,
+                                execution_id: None,
                             })
                             .await?;
                     }
@@ -144,6 +146,7 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
                                 storage: initial_storage,
                                 references: HashMap::new(),
                                 sender: None,
+                                execution_id: None,
                             })
                             .await?;
                     }
@@ -164,6 +167,7 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
                         storage: initial_storage,
                         references: HashMap::new(),
                         sender: None,
+                        execution_id: None,
                     })
                     .await?;
             }
@@ -237,6 +241,7 @@ async fn handle_request(
             storage: initial_storage,
             references: HashMap::new(),
             sender: Some(response_sender),
+            execution_id: None,
         })
         .await?;
 
@@ -443,6 +448,9 @@ impl Worker {
     pub async fn start(&mut self) -> Result<Router, WorkerError> {
         let debug_state = self.global.debug_state.load();
 
+        // Spawn KV cleaner
+        spawn_kv_cleaner();
+
         let modules = {
             futures_util::stream::iter(self.config.modules.iter().map(|m| {
                 let debug_entry = debug_state.get_entry(m.module_id.as_str());
@@ -536,6 +544,7 @@ impl Worker {
                     storage: HashMap::new(),
                     references: HashMap::new(),
                     sender: Some(run_sender),
+                    execution_id: None,
                 })
                 .await;
 

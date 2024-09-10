@@ -123,6 +123,7 @@ async fn run_task_continuously_inner(
                     storage,
                     references: HashMap::new(),
                     sender: Some(sender),
+                    execution_id: None,
                 })
                 .await
                 .unwrap();

@@ -1,8 +1,7 @@
 use crate::executor::{ExecutionEvent, ExecutionReport, ExecutionStatus};
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tel::Description;
-use tokio::sync::mpsc::Sender;
+use tel::{Description, StorageValue};
+use tokio::sync::{mpsc::Sender, oneshot};
 
 #[derive(Debug, Clone)]
 pub enum LoggerMessage {
@@ -11,7 +10,7 @@ pub enum LoggerMessage {
 
 pub type ExecutionLoggerHandle = Sender<LoggerMessage>;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug)]
 pub enum DebugMessage {
     StartReport {
         id: String,
@@ -34,6 +33,26 @@ pub enum DebugMessage {
         id: String,
         finished_at: u64,
         status: ExecutionStatus,
+    },
+    AskForInput {
+        id: String,
+        text: String,
+        label: String,
+        placeholder: String,
+        sender: oneshot::Sender<StorageValue>,
+    },
+    ShowResult {
+        id: String,
+        value: StorageValue,
+    },
+    ShowNotification {
+        id: String,
+        text: String,
+        variant: String,
+    },
+    PlaySound {
+        id: String,
+        sound: String,
     },
 }
 

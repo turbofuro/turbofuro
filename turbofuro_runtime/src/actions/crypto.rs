@@ -79,7 +79,7 @@ pub async fn jwt_decode(
 }
 
 #[cfg(test)]
-mod test_jwt {
+mod test_crypto {
     use crate::{evaluations::eval, executor::ExecutionTest};
 
     use super::*;
