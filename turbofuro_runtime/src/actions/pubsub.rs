@@ -9,7 +9,7 @@ use crate::{
     resources::{Cancellation, CancellationSubject},
 };
 use tel::{ObjectBody, StorageValue, NULL};
-use tracing::{debug, instrument};
+use tracing::{debug, error, instrument};
 
 use crate::{
     actions::as_string,
@@ -105,8 +105,12 @@ async fn subscribe_and_schedule_runs(
                 tokio::sync::broadcast::error::RecvError::Closed => {
                     break;
                 }
-                tokio::sync::broadcast::error::RecvError::Lagged(_) => {
-                    break;
+                tokio::sync::broadcast::error::RecvError::Lagged(e) => {
+                    error!(
+                        "Actor {} lagged for {} messages for its PubSub subscription",
+                        actor_id, e
+                    );
+                    // TODO: How to communicate this to the actor? Another handle like onLag?
                 }
             },
         }
@@ -140,7 +144,7 @@ pub async fn subscribe<'a>(
     let subscription_receiver = match pub_sub.entry(channel.clone()) {
         Entry::Occupied(e) => e.get().subscribe(),
         Entry::Vacant(e) => {
-            let (tx, rx) = tokio::sync::broadcast::channel(16);
+            let (tx, rx) = tokio::sync::broadcast::channel(32);
             e.insert(tx);
             rx
         }
