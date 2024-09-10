@@ -17,27 +17,26 @@ pub async fn ask_for_input(
     _step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let text = as_string(
-        eval_param("text", parameters, &context.storage, &context.environment)?,
-        "text",
-    )?;
-    let label = as_string(
-        eval_param("label", parameters, &context.storage, &context.environment)?,
-        "label",
-    )?;
-    let placeholder = as_string(
-        eval_optional_param_with_default(
-            "placeholder",
-            parameters,
-            &context.storage,
-            &context.environment,
-            "".into(),
-        )?,
-        "placeholder",
-    )?;
-
     match &context.mode {
         crate::executor::ExecutionMode::Debug(handle) => {
+            let text = as_string(
+                eval_param("text", parameters, &context.storage, &context.environment)?,
+                "text",
+            )?;
+            let label = as_string(
+                eval_param("label", parameters, &context.storage, &context.environment)?,
+                "label",
+            )?;
+            let placeholder = as_string(
+                eval_optional_param_with_default(
+                    "placeholder",
+                    parameters,
+                    &context.storage,
+                    &context.environment,
+                    "".into(),
+                )?,
+                "placeholder",
+            )?;
             let (sender, receiver) = oneshot::channel();
             let _ = handle
                 .sender
@@ -82,10 +81,9 @@ pub async fn show_result(
     _step_id: &str,
     _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let value = eval_param("value", parameters, &context.storage, &context.environment)?;
-
     match &context.mode {
         crate::executor::ExecutionMode::Debug(handle) => {
+            let value = eval_param("value", parameters, &context.storage, &context.environment)?;
             let _ = handle
                 .sender
                 .send(crate::debug::DebugMessage::ShowResult {
@@ -108,22 +106,21 @@ pub async fn show_notification(
     _step_id: &str,
     _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let text = as_string(
-        eval_param("text", parameters, &context.storage, &context.environment)?,
-        "text",
-    )?;
-    let variant = as_string(
-        eval_param(
-            "variant",
-            parameters,
-            &context.storage,
-            &context.environment,
-        )?,
-        "variant",
-    )?;
-
     match &context.mode {
         crate::executor::ExecutionMode::Debug(handle) => {
+            let text = as_string(
+                eval_param("text", parameters, &context.storage, &context.environment)?,
+                "text",
+            )?;
+            let variant = as_string(
+                eval_param(
+                    "variant",
+                    parameters,
+                    &context.storage,
+                    &context.environment,
+                )?,
+                "variant",
+            )?;
             let _ = handle
                 .sender
                 .send(crate::debug::DebugMessage::ShowNotification {
@@ -147,13 +144,12 @@ pub async fn play_sound(
     _step_id: &str,
     _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let sound = as_string(
-        eval_param("sound", parameters, &context.storage, &context.environment)?,
-        "sound",
-    )?;
-
     match &context.mode {
         crate::executor::ExecutionMode::Debug(handle) => {
+            let sound = as_string(
+                eval_param("sound", parameters, &context.storage, &context.environment)?,
+                "sound",
+            )?;
             let _ = handle
                 .sender
                 .send(crate::debug::DebugMessage::PlaySound {
@@ -171,7 +167,12 @@ pub async fn play_sound(
 
 #[cfg(test)]
 mod test_debug {
-    use crate::executor::ExecutionTest;
+    use tel::StorageValue;
+
+    use crate::{
+        debug::DebugMessage,
+        executor::{DebuggerHandle, ExecutionTest},
+    };
 
     use super::*;
 
@@ -180,14 +181,48 @@ mod test_debug {
         let mut t = ExecutionTest::default();
         let mut context = t.get_context();
 
+        // Let's make sure that even without parameters the steps are no-ops
+        play_sound(&mut context, &vec![], "test", None)
+            .await
+            .unwrap();
+
+        show_notification(&mut context, &vec![], "test", None)
+            .await
+            .unwrap();
+
+        show_result(&mut context, &vec![], "test", None)
+            .await
+            .unwrap();
+
+        ask_for_input(&mut context, &vec![], "test", None)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_play_sound() {
+        let mut t = ExecutionTest::default();
+        let (debugger_handle, mut receiver) = DebuggerHandle::new();
+        let mut context = t.get_debug_context(debugger_handle);
+
         play_sound(
             &mut context,
-            &vec![Parameter::tel("sound", "alert")],
+            &vec![Parameter::tel("sound", "\"alert\"")],
             "test",
             None,
         )
         .await
         .unwrap();
+
+        let result = receiver.recv().await.unwrap();
+        assert!(matches!(result, DebugMessage::PlaySound { sound, .. } if sound == "alert"));
+    }
+
+    #[tokio::test]
+    async fn test_show_notification() {
+        let mut t = ExecutionTest::default();
+        let (debugger_handle, mut receiver) = DebuggerHandle::new();
+        let mut context = t.get_debug_context(debugger_handle);
 
         show_notification(
             &mut context,
@@ -201,23 +236,64 @@ mod test_debug {
         .await
         .unwrap();
 
+        let result = receiver.recv().await.unwrap();
+        assert!(
+            matches!(result, DebugMessage::ShowNotification { text, variant, .. } if text == "Hello World" && variant == "success")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_show_result() {
+        let mut t = ExecutionTest::default();
+        let (debugger_handle, mut receiver) = DebuggerHandle::new();
+        let mut context = t.get_debug_context(debugger_handle);
+
         show_result(
             &mut context,
-            &vec![
-                Parameter::tel("text", "\"Hello World\""),
-                Parameter::tel("variant", "\"success\""),
-            ],
+            &vec![Parameter::tel("value", "\"Hello World\"")],
             "test",
             None,
         )
         .await
         .unwrap();
 
+        let result = receiver.recv().await.unwrap();
+        assert!(
+            matches!(result, DebugMessage::ShowResult { value, .. } if value == StorageValue::String("Hello World".to_owned()))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_ask_for_input() {
+        let mut t = ExecutionTest::default();
+        let (debugger_handle, mut receiver) = DebuggerHandle::new();
+        let mut context = t.get_debug_context(debugger_handle);
+
+        tokio::spawn(async move {
+            let result = receiver.recv().await.unwrap();
+            match result {
+                DebugMessage::AskForInput {
+                    sender,
+                    text,
+                    label,
+                    placeholder,
+                    ..
+                } => {
+                    assert!(text == "Please enter your password");
+                    assert!(label == "Password");
+                    assert!(placeholder == "password");
+                    let _ = sender.send(StorageValue::String("test".to_owned()));
+                }
+                _ => panic!("Expected AskForInput message"),
+            }
+        });
+
         ask_for_input(
             &mut context,
             &vec![
-                Parameter::tel("text", "Please enter your password"),
-                Parameter::tel("label", "Password"),
+                Parameter::tel("text", "\"Please enter your password\""),
+                Parameter::tel("label", "\"Password\""),
+                Parameter::tel("placeholder", "\"password\""),
             ],
             "test",
             None,

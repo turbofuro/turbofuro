@@ -249,7 +249,7 @@ mod tests {
         write_to_store(
             &mut context,
             &vec![
-                Parameter::tel("key", "\"test_key\""),
+                Parameter::tel("key", "\"expiration_key\""),
                 Parameter::tel("value", "4"),
                 Parameter::tel("expiration", "100"),
             ],
@@ -260,7 +260,7 @@ mod tests {
 
         read_from_store(
             &mut context,
-            &vec![Parameter::tel("key", "\"test_key\"")],
+            &vec![Parameter::tel("key", "\"expiration_key\"")],
             "test",
             Some("data"),
         )
@@ -271,11 +271,11 @@ mod tests {
             Some(&StorageValue::Number(4.0))
         );
 
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
         read_from_store(
             &mut context,
-            &vec![Parameter::tel("key", "\"test_key\"")],
+            &vec![Parameter::tel("key", "\"expiration_key\"")],
             "test",
             Some("data"),
         )
@@ -293,7 +293,7 @@ mod tests {
         increment_store(
             &mut context,
             &vec![
-                Parameter::tel("key", "\"test_key\""),
+                Parameter::tel("key", "\"increment_key\""),
                 Parameter::tel("increment", "2"),
             ],
             "test",
@@ -303,7 +303,7 @@ mod tests {
 
         read_from_store(
             &mut context,
-            &vec![Parameter::tel("key", "\"test_key\"")],
+            &vec![Parameter::tel("key", "\"increment_key\"")],
             "test",
             Some("data"),
         )
@@ -316,10 +316,7 @@ mod tests {
 
         increment_store(
             &mut context,
-            &vec![
-                Parameter::tel("key", "\"test_key\""),
-                Parameter::tel("increment", "3"),
-            ],
+            &vec![Parameter::tel("key", "\"increment_key\"")],
             "test",
         )
         .await
@@ -327,7 +324,7 @@ mod tests {
 
         read_from_store(
             &mut context,
-            &vec![Parameter::tel("key", "\"test_key\"")],
+            &vec![Parameter::tel("key", "\"increment_key\"")],
             "test",
             Some("data"),
         )
@@ -335,7 +332,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             context.storage.get("data"),
-            Some(&StorageValue::Number(5.0))
+            Some(&StorageValue::Number(3.0))
         );
     }
 }

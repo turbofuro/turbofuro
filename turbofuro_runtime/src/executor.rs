@@ -350,6 +350,29 @@ impl ExecutionTest {
             global: self.global.clone(),
         }
     }
+
+    pub fn get_debug_context(&mut self, debugger_handle: DebuggerHandle) -> ExecutionContext {
+        let initial_storage = ObjectBody::new();
+
+        ExecutionContext {
+            id: "test_id".to_owned(),
+            actor_id: self.actor_id.clone(),
+            log: ExecutionLog::new_started(
+                describe(StorageValue::Object(initial_storage.clone())),
+                "test",
+                "Test function",
+            ),
+            storage: initial_storage,
+            environment: self.environment.clone(),
+            resources: &mut self.resources,
+            mode: ExecutionMode::Debug(debugger_handle),
+            loop_counts: vec![],
+            bubbling: false,
+            references: HashMap::new(),
+            module: self.module.clone(),
+            global: self.global.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
