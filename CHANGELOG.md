@@ -2,7 +2,8 @@
 * Debug actions
 * Concurrent debug runs
 * KV expiration and increment support
-* Get current date and time
+* Add get current date and time action
+* Fixed PubSub subscription being cancelled when the actor lags behind
 
 ## 0.1.17
 * Added support for HTTP cookies
