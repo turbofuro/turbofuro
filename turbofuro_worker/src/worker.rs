@@ -39,7 +39,7 @@ use turbofuro_runtime::resources::{
     ActorLink, ActorResources, HttpRequestToRespond, HttpResponse, OpenWebSocket,
     PendingHttpRequestBody, Resource, Route, WebSocketCommand,
 };
-use turbofuro_runtime::{handle_dangling_error, ObjectBody, StorageValue};
+use turbofuro_runtime::{handle_dangling_error, spawn_kv_cleaner, ObjectBody, StorageValue};
 
 async fn handle_websocket_with_errors<'a>(socket: WebSocket, actor: ActorLink) {
     match handle_websocket(socket, actor).await {
@@ -447,6 +447,9 @@ impl Worker {
 
     pub async fn start(&mut self) -> Result<Router, WorkerError> {
         let debug_state = self.global.debug_state.load();
+
+        // Spawn KV cleaner
+        spawn_kv_cleaner();
 
         let modules = {
             futures_util::stream::iter(self.config.modules.iter().map(|m| {

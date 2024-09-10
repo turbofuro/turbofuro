@@ -1,9 +1,9 @@
-use std::sync::Arc;
+use std::sync::{atomic::AtomicBool, Arc};
 
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use tel::StorageValue;
-use tracing::instrument;
+use tracing::{instrument, warn};
 
 use crate::{
     errors::ExecutionError,
@@ -29,6 +29,35 @@ impl From<StorageValue> for KvValue {
 }
 
 static KV: Lazy<Arc<DashMap<String, KvValue>>> = Lazy::new(|| Arc::new(DashMap::new()));
+static CLEANER_RUNNING: AtomicBool = AtomicBool::new(false);
+
+pub fn clean_kv() {
+    let now = get_timestamp();
+    KV.retain(|_, v| {
+        if let Some(expiration) = v.expiration {
+            if expiration < now {
+                return false;
+            }
+        }
+        true
+    });
+}
+
+pub fn spawn_kv_cleaner() {
+    // Check if cleaner is already running
+    if CLEANER_RUNNING.load(std::sync::atomic::Ordering::SeqCst) {
+        warn!("KV cleaner is already running");
+        return;
+    }
+
+    CLEANER_RUNNING.store(true, std::sync::atomic::Ordering::SeqCst);
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(120)).await;
+            clean_kv();
+        }
+    });
+}
 
 #[instrument(level = "trace", skip_all)]
 pub async fn read_from_store<'a>(
