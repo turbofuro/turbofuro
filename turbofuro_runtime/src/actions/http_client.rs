@@ -254,7 +254,7 @@ async fn bare_http_request<'a>(
     let request = request_builder
         .build()
         .map_err(|e| ExecutionError::StateInvalid {
-            message: format!("Failed to build HTTP request: {}", e),
+            message: "Failed to build HTTP request".to_owned(),
             subject: HttpRequestToRespond::get_type().into(),
             inner: e.to_string(),
         })?;
@@ -278,7 +278,7 @@ async fn bare_http_request<'a>(
         .execute(request)
         .await
         .map_err(|e| ExecutionError::StateInvalid {
-            message: format!("Failed to execute HTTP request: {}", e),
+            message: "Failed to execute HTTP request".to_owned(),
             subject: HttpRequestToRespond::get_type().into(),
             inner: e.to_string(),
         }) {
