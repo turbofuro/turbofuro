@@ -50,6 +50,7 @@ use crate::actions::websocket;
 use crate::debug::DebugMessage;
 use crate::debug::ExecutionLoggerHandle;
 use crate::debug::LoggerMessage;
+use crate::errors::ErrorRepresentation;
 use crate::errors::ExecutionError;
 use crate::evaluations::eval;
 use crate::evaluations::eval_selector;
@@ -204,7 +205,10 @@ pub enum Step {
     },
     Throw {
         id: String,
-        value: Option<String>,
+        code: String,
+        message: String,
+        details: Option<String>,
+        metadata: Option<String>,
     },
 }
 
@@ -730,7 +734,7 @@ impl<'a> ExecutionContext<'a> {
             ExecutionMode::Fast => {
                 let event = ExecutionEvent::ErrorThrown {
                     id: id.to_owned(),
-                    error,
+                    error: error.into(),
                     // Add snapshot so the user can see the state of the context when the error was thrown
                     snapshot: Some(ContextSnapshot {
                         storage: self.storage.clone(),
@@ -742,7 +746,7 @@ impl<'a> ExecutionContext<'a> {
             ExecutionMode::Probe => {
                 let event = ExecutionEvent::ErrorThrown {
                     id: id.to_owned(),
-                    error,
+                    error: error.into(),
                     // No need to add snapshot in probe mode as the user can retrieve the context using events
                     snapshot: None,
                 };
@@ -751,7 +755,7 @@ impl<'a> ExecutionContext<'a> {
             ExecutionMode::Debug(debugger) => {
                 let event = ExecutionEvent::ErrorThrown {
                     id: id.to_owned(),
-                    error,
+                    error: error.into(),
                     // No need to add snapshot in probe mode as the user can retrieve the context using events
                     snapshot: None,
                 };
@@ -917,7 +921,7 @@ pub enum ExecutionEvent {
     },
     ErrorThrown {
         id: String,
-        error: ExecutionError,
+        error: ErrorRepresentation,
         snapshot: Option<ContextSnapshot>,
     },
     StorageUpdated {
@@ -1499,25 +1503,44 @@ async fn execute_step<'a>(
                     return Err(e);
                 }
                 e => {
-                    let serialized = serde_json::to_value(&e).unwrap();
-
+                    let value = ErrorRepresentation::from(e).to_value();
                     context
                         .add_to_storage(
                             id,
                             vec![SelectorPart::Identifier("error".to_owned())],
-                            serde_json::from_value(serialized).unwrap(),
+                            value,
                         )
                         .await?;
                     execute_steps(catch, context).await?;
                 }
             },
         },
-        Step::Throw { value, .. } => {
-            let value = match value {
-                Some(value) => Some(eval(value, &context.storage, &context.environment)?),
-                None => None,
+        Step::Throw {
+            id: _,
+            code,
+            message,
+            details,
+            metadata,
+        } => {
+            let error = ExecutionError::Custom {
+                inner_code: code.to_owned(),
+                message: message.to_owned(),
+                details: {
+                    let mut evaluated: Option<StorageValue> = None;
+                    if let Some(value) = details {
+                        evaluated = Some(eval(value, &context.storage, &context.environment)?);
+                    }
+                    evaluated
+                },
+                metadata: {
+                    let mut evaluated: Option<StorageValue> = None;
+                    if let Some(value) = metadata {
+                        evaluated = Some(eval(value, &context.storage, &context.environment)?);
+                    }
+                    evaluated
+                },
             };
-            return Err(ExecutionError::Custom { value });
+            return Err(error);
         }
     }
     Ok(())

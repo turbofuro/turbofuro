@@ -403,6 +403,7 @@ impl Stream for PendingHttpRequestStream {
             .poll_next_unpin(cx)
             .map_err(|e| ExecutionError::IoError {
                 message: e.to_string(),
+                os_code: None,
             })
     }
 }
@@ -427,6 +428,7 @@ impl ActorResources {
                 .bytes_stream()
                 .map_err(|e| ExecutionError::IoError {
                     message: e.to_string(),
+                    os_code: None,
                 });
 
             return Ok(Box::pin(a));
@@ -437,6 +439,7 @@ impl ActorResources {
             return Ok(Box::pin(ReaderStream::new(file_handle.file).map_err(|e| {
                 ExecutionError::IoError {
                     message: e.to_string(),
+                    os_code: None,
                 }
             })));
         }
