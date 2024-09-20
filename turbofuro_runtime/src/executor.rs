@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
@@ -13,7 +14,9 @@ use serde;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 use tel::describe;
+use tel::parse_value_by_description;
 use tel::Description;
+use tel::LayeredStorage;
 use tel::ObjectBody;
 use tel::Selector;
 use tel::SelectorPart;
@@ -53,6 +56,7 @@ use crate::debug::LoggerMessage;
 use crate::errors::ErrorRepresentation;
 use crate::errors::ExecutionError;
 use crate::evaluations::eval;
+use crate::evaluations::eval_description;
 use crate::evaluations::eval_selector;
 use crate::resources::{ActorResources, ResourceRegistry};
 
@@ -140,13 +144,14 @@ pub struct Branch {
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
 pub enum Step {
+    #[serde(rename_all = "camelCase")]
     Call {
         id: String,
         callee: Callee,
         parameters: Vec<Parameter>,
-        #[serde(rename = "storeAs")]
         store_as: Option<String>,
     },
+    #[serde(rename_all = "camelCase")]
     DefineFunction {
         id: String,
         parameters: Vec<ParameterDefinition>,
@@ -155,10 +160,10 @@ pub enum Step {
         body: Steps,
         name: String,
     },
+    #[serde(rename_all = "camelCase")]
     DefineNativeFunction {
         id: String,
         name: String,
-        #[serde(rename = "nativeId")]
         native_id: String,
         parameters: Vec<ParameterDefinition>,
         #[serde(default = "default_exported")]
@@ -209,6 +214,22 @@ pub enum Step {
         message: String,
         details: Option<String>,
         metadata: Option<String>,
+    },
+    #[serde(rename_all = "camelCase")]
+    Parse {
+        id: String,
+        description: String,
+        value: String,
+        store_as: String,
+    },
+    #[serde(rename_all = "camelCase")]
+    Transform {
+        id: String,
+        value: String,
+        filter_by: Option<String>,
+        order_by: Option<String>,
+        map: Option<String>,
+        store_as: String,
     },
 }
 
@@ -281,6 +302,8 @@ impl Step {
             Step::DefineNativeFunction { id, .. } => id,
             Step::Try { id, .. } => id,
             Step::Throw { id, .. } => id,
+            Step::Parse { id, .. } => id,
+            Step::Transform { id, .. } => id,
         }
     }
 }
@@ -1324,6 +1347,26 @@ async fn for_each_inner<'a>(
     Ok(())
 }
 
+fn get_transform_storage(value: StorageValue) -> ObjectBody {
+    let mut obj = ObjectBody::new();
+    obj.insert("value".to_owned(), value);
+    obj
+}
+
+fn get_keyed_transform_storage(key: String, value: StorageValue) -> ObjectBody {
+    let mut obj = ObjectBody::new();
+    obj.insert("key".to_owned(), key.into());
+    obj.insert("value".to_owned(), value);
+    obj
+}
+
+fn get_transform_compare_storage(a: StorageValue, b: StorageValue) -> ObjectBody {
+    let mut obj = ObjectBody::new();
+    obj.insert("a".to_owned(), a);
+    obj.insert("b".to_owned(), b);
+    obj
+}
+
 async fn while_inner<'a>(
     context: &mut ExecutionContext<'a>,
     condition: &str,
@@ -1541,6 +1584,246 @@ async fn execute_step<'a>(
                 },
             };
             return Err(error);
+        }
+        Step::Transform {
+            value,
+            filter_by,
+            order_by,
+            map,
+            store_as,
+            ..
+        } => {
+            let value = eval(value, &context.storage, &context.environment)?;
+            let selector = eval_selector(store_as, &context.storage, &context.environment)?;
+
+            // Value must be iterable - array, object, string
+            let value = match value {
+                StorageValue::String(s) => {
+                    let mut result: Vec<StorageValue> = Vec::new();
+                    for c in s.chars() {
+                        let char_value: StorageValue = c.to_string().into();
+                        let transform_storage = get_transform_storage(char_value.clone());
+
+                        if let Some(expression) = filter_by {
+                            let ok = eval(
+                                expression,
+                                &LayeredStorage {
+                                    top: &transform_storage,
+                                    down: &context.storage,
+                                },
+                                &context.environment,
+                            )?;
+                            if !ok.to_boolean()? {
+                                continue;
+                            }
+                        }
+
+                        if let Some(expression) = map {
+                            let ok = eval(
+                                expression,
+                                &LayeredStorage {
+                                    top: &transform_storage,
+                                    down: &context.storage,
+                                },
+                                &context.environment,
+                            )?;
+                            result.push(ok);
+                        } else {
+                            result.push(char_value);
+                        }
+                    }
+
+                    if let Some(expression) = order_by {
+                        let mut result_with_errors: Vec<Result<StorageValue, ExecutionError>> =
+                            result.into_iter().map(Ok).collect::<Vec<_>>();
+                        result_with_errors.sort_by(|a, b| {
+                            let a = match a {
+                                Ok(a) => a,
+                                Err(_) => return Ordering::Equal,
+                            };
+                            let b = match b {
+                                Ok(b) => b,
+                                Err(_) => return Ordering::Equal,
+                            };
+
+                            let a = eval(
+                                expression,
+                                &LayeredStorage {
+                                    top: &get_transform_compare_storage(a.clone(), b.clone()),
+                                    down: &context.storage,
+                                },
+                                &context.environment,
+                            );
+
+                            let value = match a {
+                                Ok(value) => value,
+                                Err(_) => return Ordering::Equal,
+                            };
+
+                            match value {
+                                StorageValue::Number(value) => {
+                                    if value < 0.0 {
+                                        Ordering::Less
+                                    } else {
+                                        Ordering::Greater
+                                    }
+                                }
+                                _ => Ordering::Equal,
+                            }
+                        });
+
+                        let mut ordered_result: Vec<StorageValue> = Vec::new();
+                        for item in result_with_errors {
+                            ordered_result.push(item?);
+                        }
+                        result = ordered_result;
+                    }
+
+                    StorageValue::Array(result)
+                }
+                StorageValue::Array(array) => {
+                    let mut result: Vec<StorageValue> = Vec::new();
+                    for c in array {
+                        let transform_storage = get_transform_storage(c.clone());
+
+                        if let Some(expression) = filter_by {
+                            let ok = eval(
+                                expression,
+                                &LayeredStorage {
+                                    top: &transform_storage,
+                                    down: &context.storage,
+                                },
+                                &context.environment,
+                            )?;
+                            if !ok.to_boolean()? {
+                                continue;
+                            }
+                        }
+
+                        if let Some(expression) = map {
+                            let ok = eval(
+                                expression,
+                                &LayeredStorage {
+                                    top: &transform_storage,
+                                    down: &context.storage,
+                                },
+                                &context.environment,
+                            )?;
+                            result.push(ok);
+                        } else {
+                            result.push(c);
+                        }
+                    }
+
+                    if let Some(expression) = order_by {
+                        let mut result_with_errors: Vec<Result<StorageValue, ExecutionError>> =
+                            result.into_iter().map(Ok).collect::<Vec<_>>();
+                        result_with_errors.sort_by(|a, b| {
+                            let a = match a {
+                                Ok(a) => a,
+                                Err(_) => return Ordering::Equal,
+                            };
+                            let b = match b {
+                                Ok(b) => b,
+                                Err(_) => return Ordering::Equal,
+                            };
+
+                            let a = eval(
+                                expression,
+                                &LayeredStorage {
+                                    top: &get_transform_compare_storage(a.clone(), b.clone()),
+                                    down: &context.storage,
+                                },
+                                &context.environment,
+                            );
+
+                            let value = match a {
+                                Ok(value) => value,
+                                Err(_) => return Ordering::Equal,
+                            };
+
+                            match value {
+                                StorageValue::Number(value) => {
+                                    if value < 0.0 {
+                                        Ordering::Less
+                                    } else {
+                                        Ordering::Greater
+                                    }
+                                }
+                                _ => Ordering::Equal,
+                            }
+                        });
+
+                        let mut ordered_result: Vec<StorageValue> = Vec::new();
+                        for item in result_with_errors {
+                            ordered_result.push(item?);
+                        }
+                        result = ordered_result;
+                    }
+
+                    StorageValue::Array(result)
+                }
+                StorageValue::Object(object) => {
+                    let mut result: HashMap<String, StorageValue> = HashMap::new();
+                    for (key, item) in object {
+                        let transform_storage =
+                            get_keyed_transform_storage(key.clone(), item.clone());
+
+                        if let Some(expression) = filter_by {
+                            let ok = eval(
+                                expression,
+                                &LayeredStorage {
+                                    top: &transform_storage,
+                                    down: &context.storage,
+                                },
+                                &context.environment,
+                            )?;
+                            if !ok.to_boolean()? {
+                                continue;
+                            }
+                        }
+
+                        if let Some(expression) = map {
+                            let ok = eval(
+                                expression,
+                                &LayeredStorage {
+                                    top: &transform_storage,
+                                    down: &context.storage,
+                                },
+                                &context.environment,
+                            )?;
+                            result.insert(key, ok);
+                        } else {
+                            result.insert(key, item);
+                        }
+                    }
+                    StorageValue::Object(result)
+                }
+                _ => Err(ExecutionError::ParameterInvalid {
+                    name: "value".to_owned(),
+                    message: "Value must be a string, array or object".to_owned(),
+                })?,
+            };
+
+            context.add_to_storage(step_id, selector, value).await?;
+        }
+        Step::Parse {
+            id: _,
+            description,
+            value,
+            store_as,
+        } => {
+            let value = eval(value, &context.storage, &context.environment)?;
+            let selector = eval_selector(store_as, &context.storage, &context.environment)?;
+
+            let description = eval_description(description)?;
+
+            let value = parse_value_by_description(value, description).map_err(|_e| {
+                ExecutionError::ParseError {
+                    message: "Failed to parse value".to_owned(),
+                }
+            })?;
+            context.add_to_storage(step_id, selector, value).await?;
         }
     }
     Ok(())

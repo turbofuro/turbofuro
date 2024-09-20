@@ -306,6 +306,12 @@ impl From<ExecutionError> for ErrorRepresentation {
                 details: None,
                 metadata: None,
             },
+            ExecutionError::ParseError { message } => ErrorRepresentation {
+                code: "PARSE_ERROR".to_owned(),
+                message,
+                details: None,
+                metadata: None,
+            },
         }
     }
 }
@@ -393,6 +399,9 @@ pub enum ExecutionError {
         message: String,
     },
     WatcherError {
+        message: String,
+    },
+    ParseError {
         message: String,
     },
 }
