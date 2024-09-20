@@ -129,6 +129,7 @@ jobs:
         uses: actions/download-artifact@v4.1.7
         with:
           path: ./artifacts
+          merge-multiple: true
       - name: List
         run: find ./artifacts
       - name: Release
