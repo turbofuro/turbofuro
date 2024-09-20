@@ -10,6 +10,7 @@ mod operators;
 
 pub use description::describe;
 pub use description::evaluate_selector_description;
+pub use description::parse_value_by_description;
 pub use description::predict_description;
 pub use description::store_description;
 pub use description::Description;
@@ -19,6 +20,30 @@ pub use description_notation::evaluate_description_notation;
 pub use description_notation::parse_description;
 
 pub type ObjectBody = HashMap<String, StorageValue>;
+
+/// Layered storage for evaluating expressions with multiple storages
+/// without having to duplicate the storages
+#[derive(Debug)]
+pub struct LayeredStorage<'a, 'b, T: Storage> {
+    pub top: &'a T,
+    pub down: &'b T,
+}
+
+impl Storage for LayeredStorage<'_, '_, ObjectBody> {
+    fn get(&self, key: &str) -> Option<&StorageValue> {
+        self.top.get(key).or_else(|| self.down.get(key))
+    }
+}
+
+pub trait Storage {
+    fn get(&self, key: &str) -> Option<&StorageValue>;
+}
+
+impl Storage for ObjectBody {
+    fn get(&self, key: &str) -> Option<&StorageValue> {
+        self.get(key)
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -1041,9 +1066,9 @@ pub fn parse(input: &str) -> ParseResult {
     }
 }
 
-pub fn evaluate_value(
+pub fn evaluate_value<T: Storage>(
     expr: Spanned<Expr>,
-    storage: &HashMap<String, StorageValue>,
+    storage: &T,
     environment: &HashMap<String, StorageValue>,
 ) -> Result<StorageValue, TelError> {
     let out = match expr.0 {

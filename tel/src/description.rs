@@ -2,7 +2,7 @@ use crate::{Expr, Selector, SelectorPart, Spanned, StorageValue, TelError};
 use once_cell::sync::Lazy;
 use serde::Serializer;
 use serde_derive::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Display, vec};
+use std::{collections::HashMap, fmt::Display};
 use url::Url;
 
 pub type ObjectDescription = HashMap<String, Description>;
@@ -904,6 +904,160 @@ pub fn merge(a: Description, b: Description) -> Description {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct DescriptionParseError;
+
+pub fn parse_value_by_description(
+    value: StorageValue,
+    description: Description,
+) -> Result<StorageValue, DescriptionParseError> {
+    match description {
+        Description::Null => match value {
+            StorageValue::Null(_) => Ok(value),
+            _ => Err(DescriptionParseError),
+        },
+        Description::StringValue { value: expected } => match value {
+            StorageValue::String(s) => {
+                if s == expected {
+                    Ok(s.into())
+                } else {
+                    Err(DescriptionParseError)
+                }
+            }
+            _ => Err(DescriptionParseError),
+        },
+        Description::NumberValue { value: expected } => match value {
+            StorageValue::Number(n) => {
+                if n == expected {
+                    Ok(value)
+                } else {
+                    Err(DescriptionParseError)
+                }
+            }
+            _ => Err(DescriptionParseError),
+        },
+        Description::BooleanValue { value: expected } => match value {
+            StorageValue::Boolean(b) => {
+                if b == expected {
+                    Ok(value)
+                } else {
+                    Err(DescriptionParseError)
+                }
+            }
+            _ => Err(DescriptionParseError),
+        },
+        Description::Array { item_type, length } => match value {
+            StorageValue::Array(array) => {
+                if let Some(length) = length {
+                    if array.len() != length {
+                        return Err(DescriptionParseError);
+                    }
+                }
+
+                let mut result = Vec::new();
+                for item in array {
+                    result.push(parse_value_by_description(item, *item_type.clone())?);
+                }
+                Ok(StorageValue::Array(result))
+            }
+            _ => Err(DescriptionParseError),
+        },
+        Description::Object { value: expected } => match value {
+            StorageValue::Object(object) => {
+                let mut result = HashMap::new();
+                for (key, expected) in expected {
+                    result.insert(
+                        key.clone(),
+                        parse_value_by_description(
+                            object.get(&key).unwrap().clone(),
+                            expected.clone(),
+                        )?,
+                    );
+                }
+                Ok(StorageValue::Object(result))
+            }
+            _ => Err(DescriptionParseError),
+        },
+        Description::ExactArray { value: expected } => match value {
+            StorageValue::Array(array) => {
+                if array.len() != expected.len() {
+                    return Err(DescriptionParseError);
+                }
+
+                let mut result = Vec::new();
+                for (index, expected) in expected.iter().enumerate() {
+                    result.push(parse_value_by_description(
+                        array[index].clone(),
+                        expected.clone(),
+                    )?);
+                }
+                Ok(StorageValue::Array(result))
+            }
+            _ => Err(DescriptionParseError),
+        },
+        Description::Union { of } => {
+            let mut result = Vec::new();
+            for variant in of {
+                match parse_value_by_description(value.clone(), variant) {
+                    Ok(variant) => {
+                        result.push(variant);
+                    }
+                    Err(e) => {
+                        // TODO: Collect errors for better error message
+                    }
+                }
+            }
+
+            if let Some(result) = result.pop() {
+                Ok(result)
+            } else {
+                Err(DescriptionParseError)
+            }
+        }
+        Description::Error { error } => unreachable!(),
+        Description::Unknown => Ok(value),
+        Description::Any => Ok(value),
+        Description::BaseType { field_type } => {
+            if field_type.starts_with("string") {
+                match value {
+                    StorageValue::String(_) => return Ok(value),
+                    _ => return Err(DescriptionParseError),
+                }
+            }
+
+            if field_type.starts_with("number") {
+                match value {
+                    StorageValue::Number(_) => return Ok(value),
+                    _ => return Err(DescriptionParseError),
+                }
+            }
+
+            if field_type.starts_with("object") {
+                match value {
+                    StorageValue::Object(_) => return Ok(value),
+                    _ => return Err(DescriptionParseError),
+                }
+            }
+
+            if field_type.starts_with("array") {
+                match value {
+                    StorageValue::Array(_) => return Ok(value),
+                    _ => return Err(DescriptionParseError),
+                }
+            }
+
+            if field_type.starts_with("boolean") {
+                match value {
+                    StorageValue::Boolean(_) => return Ok(value),
+                    _ => return Err(DescriptionParseError),
+                }
+            }
+
+            Err(DescriptionParseError)
+        }
+    }
+}
+
 pub fn predict_description(
     expr: Spanned<Expr>,
     storage: &HashMap<String, Description>,
@@ -1515,6 +1669,15 @@ mod test_description {
     use crate::{parse, storage_value};
 
     use super::*;
+
+    #[test]
+    fn test_parse_value_by_description_simple_string() {
+        let description = describe(StorageValue::String("Hello World".to_owned()));
+        let value =
+            parse_value_by_description(StorageValue::String("Hello World".to_owned()), description)
+                .unwrap();
+        assert_eq!(value, StorageValue::String("Hello World".to_owned()));
+    }
 
     #[test]
     fn test_deduplicates() {
