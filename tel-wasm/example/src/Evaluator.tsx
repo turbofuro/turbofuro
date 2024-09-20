@@ -62,7 +62,6 @@ export default function Evaluator() {
 
   return (
     <>
-      <nav>TEL</nav>
       <div className="split">
         <div className="left">
           <h3>Expression:</h3>

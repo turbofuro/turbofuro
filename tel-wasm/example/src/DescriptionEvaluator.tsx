@@ -35,7 +35,7 @@ export default function DescriptionEvaluator() {
 
   return (
     <>
-      <nav>Description</nav>
+      <h2>Descriptions</h2>
       <div className="split">
         <div className="left">
           <h3>Expression:</h3>
