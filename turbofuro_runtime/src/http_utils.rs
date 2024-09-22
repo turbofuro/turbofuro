@@ -4,11 +4,20 @@ use axum::{
     body::{Body, Bytes},
     extract::{FromRequest, FromRequestParts, Path, Query, Request},
     http::request::Parts,
+    RequestExt,
 };
 use axum_extra::extract::CookieJar;
 use encoding_rs::{Encoding, UTF_8};
+use futures_util::StreamExt;
 use hyper::{header, HeaderMap, Method};
 use tel::{ObjectBody, StorageValue};
+
+use crate::{
+    errors::ExecutionError,
+    resources::{
+        ActorResources, MultipartManagerCommand, MultipartManagerFieldEvent, PendingFormData,
+    },
+};
 
 fn retrieve_content_type(headers: &HeaderMap) -> DetectedContentType {
     let content_type = match headers.get(header::CONTENT_TYPE) {
@@ -39,6 +48,12 @@ fn retrieve_content_type(headers: &HeaderMap) -> DetectedContentType {
         return DetectedContentType::Form;
     }
 
+    if mime.type_() == "multipart" {
+        return DetectedContentType::Multipart {
+            boundary: mime.get_param("boundary").map(|s| s.to_string()),
+        };
+    }
+
     if mime.type_() == "text" {
         return DetectedContentType::Text;
     }
@@ -61,6 +76,7 @@ pub enum DetectedContentType {
     Bytes,
     None,
     Unknown,
+    Multipart { boundary: Option<String> },
 }
 
 impl ToString for DetectedContentType {
@@ -72,6 +88,12 @@ impl ToString for DetectedContentType {
             DetectedContentType::Bytes => "bytes".to_string(),
             DetectedContentType::None => "none".to_string(),
             DetectedContentType::Unknown => "unknown".to_string(),
+            DetectedContentType::Multipart { boundary } => {
+                format!(
+                    "multipart/{}",
+                    boundary.clone().unwrap_or_else(|| "".to_owned())
+                )
+            }
         }
     }
 }
@@ -175,33 +197,43 @@ pub async fn build_metadata_from_parts(parts: &mut Parts) -> (ObjectBody, Detect
     (obj, content_type)
 }
 
-pub async fn build_request_object(request: Request<Body>) -> HashMap<String, StorageValue> {
+pub async fn build_request_object(
+    request: Request<Body>,
+) -> (HashMap<String, StorageValue>, ActorResources) {
+    let mut resources = ActorResources::default();
     let (mut parts, body) = request.into_parts();
     let (mut request_object, content_type) = build_metadata_from_parts(&mut parts).await;
 
     let request = Request::from_parts(parts, body);
-
-    // TODO: Add support for not parsing the body
-    let bytes = Bytes::from_request(request, &()).await.ok();
-    if let Some(bytes) = bytes {
-        match content_type {
-            DetectedContentType::Json => {
+    match content_type {
+        DetectedContentType::Json => {
+            let bytes = Bytes::from_request(request, &()).await.ok();
+            if let Some(bytes) = bytes {
                 let body = serde_json::from_slice(&bytes).ok();
                 if let Some(body) = body {
                     request_object.insert("body".to_string(), body);
                 }
             }
-            DetectedContentType::Form => {
+        }
+        DetectedContentType::Form => {
+            let bytes = Bytes::from_request(request, &()).await.ok();
+            if let Some(bytes) = bytes {
                 let body = serde_urlencoded::from_bytes(&bytes).ok();
                 if let Some(body) = body {
                     request_object.insert("form".to_string(), body);
                 }
             }
-            DetectedContentType::Text => {
+        }
+        DetectedContentType::Text => {
+            let bytes = Bytes::from_request(request, &()).await.ok();
+            if let Some(bytes) = bytes {
                 let (text, _) = decode_text_with_encoding("utf-8", &bytes);
                 request_object.insert("body".to_string(), StorageValue::String(text));
             }
-            DetectedContentType::Bytes => {
+        }
+        DetectedContentType::Bytes => {
+            let bytes = Bytes::from_request(request, &()).await.ok();
+            if let Some(bytes) = bytes {
                 let vec = bytes
                     .to_vec()
                     .iter_mut()
@@ -209,11 +241,115 @@ pub async fn build_request_object(request: Request<Body>) -> HashMap<String, Sto
                     .collect();
                 request_object.insert("body".to_string(), StorageValue::Array(vec));
             }
-            DetectedContentType::None => {}
-            DetectedContentType::Unknown => {}
+        }
+        DetectedContentType::None => {}
+        DetectedContentType::Unknown => {}
+        DetectedContentType::Multipart { boundary } => {
+            let stream = request.with_limited_body().into_body();
+            if let Some(boundary) = boundary {
+                let mut multipart = multer::Multipart::new(stream.into_data_stream(), boundary);
+                request_object.insert("multipart".to_string(), StorageValue::Boolean(true));
+
+                let (sender, mut receiver) =
+                    tokio::sync::mpsc::channel::<MultipartManagerCommand>(4);
+                resources.pending_form_data.push(PendingFormData(sender));
+                tokio::spawn(async move {
+                    while let Some(command) = receiver.recv().await {
+                        match command {
+                            MultipartManagerCommand::GetNext {
+                                sender: field_sender,
+                            } => {
+                                let field = multipart.next_field().await;
+
+                                match field {
+                                    Ok(field) => match field {
+                                        Some(mut field) => {
+                                            let (sender, receiver) =
+                                                tokio::sync::mpsc::channel::<
+                                                    Result<Bytes, ExecutionError>,
+                                                >(4);
+
+                                            // Insert headers
+                                            let mut headers: HashMap<String, String> =
+                                                HashMap::new();
+                                            for (k, v) in field.headers() {
+                                                let value = match v.to_str() {
+                                                    Ok(v) => v,
+                                                    Err(_) => continue,
+                                                };
+                                                headers.insert(
+                                                    k.as_str().to_string(),
+                                                    value.to_string(),
+                                                );
+                                            }
+
+                                            match field_sender.send(
+                                                MultipartManagerFieldEvent::File {
+                                                    name: field.name().map(|s| s.to_owned()),
+                                                    filename: field
+                                                        .file_name()
+                                                        .map(|s| s.to_owned()),
+                                                    receiver,
+                                                    headers,
+                                                    index: field.index(),
+                                                },
+                                            ) {
+                                                Ok(_) => {}
+                                                Err(_) => {
+                                                    break;
+                                                }
+                                            }
+
+                                            while let Some(chunk) = field.next().await {
+                                                match sender
+                                                    .send(chunk.map_err(|e| {
+                                                        ExecutionError::IoError {
+                                                            message: e.to_string(),
+                                                            os_code: None,
+                                                        }
+                                                    }))
+                                                    .await
+                                                {
+                                                    Ok(_) => {}
+                                                    Err(_) => {
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        None => {
+                                            match field_sender
+                                                .send(MultipartManagerFieldEvent::Empty)
+                                            {
+                                                Ok(_) => {}
+                                                Err(_) => break,
+                                            }
+                                        }
+                                    },
+                                    Err(_e) => {
+                                        match field_sender.send(MultipartManagerFieldEvent::Error) {
+                                            Ok(_) => {}
+                                            Err(_) => {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            _ => {
+                                unreachable!()
+                            }
+                        }
+                    }
+                });
+            } else {
+                let mut body = ObjectBody::new();
+                body.insert("error".to_owned(), "Missing boundary".into());
+                request_object.insert("multipart".to_string(), StorageValue::Object(body));
+            }
         }
     }
-    request_object
+    (request_object, resources)
 }
 
 pub fn decode_text_with_encoding(encoding_name: &str, full: &Bytes) -> (String, bool) {

@@ -2,6 +2,7 @@ use nanoid::nanoid;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use crate::{
+    cloud::operator_client::get_reported_debug_entries,
     config::{fetch_configuration, ConfigurationCoordinator},
     environment_resolver::SharedEnvironmentResolver,
     errors::WorkerError,
@@ -235,16 +236,7 @@ impl CloudAgent {
                         self.status.add_warning(warning.clone());
                     }
                 }
-                let _ = self
-                    .operator_client
-                    .send_command(SendingCommand::UpdateState {
-                        version: VERSION,
-                        os: std::env::consts::OS,
-                        name: self.options.name.clone(),
-                        status: self.status.clone(),
-                        timestamp: get_timestamp(),
-                    })
-                    .await;
+                self.update_state().await
             }
             CloudAgentMessage::PerformRun {
                 id,
@@ -327,6 +319,8 @@ impl CloudAgent {
                             .await;
                     }
                 }
+
+                self.update_state().await
             }
             CloudAgentMessage::DisableDebugger { module_id } => {
                 let removed = self.debug_state.remove_entry(&module_id);
@@ -361,6 +355,8 @@ impl CloudAgent {
                         module_id.clone()
                     );
                 }
+
+                self.update_state().await
             }
             CloudAgentMessage::ReloadConfiguration => {
                 info!("Reloading configuration");
@@ -413,8 +409,7 @@ impl CloudAgent {
         }
     }
 
-    async fn handle_tick(&mut self) {
-        // Let's update state every so often
+    async fn update_state(&mut self) {
         self.operator_client
             .send_command(SendingCommand::UpdateState {
                 version: VERSION,
@@ -422,8 +417,14 @@ impl CloudAgent {
                 name: self.options.name.clone(),
                 status: self.status.clone(),
                 timestamp: get_timestamp(),
+                debug: get_reported_debug_entries(&self.debug_state),
             })
-            .await
+            .await;
+    }
+
+    async fn handle_tick(&mut self) {
+        // Let's update state every so often
+        self.update_state().await
     }
 
     #[instrument(level = "info", skip_all)]

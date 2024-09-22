@@ -2226,7 +2226,11 @@ dependencies = [
  "httparse",
  "memchr",
  "mime",
+ "serde",
+ "serde_json",
  "spin 0.9.8",
+ "tokio",
+ "tokio-util",
  "version_check",
 ]
 
@@ -4037,6 +4041,7 @@ dependencies = [
  "log 0.4.21",
  "memoize",
  "mime",
+ "multer",
  "mustache",
  "nanoid",
  "native-tls",
@@ -4093,6 +4098,7 @@ dependencies = [
  "log 0.4.21",
  "mime",
  "moka",
+ "multer",
  "nanoid",
  "once_cell",
  "pico-args",

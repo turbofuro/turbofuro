@@ -1258,12 +1258,52 @@ pub fn evaluate_value<T: Storage>(
                     "toLowerCase" => StorageValue::String(s.to_lowercase()),
                     "trim" => StorageValue::String(s.trim().to_string()),
                     "isEmpty" => StorageValue::Boolean(s.is_empty()),
+                    "stripPrefix" => {
+                        let arg = arguments.pop();
+                        if let Some(arg) = arg {
+                            let arg = evaluate_value(arg, storage, environment)?;
+                            let arg = arg.to_string()?;
+
+                            if let Some(removed) = s.strip_prefix(arg.as_str()) {
+                                StorageValue::String(removed.to_string())
+                            } else {
+                                s.into()
+                            }
+                        } else {
+                            s.trim_start().into()
+                        }
+                    }
+                    "stripSuffix" => {
+                        let arg = arguments.pop();
+                        if let Some(arg) = arg {
+                            let arg = evaluate_value(arg, storage, environment)?;
+                            let arg = arg.to_string()?;
+
+                            if let Some(removed) = s.strip_prefix(arg.as_str()) {
+                                StorageValue::String(removed.to_string())
+                            } else {
+                                s.into()
+                            }
+                        } else {
+                            s.trim_end().into()
+                        }
+                    }
                     "startsWith" => {
                         let arg = arguments.pop();
                         if let Some(arg) = arg {
                             let arg = evaluate_value(arg, storage, environment)?;
                             let arg = arg.to_string()?;
                             StorageValue::Boolean(s.starts_with(&arg))
+                        } else {
+                            StorageValue::Boolean(false)
+                        }
+                    }
+                    "endsWith" => {
+                        let arg = arguments.pop();
+                        if let Some(arg) = arg {
+                            let arg = evaluate_value(arg, storage, environment)?;
+                            let arg = arg.to_string()?;
+                            StorageValue::Boolean(s.ends_with(&arg))
                         } else {
                             StorageValue::Boolean(false)
                         }

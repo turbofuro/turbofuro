@@ -1,6 +1,6 @@
 use axum::{
     body::{Body, BodyDataStream, Bytes},
-    extract::ws::Message,
+    extract::{ws::Message, Multipart},
     response::{
         sse::{self},
         Response,
@@ -13,6 +13,7 @@ use reqwest::multipart::Form;
 use serde_derive::{Deserialize, Serialize};
 use std::{convert::Infallible, pin::Pin};
 use tel::StorageValue;
+use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::io::ReaderStream;
 
 use std::{
@@ -35,6 +36,8 @@ const HTTP_REQUEST_RESOURCE_TYPE: &str = "http_request";
 const PENDING_HTTP_RESPONSE_TYPE: &str = "pending_http_response";
 const PENDING_HTTP_REQUEST_TYPE: &str = "pending_http_request";
 const FORM_DATA_DRAFT_TYPE: &str = "form_data_draft";
+const PENDING_FORM_DATA_TYPE: &str = "pending_form_data";
+const PENDING_FORM_DATA_FIELD_TYPE: &str = "pending_form_data_field";
 const ACTOR_LINK_TYPE: &str = "actor_link";
 const CANCELLATION: &str = "cancellation";
 const FILE_HANDLE: &str = "file_handle";
@@ -365,6 +368,44 @@ impl Resource for FormDataDraft {
     }
 }
 
+#[derive(Debug)]
+pub enum MultipartManagerFieldEvent {
+    Error,
+    Empty,
+    File {
+        name: Option<String>,
+        filename: Option<String>,
+        index: usize,
+        headers: HashMap<String, String>,
+        receiver: tokio::sync::mpsc::Receiver<Result<Bytes, ExecutionError>>,
+    },
+}
+
+#[derive(Debug)]
+pub enum MultipartManagerCommand {
+    GetNext {
+        sender: oneshot::Sender<MultipartManagerFieldEvent>,
+    },
+}
+
+#[derive(Debug)]
+pub struct PendingFormData(pub mpsc::Sender<MultipartManagerCommand>);
+
+impl Resource for PendingFormData {
+    fn get_type() -> &'static str {
+        PENDING_FORM_DATA_TYPE
+    }
+}
+
+#[derive(Debug)]
+pub struct PendingFormDataField(pub mpsc::Receiver<Result<Bytes, ExecutionError>>);
+
+impl Resource for PendingFormDataField {
+    fn get_type() -> &'static str {
+        PENDING_FORM_DATA_FIELD_TYPE
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct ResourceRegistry {
     pub redis_pools: DashMap<String, RedisPool>,
@@ -384,6 +425,26 @@ pub struct ActorResources {
     pub pending_response_body: Vec<PendingHttpResponseBody>,
     pub pending_request_body: Vec<PendingHttpRequestBody>,
     pub form_data: Vec<FormDataDraft>,
+    pub pending_form_data: Vec<PendingFormData>,
+    pub pending_form_data_fields: Vec<PendingFormDataField>,
+}
+
+impl ActorResources {
+    pub fn append(&mut self, other: &mut ActorResources) {
+        self.http_requests_to_respond
+            .append(&mut other.http_requests_to_respond);
+        self.websockets.append(&mut other.websockets);
+        self.cancellations.append(&mut other.cancellations);
+        self.files.append(&mut other.files);
+        self.pending_response_body
+            .append(&mut other.pending_response_body);
+        self.pending_request_body
+            .append(&mut other.pending_request_body);
+        self.form_data.append(&mut other.form_data);
+        self.pending_form_data.append(&mut other.pending_form_data);
+        self.pending_form_data_fields
+            .append(&mut other.pending_form_data_fields);
+    }
 }
 
 pub struct PendingHttpRequestStream(pub BodyDataStream);
@@ -419,6 +480,11 @@ impl ActorResources {
         if let Some(request) = request {
             let stream = PendingHttpRequestStream(request.0.into_data_stream());
             return Ok(Box::pin(stream));
+        }
+
+        let pending_form_data_fields = self.pending_form_data_fields.pop();
+        if let Some(pending_form_data_fields) = pending_form_data_fields {
+            return Ok(Box::pin(ReceiverStream::new(pending_form_data_fields.0)));
         }
 
         let response = self.pending_response_body.pop();

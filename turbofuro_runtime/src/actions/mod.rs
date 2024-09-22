@@ -19,6 +19,7 @@ pub mod http_client;
 pub mod http_server;
 pub mod kv;
 pub mod mail;
+pub mod multipart;
 pub mod mustache;
 pub mod os;
 pub mod postgres;

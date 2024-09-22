@@ -200,7 +200,8 @@ async fn handle_request(
     // Build initial storage
     let mut initial_storage = ObjectBody::new();
     if route.parse_body {
-        let request_object = build_request_object(request).await;
+        let (request_object, mut request_resources) = build_request_object(request).await;
+        resources.append(&mut request_resources);
         initial_storage.insert("request".to_string(), StorageValue::Object(request_object));
     } else {
         let (mut parts, body) = request.into_parts();

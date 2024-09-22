@@ -172,14 +172,20 @@ fn parse_row(row: Row) -> Result<StorageValue, ExecutionError> {
                 result.insert(c.name().to_owned(), v.map_or(NULL, |v| v.into()));
             }
             Type::TIMESTAMPTZ => {
-                let v: SystemTime = row.get(i);
+                let v: Option<SystemTime> =
+                    row.try_get(i).map_err(|e| ExecutionError::PostgresError {
+                        message: e.to_string(),
+                        stage: "parse".into(),
+                    })?;
                 result.insert(
                     c.name().to_owned(),
-                    StorageValue::Number(
-                        v.duration_since(SystemTime::UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis() as f64,
-                    ),
+                    v.map_or(NULL, |v| {
+                        StorageValue::Number(
+                            v.duration_since(SystemTime::UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis() as f64,
+                        )
+                    }),
                 );
             }
             Type::JSONB => {
@@ -290,8 +296,8 @@ impl ToSql for QueryArgument {
                 t => s.to_sql_checked(t, out),
             },
             StorageValue::Number(f) => match ty {
-                &Type::INT4 => f.to_sql_checked(&Type::INT4, out),
-                &Type::INT8 => f.to_sql_checked(&Type::INT8, out),
+                &Type::INT4 => (*f as i32).to_sql_checked(&Type::INT4, out),
+                &Type::INT8 => (*f as i64).to_sql_checked(&Type::INT8, out),
                 &Type::FLOAT4 => f.to_sql_checked(&Type::FLOAT4, out),
                 &Type::FLOAT8 => f.to_sql_checked(&Type::FLOAT8, out),
                 &Type::TIMESTAMPTZ => match chrono::DateTime::from_timestamp_millis(*f as i64) {

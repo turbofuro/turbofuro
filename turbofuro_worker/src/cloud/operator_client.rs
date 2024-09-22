@@ -14,7 +14,7 @@ use tokio::sync::mpsc::{self};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use tracing::{debug, warn};
 use turbofuro_runtime::{
-    executor::{Callee, ExecutionEvent, ExecutionStatus, Parameter},
+    executor::{Callee, DebugState, ExecutionEvent, ExecutionStatus, Parameter},
     Description, StorageValue,
 };
 
@@ -42,6 +42,24 @@ pub enum DebugAction {
         id: String,
         sound: String,
     },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReportedDebugEntry {
+    pub module_id: String,
+    pub passive: bool,
+}
+
+pub fn get_reported_debug_entries(debug_state: &DebugState) -> Vec<ReportedDebugEntry> {
+    let mut entries = Vec::new();
+    for debug in debug_state.entries.iter() {
+        entries.push(ReportedDebugEntry {
+            module_id: debug.module_id.clone(),
+            passive: debug.module.is_none(),
+        });
+    }
+    entries
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,6 +109,7 @@ pub enum SendingCommand {
         name: String,
         status: WorkerStatus,
         timestamp: u64,
+        debug: Vec<ReportedDebugEntry>,
     },
     #[serde(rename_all = "camelCase")]
     ReportError { id: String, error: WorkerError },
@@ -496,6 +515,10 @@ mod test_operator_client {
                 }],
             },
             timestamp: 200,
+            debug: vec![ReportedDebugEntry {
+                module_id: "test".to_owned(),
+                passive: false,
+            }],
         };
 
         let serialized = serde_json::to_value(command).unwrap();
@@ -514,7 +537,13 @@ mod test_operator_client {
                         }
                     ]
                 },
-                "timestamp": 200
+                "timestamp": 200,
+                "debug": [
+                    {
+                        "moduleId": "test",
+                        "passive": false
+                    }
+                ]
             }
         );
         assert_eq!(serialized, expected);
@@ -531,6 +560,7 @@ mod test_operator_client {
                 warnings: vec![],
             },
             timestamp: 200,
+            debug: vec![],
         };
 
         let serialized = serde_json::to_value(command).unwrap();
@@ -545,7 +575,8 @@ mod test_operator_client {
                     "reason": "ENVIRONMENT_CHANGED",
                     "warnings": []
                 },
-                "timestamp": 200
+                "timestamp": 200,
+                "debug": []
             }
         );
         assert_eq!(serialized, expected);

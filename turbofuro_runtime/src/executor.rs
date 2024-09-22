@@ -41,6 +41,7 @@ use crate::actions::http_client;
 use crate::actions::http_server;
 use crate::actions::kv;
 use crate::actions::mail;
+use crate::actions::multipart;
 use crate::actions::mustache;
 use crate::actions::os;
 use crate::actions::postgres;
@@ -1134,6 +1135,9 @@ async fn execute_native<'a>(
             debug::show_notification(context, parameters, step_id, store_as).await?
         }
         "debug/play_sound" => debug::play_sound(context, parameters, step_id, store_as).await?,
+        "http_server/get_multipart_field" => {
+            multipart::get_field(context, parameters, step_id, store_as).await?
+        }
         id => {
             return Err(ExecutionError::Unsupported {
                 message: format!("Native function {} not found", id),

@@ -98,6 +98,8 @@ pub async fn open_file<'a>(
             .map(|c| system_time_to_millis_since_epoch(c).into())
             .unwrap_or_default(),
     );
+    metadata_object.insert("isDir".into(), metadata.is_dir().into());
+    metadata_object.insert("isFile".into(), metadata.is_file().into());
 
     context.resources.files.push(FileHandle { file });
 
