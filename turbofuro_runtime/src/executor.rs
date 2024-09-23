@@ -2,13 +2,13 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
+use std::time::Duration;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 use std::vec;
 
 use arc_swap::ArcSwap;
 use async_recursion::async_recursion;
-
 use nanoid::nanoid;
 use serde;
 use serde_derive::{Deserialize, Serialize};
@@ -531,6 +531,15 @@ impl DebugState {
         } else {
             None
         }
+    }
+
+    pub fn remove_old_entries(&mut self) -> bool {
+        let now = Instant::now();
+        let before = self.entries.len();
+
+        self.entries
+            .retain(|e| e.last_activity + Duration::from_secs(300) > now);
+        before == self.entries.len()
     }
 }
 

@@ -409,6 +409,10 @@ impl CloudAgent {
         }
     }
 
+    async fn check_stale_debug(&mut self) {
+        self.debug_state.remove_old_entries();
+    }
+
     async fn update_state(&mut self) {
         self.operator_client
             .send_command(SendingCommand::UpdateState {
@@ -423,6 +427,8 @@ impl CloudAgent {
     }
 
     async fn handle_tick(&mut self) {
+        self.check_stale_debug().await;
+
         // Let's update state every so often
         self.update_state().await
     }
@@ -494,7 +500,7 @@ impl CloudAgent {
 }
 
 async fn run_cloud_agent(mut agent: CloudAgent) {
-    let mut timer = tokio::time::interval(Duration::from_secs(300));
+    let mut timer = tokio::time::interval(Duration::from_secs(180));
 
     loop {
         tokio::select! {

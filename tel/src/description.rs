@@ -1002,7 +1002,7 @@ pub fn parse_value_by_description(
                     Ok(variant) => {
                         result.push(variant);
                     }
-                    Err(e) => {
+                    Err(_e) => {
                         // TODO: Collect errors for better error message
                     }
                 }

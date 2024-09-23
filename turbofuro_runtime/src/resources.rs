@@ -1,6 +1,6 @@
 use axum::{
     body::{Body, BodyDataStream, Bytes},
-    extract::{ws::Message, Multipart},
+    extract::ws::Message,
     response::{
         sse::{self},
         Response,
