@@ -432,7 +432,6 @@ mod test_operator_client {
                 module_id: "123".to_owned(),
                 id: "123".to_owned(),
                 instructions: vec![],
-                handlers: HashMap::new(),
                 imports: HashMap::new(),
             },
             callee: Callee::Local {

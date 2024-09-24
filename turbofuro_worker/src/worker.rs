@@ -414,10 +414,18 @@ impl WorkerHttpServer {
     }
 }
 
+#[derive(Debug)]
+struct ModuleState {
+    module_id: String,
+    manager_id: String,
+    module: Arc<CompiledModule>,
+}
+
 pub struct Worker {
     config: Configuration,
     global: Arc<Global>,
     module_version_resolver: SharedModuleVersionResolver,
+    module_managers: Vec<ModuleState>,
 
     // To be send by worker to shutdown axum app
     router_shutdown: Option<oneshot::Sender<bool>>,
@@ -443,6 +451,7 @@ impl Worker {
             router_shutdown: None,
             router_shutdown_completed: None,
             event_sender,
+            module_managers: vec![],
         }
     }
 
@@ -517,72 +526,80 @@ impl Worker {
             // Make a copy of the sender (+ module id) so we can send warnings later
             let module_version_id = module.id.clone();
             let event_sender = self.event_sender.clone();
-            let handlers = module.handlers.clone();
             let debugger = debug_state.get_debugger(&module.module_id);
 
             let actor = Actor::new(
                 StorageValue::Null(None),
                 environment.clone(),
-                module,
+                module.clone(),
                 self.global.clone(),
                 ActorResources::default(),
-                handlers,
+                HashMap::new(),
                 debugger,
             );
             let actor_id = actor.get_id().to_owned();
             let actor_link = activate_actor(actor);
+
+            self.module_managers.push(ModuleState {
+                module_id: module.id.clone(),
+                manager_id: actor_id.clone(),
+                module: module.clone(),
+            });
 
             self.global
                 .registry
                 .actors
                 .insert(actor_id, actor_link.clone());
 
-            let (run_sender, run_receiver) = tokio::sync::oneshot::channel();
+            for starter in &module.module_starters {
+                let (run_sender, run_receiver) = tokio::sync::oneshot::channel();
+                let _ = actor_link
+                    .send(ActorCommand::RunFunctionRef {
+                        function_ref: starter.get_id().to_owned(),
+                        storage: HashMap::new(),
+                        references: HashMap::new(),
+                        sender: Some(run_sender),
+                        execution_id: None,
+                    })
+                    .await;
 
-            let _ = actor_link
-                .send(ActorCommand::Run {
-                    handler: "onStart".to_owned(),
-                    storage: HashMap::new(),
-                    references: HashMap::new(),
-                    sender: Some(run_sender),
-                    execution_id: None,
-                })
-                .await;
-
-            waits.push(async move {
-                let response = run_receiver.await;
-                match response {
-                    Ok(result) => {
-                        match result {
-                            Ok(_) => {
-                                // All went well, do nothing
-                            }
-                            Err(err) => {
-                                event_sender
-                                    .send(WorkerEvent::WarningRaised(
-                                        WorkerWarning::ModuleStartupFailed {
-                                            module_id: module_version_id,
-                                            error: WorkerError::from(err),
-                                        },
-                                    ))
-                                    .await;
+                let event_sender = event_sender.clone();
+                let module_version_id = module_version_id.clone();
+                waits.push(async move {
+                    let response = run_receiver.await;
+                    match response {
+                        Ok(result) => {
+                            match result {
+                                Ok(_) => {
+                                    // All went well, do nothing
+                                }
+                                Err(err) => {
+                                    event_sender
+                                        .send(WorkerEvent::WarningRaised(
+                                            WorkerWarning::ModuleStartupFailed {
+                                                module_id: module_version_id,
+                                                error: WorkerError::from(err),
+                                            },
+                                        ))
+                                        .await;
+                                }
                             }
                         }
+                        Err(_) => {
+                            event_sender
+                                .send(WorkerEvent::WarningRaised(
+                                    WorkerWarning::ModuleStartupFailed {
+                                        module_id: module_version_id,
+                                        error: WorkerError::from(
+                                            ExecutionError::new_missing_response_from_actor(),
+                                        ),
+                                    },
+                                ))
+                                .await;
+                        }
                     }
-                    Err(_) => {
-                        event_sender
-                            .send(WorkerEvent::WarningRaised(
-                                WorkerWarning::ModuleStartupFailed {
-                                    module_id: module_version_id,
-                                    error: WorkerError::from(
-                                        ExecutionError::new_missing_response_from_actor(),
-                                    ),
-                                },
-                            ))
-                            .await;
-                    }
-                }
-            });
+                });
+            }
         }
 
         futures_util::future::join_all(waits).await;
@@ -689,6 +706,32 @@ impl Worker {
         self.event_sender
             .send(WorkerEvent::WorkerStopping(reason.clone()))
             .await;
+
+        // For each managed module, call stopper if it exists
+        for module in self.module_managers.iter() {
+            match self.global.registry.actors.get(&module.manager_id) {
+                Some(manager) => {
+                    for stopper in &module.module.module_stoppers {
+                        let _ = manager
+                            .send(ActorCommand::RunFunctionRef {
+                                function_ref: stopper.get_id().to_owned(),
+                                storage: HashMap::new(),
+                                references: HashMap::new(),
+                                sender: None,
+                                execution_id: None,
+                            })
+                            .await;
+                    }
+                }
+                None => {
+                    warn!(
+                        "Could not find module manager for module {}",
+                        module.module_id
+                    );
+                }
+            }
+        }
+        self.module_managers.clear();
 
         if let Some(shutdown) = self.router_shutdown.take() {
             debug!("Sending shutdown to HTTP server");

@@ -5,7 +5,9 @@ use async_recursion::async_recursion;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info_span, instrument, Instrument};
-use turbofuro_runtime::executor::{CompiledModule, Function, Global, Import, Step, Steps};
+use turbofuro_runtime::executor::{
+    CompiledModule, Function, FunctionAnnotation, Global, Import, Step, Steps,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -82,7 +84,6 @@ pub struct ModuleVersion {
     pub id: String,
     pub module_id: String,
     pub instructions: Steps,
-    pub handlers: HashMap<String, String>,
     pub imports: HashMap<String, Import>,
 }
 
@@ -90,17 +91,14 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
     let local_functions: Vec<Function> = module_version
         .instructions
         .iter()
-        .filter(|s| {
-            matches!(
-                s,
-                Step::DefineFunction {
-                    exported: false,
-                    ..
-                } | Step::DefineNativeFunction {
-                    exported: false,
-                    ..
-                }
-            )
+        .filter(|s| match s {
+            Step::DefineFunction { annotations, .. } => {
+                !annotations.contains(&FunctionAnnotation::Exported)
+            }
+            Step::DefineNativeFunction { annotations, .. } => {
+                !annotations.contains(&FunctionAnnotation::Exported)
+            }
+            _ => false,
         })
         .map(|s| match s {
             Step::DefineFunction {
@@ -109,6 +107,7 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
                 body,
                 exported: _,
                 name,
+                annotations: _,
             } => Function::Normal {
                 id: id.clone(),
                 body: body.clone(),
@@ -120,13 +119,14 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
                 parameters: _,
                 exported: _,
                 name,
+                annotations: _,
             } => Function::Native {
                 id: id.to_owned(),
                 native_id: native_id.to_owned(),
                 name: name.to_owned(),
             },
             other => {
-                panic!("Expected function definition, got step: {:?}", other)
+                unreachable!("Expected function definition, got step: {:?}", other)
             }
         })
         .collect_vec();
@@ -134,12 +134,14 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
     let exported_functions: Vec<Function> = module_version
         .instructions
         .iter()
-        .filter(|s| {
-            matches!(
-                s,
-                Step::DefineFunction { exported: true, .. }
-                    | Step::DefineNativeFunction { exported: true, .. }
-            )
+        .filter(|s| match s {
+            Step::DefineFunction { annotations, .. } => {
+                annotations.contains(&FunctionAnnotation::Exported)
+            }
+            Step::DefineNativeFunction { annotations, .. } => {
+                annotations.contains(&FunctionAnnotation::Exported)
+            }
+            _ => false,
         })
         .map(|s| match s {
             Step::DefineFunction {
@@ -148,6 +150,7 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
                 body,
                 exported: _,
                 name,
+                annotations: _,
             } => Function::Normal {
                 id: id.clone(),
                 body: body.clone(),
@@ -159,6 +162,7 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
                 parameters: _,
                 exported: _,
                 name,
+                annotations: _,
             } => Function::Native {
                 id: id.to_owned(),
                 name: name.to_owned(),
@@ -166,6 +170,92 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
             },
             other => {
                 panic!("Expected function definition, got step: {:?}", other)
+            }
+        })
+        .collect_vec();
+
+    let module_starters: Vec<Function> = module_version
+        .instructions
+        .iter()
+        .filter(|s| match s {
+            Step::DefineFunction { annotations, .. } => {
+                annotations.contains(&FunctionAnnotation::ModuleStarter)
+            }
+            Step::DefineNativeFunction { annotations, .. } => {
+                annotations.contains(&FunctionAnnotation::ModuleStarter)
+            }
+            _ => false,
+        })
+        .map(|s| match s {
+            Step::DefineFunction {
+                id,
+                parameters: _,
+                body,
+                exported: _,
+                name,
+                annotations: _,
+            } => Function::Normal {
+                id: id.clone(),
+                body: body.clone(),
+                name: name.clone(),
+            },
+            Step::DefineNativeFunction {
+                id,
+                native_id,
+                parameters: _,
+                exported: _,
+                name,
+                annotations: _,
+            } => Function::Native {
+                id: id.to_owned(),
+                native_id: native_id.to_owned(),
+                name: name.to_owned(),
+            },
+            other => {
+                unreachable!("Expected function definition, got step: {:?}", other)
+            }
+        })
+        .collect_vec();
+
+    let module_stoppers: Vec<Function> = module_version
+        .instructions
+        .iter()
+        .filter(|s| match s {
+            Step::DefineFunction { annotations, .. } => {
+                annotations.contains(&FunctionAnnotation::ModuleStopper)
+            }
+            Step::DefineNativeFunction { annotations, .. } => {
+                annotations.contains(&FunctionAnnotation::ModuleStopper)
+            }
+            _ => false,
+        })
+        .map(|s| match s {
+            Step::DefineFunction {
+                id,
+                parameters: _,
+                body,
+                exported: _,
+                name,
+                annotations: _,
+            } => Function::Normal {
+                id: id.clone(),
+                body: body.clone(),
+                name: name.clone(),
+            },
+            Step::DefineNativeFunction {
+                id,
+                native_id,
+                parameters: _,
+                exported: _,
+                name,
+                annotations: _,
+            } => Function::Native {
+                id: id.to_owned(),
+                native_id: native_id.to_owned(),
+                name: name.to_owned(),
+            },
+            other => {
+                unreachable!("Expected function definition, got step: {:?}", other)
             }
         })
         .collect_vec();
@@ -175,7 +265,8 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
         module_id: module_version.module_id.clone(),
         local_functions,
         exported_functions,
-        handlers: module_version.handlers.clone(),
+        module_starters,
+        module_stoppers,
         imports: HashMap::new(),
     }
 }

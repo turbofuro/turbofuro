@@ -69,6 +69,18 @@ pub struct ParameterDefinition {
     pub description: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum FunctionAnnotation {
+    Exported,
+    ModuleStarter,
+    ModuleStopper,
+    Environment,
+    Provision,
+    Consumption,
+    Requirement,
+}
+
 fn default_exported() -> bool {
     false
 }
@@ -156,6 +168,7 @@ pub enum Step {
     DefineFunction {
         id: String,
         parameters: Vec<ParameterDefinition>,
+        annotations: Vec<FunctionAnnotation>,
         #[serde(default = "default_exported")]
         exported: bool,
         body: Steps,
@@ -167,6 +180,7 @@ pub enum Step {
         name: String,
         native_id: String,
         parameters: Vec<ParameterDefinition>,
+        annotations: Vec<FunctionAnnotation>,
         #[serde(default = "default_exported")]
         exported: bool,
     },
@@ -345,7 +359,8 @@ impl Default for ExecutionTest {
                 id,
                 local_functions: vec![],
                 exported_functions: vec![],
-                handlers: HashMap::new(),
+                module_starters: vec![],
+                module_stoppers: vec![],
                 imports: HashMap::new(),
                 module_id: nanoid!(),
             }),
@@ -446,7 +461,8 @@ pub struct CompiledModule {
     pub module_id: String,
     pub local_functions: Vec<Function>,
     pub exported_functions: Vec<Function>,
-    pub handlers: HashMap<String, String>,
+    pub module_starters: Vec<Function>,
+    pub module_stoppers: Vec<Function>,
     pub imports: HashMap<String, Arc<CompiledModule>>,
 }
 
@@ -2016,6 +2032,10 @@ mod test_executor {
             body: vec![Step::Break {
                 id: "break".to_owned(),
             }],
+            annotations: vec![
+                FunctionAnnotation::Exported,
+                FunctionAnnotation::ModuleStarter,
+            ],
         };
 
         let serialized = serde_json::to_value(step).unwrap();
@@ -2026,6 +2046,14 @@ mod test_executor {
                 "name": "Some function",
                 "parameters": [],
                 "exported": false,
+                "annotations": [
+                    {
+                        "type": "exported"
+                    },
+                    {
+                        "type": "module_starter"
+                    }
+                ],
                 "body": [{ "type": "break", "id": "break" }]
             }
         );
