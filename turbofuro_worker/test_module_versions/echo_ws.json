@@ -17,7 +17,7 @@
       "type": "defineFunction",
       "name": "Handle HTTP request",
       "description": "Handles HTTP request.",
-      "exported": false,
+      "annotations": [],
       "parameters": [
         {
           "type": "tel",
@@ -40,7 +40,7 @@
       "type": "defineFunction",
       "name": "Handle WebSocket message",
       "description": "Handles incoming WebSocket message from the client.",
-      "exported": false,
+      "annotations": [],
       "parameters": [
         {
           "type": "tel",
@@ -75,9 +75,12 @@
       "type": "defineFunction",
       "name": "On start",
       "description": "Initializes this module.",
-      "exported": false,
       "parameters": [],
-      "annotations": [],
+      "annotations": [
+        {
+          "type": "module_starter"
+        }
+      ],
       "id": "a5CL6vND6LqD4XOIaMPCO",
       "body": [
         {

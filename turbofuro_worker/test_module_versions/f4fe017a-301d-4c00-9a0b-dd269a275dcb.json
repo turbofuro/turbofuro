@@ -15,8 +15,11 @@
         }
       ],
       "nativeId": "time/sleep",
-      "exported": true,
-      "annotations": []
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     },
     {
       "type": "defineNativeFunction",
@@ -25,8 +28,11 @@
       "description": "Gets the current time.",
       "parameters": [],
       "nativeId": "time/get_current_time",
-      "exported": true,
-      "annotations": []
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     }
   ],
   "imports": {},

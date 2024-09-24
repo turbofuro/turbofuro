@@ -36,7 +36,11 @@
         }
       ],
       "nativeId": "http_server/respond_with",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     }
   ],
   "imports": {},

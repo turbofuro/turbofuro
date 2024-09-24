@@ -8,6 +8,7 @@
       "id": "accept_ws",
       "name": "Accept WebSocket",
       "description": "Upgrades HTTP connection to a WebSocket",
+      "annotations": [],
       "parameters": [
         {
           "name": "name",
@@ -20,8 +21,7 @@
           }
         }
       ],
-      "nativeId": "websocket/accept_ws",
-      "exported": true
+      "nativeId": "websocket/accept_ws"
     },
     {
       "type": "defineNativeFunction",
@@ -46,7 +46,11 @@
         }
       ],
       "nativeId": "websocket/send_message",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     },
     {
       "type": "defineNativeFunction",
@@ -66,7 +70,11 @@
         }
       ],
       "nativeId": "websocket/close",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     }
   ],
   "imports": {},

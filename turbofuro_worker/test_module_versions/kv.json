@@ -26,7 +26,11 @@
         }
       ],
       "nativeId": "kv/write",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     },
     {
       "type": "defineNativeFunction",
@@ -46,7 +50,11 @@
         }
       ],
       "nativeId": "kv/read",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     }
   ],
   "imports": {},

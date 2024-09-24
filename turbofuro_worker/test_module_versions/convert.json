@@ -21,7 +21,11 @@
         }
       ],
       "nativeId": "convert/parse_json",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     },
     {
       "type": "defineNativeFunction",
@@ -36,7 +40,11 @@
         }
       ],
       "nativeId": "convert/to_json",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     },
     {
       "type": "defineNativeFunction",
@@ -56,7 +64,11 @@
         }
       ],
       "nativeId": "convert/parse_urlencoded",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     },
     {
       "type": "defineNativeFunction",
@@ -71,7 +83,11 @@
         }
       ],
       "nativeId": "convert/to_urlencoded",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     }
   ],
   "imports": [],

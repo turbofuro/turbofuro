@@ -450,11 +450,10 @@ mod test_operator_client {
                     "moduleId": "123",
                     "id": "123",
                     "instructions": [],
-                    "handlers": {},
                     "imports": {}
                 },
                 "callee": "local/main",
-                "parameters": []
+                "parameters": [],
               }
 
         );

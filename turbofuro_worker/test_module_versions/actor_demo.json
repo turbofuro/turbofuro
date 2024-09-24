@@ -23,16 +23,12 @@
       "type": "cloud"
     }
   },
-  "handlers": {
-    "onStart": "a5CL6vND6LqD4XOIaMPCO"
-  },
   "instructions": [
     {
       "type": "defineFunction",
       "version": "1.0.0",
       "name": "Handle message",
       "description": "Handles actor message",
-      "exported": false,
       "annotations": [],
       "parameters": [
         {
@@ -69,7 +65,6 @@
       "version": "1.0.0",
       "name": "Handle request",
       "description": "Handles HTTP request.",
-      "exported": false,
       "parameters": [
         {
           "type": "tel",
@@ -172,9 +167,12 @@
       "type": "defineFunction",
       "name": "On start",
       "description": "Initializes this module.",
-      "exported": false,
       "parameters": [],
-      "annotations": [],
+      "annotations": [
+        {
+          "type": "module_starter"
+        }
+      ],
       "id": "a5CL6vND6LqD4XOIaMPCO",
       "body": [
         {

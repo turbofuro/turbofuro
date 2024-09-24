@@ -19,6 +19,7 @@
       "name": "Handle HTTP request",
       "version": "1.0.0",
       "parameters": [],
+      "annotations": [],
       "body": [
         {
           "type": "assign",
@@ -58,9 +59,12 @@
       "type": "defineFunction",
       "name": "On start",
       "description": "Initializes this module.",
-      "exported": false,
       "parameters": [],
-      "annotations": [],
+      "annotations": [
+        {
+          "type": "module_starter"
+        }
+      ],
       "id": "a5CL6vND6LqD4XOIaMPCO",
       "body": [
         {

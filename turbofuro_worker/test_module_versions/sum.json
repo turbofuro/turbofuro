@@ -19,7 +19,6 @@
       "version": "1.0.0",
       "name": "Handle request",
       "description": "Handles HTTP request.",
-      "exported": false,
       "parameters": [
         {
           "name": "request",
@@ -28,6 +27,7 @@
           "type": "tel"
         }
       ],
+      "annotations": [],
       "id": "mm5t8FPIk5qVZsJxHhxPz",
       "body": [
         {
@@ -74,7 +74,7 @@
       "version": "1",
       "name": "Add",
       "description": "Sums two numbers",
-      "exported": false,
+      "annotations": [],
       "parameters": [
         {
           "name": "a",
@@ -103,9 +103,12 @@
       "type": "defineFunction",
       "name": "On start",
       "description": "Initializes this module.",
-      "exported": false,
       "parameters": [],
-      "annotations": [],
+      "annotations": [
+        {
+          "type": "module_starter"
+        }
+      ],
       "id": "a5CL6vND6LqD4XOIaMPCO",
       "body": [
         {

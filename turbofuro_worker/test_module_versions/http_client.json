@@ -85,7 +85,11 @@
         }
       ],
       "nativeId": "http_client/request",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     }
   ],
   "imports": {},

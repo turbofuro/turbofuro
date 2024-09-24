@@ -31,7 +31,11 @@
         }
       ],
       "nativeId": "redis/get_connection",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     },
     {
       "type": "defineNativeFunction",
@@ -71,7 +75,11 @@
         }
       ],
       "nativeId": "redis/low_level",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     }
   ],
   "imports": {},

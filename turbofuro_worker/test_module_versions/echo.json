@@ -3,7 +3,6 @@
   "id": "echo",
   "debug": false,
   "version": "alpha",
-  "parameters": [],
   "type": "HTTP",
   "imports": {
     "c2dfa57f-e73e-452a-8707-db7a451965ce": {
@@ -12,9 +11,6 @@
       "type": "cloud"
     }
   },
-  "handlers": {
-    "onStart": "a5CL6vND6LqD4XOIaMPCO"
-  },
   "instructions": [
     {
       "id": "0",
@@ -22,6 +18,7 @@
       "name": "Handle HTTP request",
       "version": "1.0.0",
       "parameters": [],
+      "annotations": [],
       "body": [
         {
           "type": "call",
@@ -42,9 +39,12 @@
       "type": "defineFunction",
       "name": "On start",
       "description": "Initializes this module.",
-      "exported": false,
       "parameters": [],
-      "annotations": [],
+      "annotations": [
+        {
+          "type": "module_starter"
+        }
+      ],
       "id": "a5CL6vND6LqD4XOIaMPCO",
       "body": [
         {

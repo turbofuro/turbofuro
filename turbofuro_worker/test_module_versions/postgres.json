@@ -31,7 +31,11 @@
         }
       ],
       "nativeId": "postgres/get_connection",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     },
     {
       "type": "defineNativeFunction",
@@ -111,7 +115,11 @@
         }
       ],
       "nativeId": "postgres/query",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     }
   ],
   "imports": {},

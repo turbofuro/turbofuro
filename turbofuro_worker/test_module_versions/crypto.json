@@ -31,7 +31,11 @@
         }
       ],
       "nativeId": "crypto/jwt_decode",
-      "exported": true
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ]
     }
   ],
   "imports": {},

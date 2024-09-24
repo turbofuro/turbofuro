@@ -20,7 +20,6 @@
       "version": "1",
       "name": "Handle message",
       "description": "Handles message from another actor.",
-      "exported": false,
       "annotations": [],
       "parameters": [
         {
@@ -69,8 +68,11 @@
       "version": "1",
       "name": "Spawn me",
       "description": "",
-      "exported": true,
-      "annotations": [],
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
       "parameters": [
         {
           "type": "tel",

@@ -168,6 +168,7 @@ pub enum Step {
     DefineFunction {
         id: String,
         parameters: Vec<ParameterDefinition>,
+        #[serde(default)]
         annotations: Vec<FunctionAnnotation>,
         #[serde(default = "default_exported")]
         exported: bool,
@@ -180,6 +181,7 @@ pub enum Step {
         name: String,
         native_id: String,
         parameters: Vec<ParameterDefinition>,
+        #[serde(default)]
         annotations: Vec<FunctionAnnotation>,
         #[serde(default = "default_exported")]
         exported: bool,
