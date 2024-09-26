@@ -75,10 +75,13 @@ pub enum FunctionAnnotation {
     Exported,
     ModuleStarter,
     ModuleStopper,
-    Environment,
+    Environment { key: String, strict: bool },
     Provision,
     Consumption,
     Requirement,
+    ActorCreator,
+    Throws { code: String },
+    Version { version: String },
 }
 
 fn default_exported() -> bool {
