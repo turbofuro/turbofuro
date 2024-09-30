@@ -146,6 +146,17 @@ numbers[0] + numbers[1] == 3
 2e-1 == 0.2
 2e+1 == 20
 "\u1114" == "ᄔ"
+"hello".startsWith("he") == true
+"hello".endsWith("ello") == true
+3.14159.sin() == 0.00000265358979335273
+3.14.isInteger() == false
+4.0.sqrt() == 2.0
+4.0.isOdd() == false
+4.0.isEven()
+(nothing || "Hello") == "Hello"
+{} > [] == false
+{} < [] == false 
+"aaa" > "aa" == true
 // "true".toBoolean() == true
 // "false".toBoolean() == false
 // "Hello".toBoolean() == true

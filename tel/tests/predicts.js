@@ -127,3 +127,18 @@ anything + 5 CHECK number
 anything + [] CHECK array
 anything + {} CHECK object
 null == anything CHECK boolean
+1.0.sin() CHECK number
+1.0.isInteger() CHECK boolean
+4.0.sqrt() CHECK number
+4.0.isOdd() CHECK boolean
+"Hello World".stripPrefix("Hello ") CHECK string
+"Hello World".stripSuffix(" World") CHECK string
+"Hello World".stripPrefix("Hello ").stripSuffix(" World") CHECK string
+"Hello".endsWith("ello") CHECK boolean
+anything CHECK any
+("/Users/r/Downloads/" + (anything || "")) CHECK string
+(nothing || "Hello") CHECK string
+{} > [] CHECK boolean
+{} < [] CHECK boolean
+"aaa" > "aa" CHECK boolean
+(5 || "Hello").type() CHECK "number" | "string"

@@ -115,6 +115,31 @@ impl From<TelError> for ErrorRepresentation {
                 })),
                 metadata: None,
             },
+            TelError::InvalidArgument {
+                index,
+                method_name,
+                expected,
+                actual,
+            } => ErrorRepresentation {
+                code: "INVALID_ARGUMENT".to_owned(),
+                message: format!("Invalid argument {} of {}", index, method_name),
+                details: Some(storage_value!({
+                    "index": index,
+                    "name": method_name,
+                    "expected": expected,
+                    "actual": actual,
+                })),
+                metadata: None,
+            },
+            TelError::MissingArgument { index, method_name } => ErrorRepresentation {
+                code: "MISSING_ARGUMENT".to_owned(),
+                message: format!("Missing argument {} of {}", index, method_name),
+                details: Some(storage_value!({
+                    "index": index,
+                    "name": method_name,
+                })),
+                metadata: None,
+            },
         }
     }
 }

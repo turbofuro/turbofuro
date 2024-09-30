@@ -412,6 +412,16 @@ pub enum TelError {
         subject: String,
         message: String,
     },
+    InvalidArgument {
+        index: usize,
+        method_name: String,
+        expected: Option<String>,
+        actual: Option<String>,
+    },
+    MissingArgument {
+        index: usize,
+        method_name: String,
+    },
 }
 
 impl TelError {
@@ -445,6 +455,8 @@ impl TelError {
             TelError::FunctionNotFound(_) => 7,
             TelError::IndexOutOfBounds { .. } => 8,
             TelError::InvalidIndex { .. } => 9,
+            TelError::InvalidArgument { .. } => 10,
+            TelError::MissingArgument { .. } => 11,
         }
     }
 }
@@ -485,6 +497,33 @@ impl Display for TelError {
             }
             TelError::InvalidIndex { subject, message } => {
                 write!(f, "Invalid index: {}: {}", subject, message)
+            }
+            TelError::InvalidArgument {
+                index,
+                method_name,
+                expected,
+                actual,
+            } => {
+                if let Some(expected) = expected {
+                    if let Some(actual) = actual {
+                        write!(
+                            f,
+                            "Invalid argument {} of {}, expected {} but got {}",
+                            index, method_name, expected, actual
+                        )
+                    } else {
+                        write!(
+                            f,
+                            "Invalid argument {} of {}, expected {}",
+                            index, method_name, expected
+                        )
+                    }
+                } else {
+                    write!(f, "Invalid argument {} of {}", index, method_name)
+                }
+            }
+            TelError::MissingArgument { index, method_name } => {
+                write!(f, "Missing argument {} of {}", index, method_name)
             }
         }
     }
@@ -1317,6 +1356,66 @@ pub fn evaluate_value<T: Storage>(
                     "floor" => StorageValue::Number(f.floor()),
                     "ceil" => StorageValue::Number(f.ceil()),
                     "abs" => StorageValue::Number(f.abs()),
+                    "pow" => {
+                        let arg = arguments.pop();
+                        if let Some(arg) = arg {
+                            let arg = evaluate_value(arg, storage, environment)?;
+                            if let StorageValue::Number(arg) = arg {
+                                return Ok(StorageValue::Number(f.powf(arg)));
+                            } else {
+                                return Err(TelError::InvalidArgument {
+                                    index: 0,
+                                    method_name: "pow".to_owned(),
+                                    expected: Some("number".to_owned()),
+                                    actual: Some(arg.get_type().to_owned()),
+                                });
+                            }
+                        } else {
+                            return Err(TelError::MissingArgument {
+                                index: 0,
+                                method_name: "pow".to_owned(),
+                            });
+                        }
+                    }
+                    "cos" => StorageValue::Number(f.cos()),
+                    "sin" => StorageValue::Number(f.sin()),
+                    "tan" => StorageValue::Number(f.tan()),
+                    "acos" => StorageValue::Number(f.acos()),
+                    "asin" => StorageValue::Number(f.asin()),
+                    "atan" => StorageValue::Number(f.atan()),
+                    "sqrt" => StorageValue::Number(f.sqrt()),
+                    "exp" => StorageValue::Number(f.exp()),
+                    "ln" => StorageValue::Number(f.ln()),
+                    "log" => {
+                        let arg = arguments.pop();
+                        if let Some(arg) = arg {
+                            let arg = evaluate_value(arg, storage, environment)?;
+                            if let StorageValue::Number(arg) = arg {
+                                return Ok(StorageValue::Number(f.log(arg)));
+                            } else {
+                                return Err(TelError::InvalidArgument {
+                                    index: 0,
+                                    method_name: "log".to_owned(),
+                                    expected: Some("number".to_owned()),
+                                    actual: Some(arg.get_type().to_owned()),
+                                });
+                            }
+                        }
+                        return Err(TelError::MissingArgument {
+                            index: 0,
+                            method_name: "log".to_owned(),
+                        });
+                    }
+                    "log10" => StorageValue::Number(f.log10()),
+                    "sign" => StorageValue::Number(f.signum()),
+                    "isInteger" => StorageValue::Boolean(f.fract() == 0.0),
+                    "isNaN" => StorageValue::Boolean(f.is_nan()),
+                    "isFinite" => StorageValue::Boolean(f.is_finite()),
+                    "isInfinite" => StorageValue::Boolean(f.is_infinite()),
+                    "isEven" => StorageValue::Boolean(f.fract() == 0.0 && f % 2.0 == 0.0),
+                    "isOdd" => StorageValue::Boolean(f.fract() == 0.0 && f % 2.0 != 0.0),
+                    "toNumber" => StorageValue::Number(f),
+                    "truncate" => StorageValue::Number(f.trunc()),
                     _ => NULL,
                 },
                 StorageValue::Boolean(b) => match name.as_str() {
@@ -1350,10 +1449,20 @@ pub fn evaluate_value<T: Storage>(
                             StorageValue::Boolean(false)
                         }
                     }
+                    "length" => StorageValue::Number(arr.len() as f64),
                     _ => NULL,
                 },
-                StorageValue::Object(_) => match name.as_str() {
+                StorageValue::Object(object) => match name.as_str() {
                     "type" => StorageValue::String("object".to_string()),
+                    "values" => {
+                        StorageValue::Array(object.values().cloned().collect::<Vec<StorageValue>>())
+                    }
+                    "keys" => StorageValue::Array(
+                        object
+                            .keys()
+                            .map(|k| StorageValue::String(k.clone()))
+                            .collect(),
+                    ),
                     _ => NULL,
                 },
                 StorageValue::Null(_) => match name.as_str() {

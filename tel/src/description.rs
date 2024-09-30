@@ -189,7 +189,7 @@ static OPERATORS: Lazy<HashMap<String, Description>> = Lazy::new(|| {
     );
     map.insert("any_!".to_owned(), Description::new_base_type("boolean"));
 
-    // Equals
+    // Equals and logical
     for a in [
         "string", "number", "boolean", "object", "array", "null", "any",
     ] {
@@ -204,6 +204,20 @@ static OPERATORS: Lazy<HashMap<String, Description>> = Lazy::new(|| {
                 format!("{}_{}_!=", a, b),
                 Description::new_base_type("boolean"),
             );
+
+            // The || operator returns a union of positive types from left and the last type
+            let mut possibilities = vec![Description::new_base_type(b)];
+            if let Some(only_positive) = Description::new_base_type(a).only_positive() {
+                possibilities.insert(0, only_positive);
+            }
+
+            map.insert(
+                format!("{}_{}_||", a, b),
+                Description::new_union(possibilities),
+            );
+            map.insert(format!("{}_{}_&&", a, b), Description::new_base_type(b));
+
+            // Only implemented for string, number, boolean, but any will work (just no ordering)
             map.insert(
                 format!("{}_{}_>", a, b),
                 Description::new_base_type("boolean"),
@@ -223,31 +237,6 @@ static OPERATORS: Lazy<HashMap<String, Description>> = Lazy::new(|| {
         }
     }
 
-    map.insert(
-        "boolean_boolean_&&".to_owned(),
-        Description::new_base_type("boolean"),
-    );
-    map.insert(
-        "boolean_boolean_||".to_owned(),
-        Description::new_base_type("boolean"),
-    );
-    map.insert(
-        "any_boolean_&&".to_owned(),
-        Description::new_base_type("boolean"),
-    );
-    map.insert(
-        "any_boolean_||".to_owned(),
-        Description::new_base_type("boolean"),
-    );
-    map.insert(
-        "boolean_any_&&".to_owned(),
-        Description::new_base_type("boolean"),
-    );
-    map.insert(
-        "boolean_any_||".to_owned(),
-        Description::new_base_type("boolean"),
-    );
-
     map
 });
 
@@ -263,12 +252,36 @@ static METHODS: Lazy<HashMap<&'static str, Description>> = Lazy::new(|| {
     map.insert("string_trim", Description::new_base_type("string"));
     map.insert("string_isEmpty", Description::new_base_type("boolean"));
     map.insert("string_startsWith", Description::new_base_type("boolean"));
+    map.insert("string_endsWith", Description::new_base_type("boolean"));
+    map.insert("string_stripPrefix", Description::new_base_type("string"));
+    map.insert("string_stripSuffix", Description::new_base_type("string"));
     map.insert("number_toString", Description::new_base_type("string"));
     map.insert("number_type", Description::new_string("number".to_string()));
     map.insert("number_round", Description::new_base_type("number"));
     map.insert("number_floor", Description::new_base_type("number"));
     map.insert("number_ceil", Description::new_base_type("number"));
     map.insert("number_abs", Description::new_base_type("number"));
+    map.insert("number_pow", Description::new_base_type("number"));
+    map.insert("number_cos", Description::new_base_type("number"));
+    map.insert("number_sin", Description::new_base_type("number"));
+    map.insert("number_tan", Description::new_base_type("number"));
+    map.insert("number_acos", Description::new_base_type("number"));
+    map.insert("number_asin", Description::new_base_type("number"));
+    map.insert("number_atan", Description::new_base_type("number"));
+    map.insert("number_sqrt", Description::new_base_type("number"));
+    map.insert("number_exp", Description::new_base_type("number"));
+    map.insert("number_ln", Description::new_base_type("number"));
+    map.insert("number_log", Description::new_base_type("number"));
+    map.insert("number_log10", Description::new_base_type("number"));
+    map.insert("number_sign", Description::new_base_type("number"));
+    map.insert("number_isInteger", Description::new_base_type("boolean"));
+    map.insert("number_isNaN", Description::new_base_type("boolean"));
+    map.insert("number_isFinite", Description::new_base_type("boolean"));
+    map.insert("number_isInfinite", Description::new_base_type("boolean"));
+    map.insert("number_isEven", Description::new_base_type("boolean"));
+    map.insert("number_isOdd", Description::new_base_type("boolean"));
+    map.insert("number_toNumber", Description::new_base_type("number"));
+    map.insert("number_truncate", Description::new_base_type("number"));
     map.insert("boolean_toString", Description::new_base_type("string"));
     map.insert(
         "boolean_type",
@@ -278,6 +291,8 @@ static METHODS: Lazy<HashMap<&'static str, Description>> = Lazy::new(|| {
     map.insert("array_join", Description::new_base_type("string"));
     map.insert("array_contains", Description::new_base_type("boolean"));
     map.insert("object_type", Description::new_string("object".to_string()));
+    map.insert("object_values", Description::new_base_type("array"));
+    map.insert("object_keys", Description::new_base_type("array"));
     map.insert("null_toString", Description::new_base_type("string"));
     map.insert("null_type", Description::new_string("null".to_string()));
 
@@ -300,6 +315,52 @@ impl Description {
     pub fn new_base_type(field_type: &str) -> Description {
         Description::BaseType {
             field_type: field_type.to_owned(),
+        }
+    }
+
+    pub fn only_positive(&self) -> Option<Description> {
+        match self {
+            Description::Null => None,
+            Description::StringValue { value } => {
+                if value.is_empty() {
+                    None
+                } else {
+                    Some(Description::new_base_type("string"))
+                }
+            }
+            Description::NumberValue { value } => {
+                if *value == 0.0 {
+                    None
+                } else {
+                    Some(Description::new_base_type("number"))
+                }
+            }
+            Description::BooleanValue { value } => {
+                if *value {
+                    Some(Description::new_base_type("boolean"))
+                } else {
+                    None
+                }
+            }
+            Description::BaseType { field_type } => {
+                if field_type == "null" {
+                    return None;
+                }
+                Some(Description::new_base_type(field_type))
+            }
+            Description::Union { of } => {
+                let mut result = Vec::new();
+                for item in of {
+                    match item.only_positive() {
+                        Some(item) => {
+                            result.push(item);
+                        }
+                        None => {}
+                    }
+                }
+                Some(Description::Union { of: result })
+            }
+            desc => Some(desc.clone()),
         }
     }
 
@@ -438,7 +499,6 @@ impl Description {
             Description::Unknown => "unknown".to_owned(),
             Description::Union { of } => {
                 let types = of.iter().map(|d| d.get_type()).collect::<Vec<String>>();
-
                 types.join(" | ")
             }
         }
@@ -1014,7 +1074,7 @@ pub fn parse_value_by_description(
                 Err(DescriptionParseError)
             }
         }
-        Description::Error { error } => unreachable!(),
+        Description::Error { .. } => unreachable!(),
         Description::Unknown => Ok(value),
         Description::Any => Ok(value),
         Description::BaseType { field_type } => {
