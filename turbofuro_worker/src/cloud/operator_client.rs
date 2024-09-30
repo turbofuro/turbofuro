@@ -110,6 +110,8 @@ pub enum SendingCommand {
         status: WorkerStatus,
         timestamp: u64,
         debug: Vec<ReportedDebugEntry>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        rent: Option<String>,
     },
     #[serde(rename_all = "camelCase")]
     ReportError { id: String, error: WorkerError },
@@ -508,8 +510,8 @@ mod test_operator_client {
             os: "macos",
             name: "My worker".to_owned(),
             status: WorkerStatus::Running {
-                warnings: vec![WorkerWarning::DebuggerActive {
-                    modules: vec!["test".to_owned()],
+                warnings: vec![WorkerWarning::HttpServerFailedToStart {
+                    message: "test".to_owned(),
                 }],
             },
             timestamp: 200,
@@ -517,6 +519,7 @@ mod test_operator_client {
                 module_id: "test".to_owned(),
                 passive: false,
             }],
+            rent: Some("rent".to_owned()),
         };
 
         let serialized = serde_json::to_value(command).unwrap();
@@ -530,8 +533,8 @@ mod test_operator_client {
                     "type": "running",
                     "warnings": [
                         {
-                            "type": "debuggerActive",
-                            "modules": ["test"]
+                            "type": "httpServerFailedToStart",
+                            "message": "test"
                         }
                     ]
                 },
@@ -541,7 +544,8 @@ mod test_operator_client {
                         "moduleId": "test",
                         "passive": false
                     }
-                ]
+                ],
+                "rent": "rent"
             }
         );
         assert_eq!(serialized, expected);
@@ -559,6 +563,7 @@ mod test_operator_client {
             },
             timestamp: 200,
             debug: vec![],
+            rent: None,
         };
 
         let serialized = serde_json::to_value(command).unwrap();

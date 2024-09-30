@@ -422,6 +422,7 @@ impl CloudAgent {
                 status: self.status.clone(),
                 timestamp: get_timestamp(),
                 debug: get_reported_debug_entries(&self.debug_state),
+                rent: self.options.rent.clone(),
             })
             .await;
     }

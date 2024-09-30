@@ -24,8 +24,6 @@ pub enum WorkerWarning {
         error: WorkerError,
     },
     #[serde(rename_all = "camelCase")]
-    DebuggerActive { modules: Vec<String> },
-    #[serde(rename_all = "camelCase")]
     HttpServerFailedToStart { message: String },
 }
 

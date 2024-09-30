@@ -562,6 +562,7 @@ impl Actor {
         let body = match &function {
             Function::Normal { body, .. } => body,
             Function::Native { id, .. } => {
+                // TODO: Handle native functions
                 return Err(ExecutionError::Unsupported {
                     message: format!("Native function {} can't be executed as a handler", id),
                 });

@@ -44,6 +44,7 @@ pub struct CloudOptions {
     pub operator_url: String,
     pub token: String,
     pub name: String,
+    pub rent: Option<String>,
 }
 
 impl CloudOptions {
@@ -66,6 +67,7 @@ static DEFAULT_OPERATOR_URL: &str = "wss://operator.turbofuro.com";
 static TURBOFURO_TOKEN_ENV_NAME: &str = "TURBOFURO_TOKEN";
 static TURBOFURO_CLOUD_URL_ENV_NAME: &str = "TURBOFURO_CLOUD_URL";
 static TURBOFURO_OPERATOR_URL_ENV_NAME: &str = "TURBOFURO_OPERATOR_URL";
+static TURBOFURO_RENT_ENV_NAME: &str = "TURBOFURO_RENT";
 static PORT_ENV_NAME: &str = "PORT";
 static NAME_ENV_NAME: &str = "NAME";
 
@@ -81,6 +83,7 @@ pub fn get_cloud_options(args: AppArgs, name: String, token: String) -> CloudOpt
             .unwrap_or(DEFAULT_OPERATOR_URL.to_owned()),
         token,
         name,
+        rent: std::env::var(TURBOFURO_RENT_ENV_NAME).ok(),
     };
 
     if cloud_options.cloud_url != DEFAULT_CLOUD_URL {
