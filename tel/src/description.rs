@@ -1726,9 +1726,20 @@ pub fn store_description(
 mod test_description {
     use std::vec;
 
-    use crate::{parse, storage_value};
+    use crate::{evaluate_description_notation, parse, parse_description, storage_value};
 
     use super::*;
+
+    fn parse_and_evaluate_description_notation(input: &str) -> Result<Description, TelError> {
+        let result = parse_description(input);
+        if let Some(expr) = result.expr {
+            evaluate_description_notation(expr)
+        } else {
+            Err(TelError::ParseError {
+                errors: result.errors,
+            })
+        }
+    }
 
     #[test]
     fn test_parse_value_by_description_simple_string() {
@@ -1737,6 +1748,44 @@ mod test_description {
             parse_value_by_description(StorageValue::String("Hello World".to_owned()), description)
                 .unwrap();
         assert_eq!(value, StorageValue::String("Hello World".to_owned()));
+    }
+
+    #[test]
+    fn test_parse_value_by_description_object() {
+        let object = StorageValue::Object({
+            let mut map = HashMap::new();
+            map.insert(
+                "a".to_owned(),
+                StorageValue::String("Hello World".to_owned()),
+            );
+            map
+        });
+
+        let value = parse_value_by_description(
+            object.clone(),
+            parse_and_evaluate_description_notation("{ a: string | null }").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(value, object);
+    }
+
+    #[test]
+    fn test_parse_value_by_description_object_with_optional_property() {
+        let object = StorageValue::Object(HashMap::new());
+
+        let value = parse_value_by_description(
+            object.clone(),
+            parse_and_evaluate_description_notation("{ a: string | null }").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            value,
+            StorageValue::Object({
+                let mut map = HashMap::new();
+                map.insert("a".to_owned(), NULL);
+                map
+            })
+        );
     }
 
     #[test]
