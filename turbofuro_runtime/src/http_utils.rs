@@ -336,9 +336,6 @@ pub async fn build_request_object(
                                     }
                                 }
                             }
-                            _ => {
-                                unreachable!()
-                            }
                         }
                     }
                 });

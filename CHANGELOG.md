@@ -1,9 +1,18 @@
+## 0.1.21
+* Add support for `multipart` request body
+* Add support for function annotations
+* Add debug expiration
+* Add debug state reporting
+* Add hints for rental workers
+* Fix Postgres not being able to handle nullable TIMESTAMPTZ columns
+* Add more TEL functions
+* Improve TEL predictions
+
 ## 0.1.20
 * Improve Throw step
 * Support for Parse and Transform steps
 * Upgrade to Rust 1.81
-
-## 0.1.19
+q## 0.1.19
 * Re-release of 0.1.18 because of broken GitHub actions pipeline
 
 ## 0.1.18
