@@ -1789,6 +1789,47 @@ mod test_description {
     }
 
     #[test]
+    fn test_parse_value_by_description_simple_union() {
+        let a: StorageValue = 500.into();
+        let b: StorageValue = "Hello World".into();
+
+        let description = parse_and_evaluate_description_notation("number | string").unwrap();
+
+        let value = parse_value_by_description(a.clone(), description.clone()).unwrap();
+        assert_eq!(value, a);
+        let value = parse_value_by_description(b.clone(), description.clone()).unwrap();
+        assert_eq!(value, b);
+    }
+
+    #[test]
+    fn test_parse_value_by_description_union_of_objects() {
+        let a = StorageValue::Object({
+            let mut map = HashMap::new();
+            map.insert("type".to_owned(), "A".into());
+            map.insert("id".to_owned(), "Hello".into());
+            map
+        });
+
+        let b = StorageValue::Object({
+            let mut map = HashMap::new();
+            map.insert("type".to_owned(), "B".into());
+            map.insert("id".to_owned(), 500.into());
+            map
+        });
+
+        let description = parse_and_evaluate_description_notation(
+            r#"{ type: "A", id: string } | { type: "B", id: number }"#,
+        )
+        .unwrap();
+
+        let value = parse_value_by_description(a.clone(), description.clone()).unwrap();
+        assert_eq!(value, a);
+
+        let value = parse_value_by_description(b.clone(), description.clone()).unwrap();
+        assert_eq!(value, b);
+    }
+
+    #[test]
     fn test_deduplicates() {
         let description = describe(StorageValue::Array(vec![
             StorageValue::String("a".to_owned()),
