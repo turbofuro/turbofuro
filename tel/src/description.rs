@@ -1,4 +1,4 @@
-use crate::{Expr, Selector, SelectorPart, Spanned, StorageValue, TelError};
+use crate::{Expr, Selector, SelectorPart, Spanned, StorageValue, TelError, NULL};
 use once_cell::sync::Lazy;
 use serde::Serializer;
 use serde_derive::{Deserialize, Serialize};
@@ -1029,7 +1029,7 @@ pub fn parse_value_by_description(
                     result.insert(
                         key.clone(),
                         parse_value_by_description(
-                            object.get(&key).unwrap().clone(),
+                            object.get(&key).unwrap_or(&NULL).clone(),
                             expected.clone(),
                         )?,
                     );
