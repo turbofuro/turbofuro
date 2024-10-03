@@ -423,7 +423,6 @@ pub fn evaluate_description_notation(expr: Spanned<DExpr>) -> Result<Description
         }
         DExpr::Identifier(iden) => match iden.as_str() {
             "any" => Description::Any,
-            "unknown" => Description::Unknown,
             iden => Description::new_base_type(iden),
         },
         DExpr::Attribute(expr, attr) => {

@@ -51,7 +51,6 @@ pub enum Description {
     Error {
         error: TelError,
     },
-    Unknown,
     Any,
 }
 
@@ -450,7 +449,6 @@ impl Description {
                 descriptions.join(" | ")
             }
             Description::Error { error: _ } => "error".to_owned(), // TODO
-            Description::Unknown => "unknown".to_owned(),
             Description::Any => "any".to_owned(),
         }
     }
@@ -464,7 +462,7 @@ impl Description {
 
     pub fn new_union(descriptions: Vec<Description>) -> Description {
         let description = descriptions.into_iter().reduce(merge);
-        description.unwrap_or(Description::Unknown)
+        description.unwrap_or(Description::Any)
     }
 
     pub fn map<M>(&self, m: M) -> Description
@@ -496,7 +494,6 @@ impl Description {
             Description::BaseType { field_type } => field_type.to_owned(),
             Description::Error { error: _ } => "error".to_owned(),
             Description::Any => "any".to_owned(),
-            Description::Unknown => "unknown".to_owned(),
             Description::Union { of } => {
                 let types = of.iter().map(|d| d.get_type()).collect::<Vec<String>>();
                 types.join(" | ")
@@ -551,7 +548,6 @@ impl Description {
             },
             Description::Union { of: _ } => Err(None), // TODO: Improve prediction
             Description::Error { error } => Err(Some(error.to_owned())),
-            Description::Unknown => Err(None),
             Description::Any => Err(None),
         }
     }
@@ -605,7 +601,6 @@ impl Description {
             Description::Error { error } => vec![SelectorDescription::Error {
                 error: error.clone(),
             }],
-            Description::Unknown => vec![SelectorDescription::Unknown],
             Description::Any => vec![SelectorDescription::Unknown],
         }
     }
@@ -655,7 +650,7 @@ impl Description {
                     },
                 },
                 "string.uuid" => Description::new_base_type("string"),
-                _ => Description::Unknown,
+                _ => Description::Any,
             },
             Description::Union { of } => {
                 let mut descriptions = Vec::new();
@@ -665,7 +660,6 @@ impl Description {
                 Description::new_union(descriptions)
             }
             Description::Any => Description::Any,
-            Description::Unknown => Description::Unknown,
             Description::Error { error } => Description::Error {
                 error: error.clone(),
             },
@@ -682,43 +676,31 @@ impl Description {
                 value: *value != 0.0,
             },
             Description::BooleanValue { value } => Description::BooleanValue { value: *value },
-            Description::Object { .. } => Description::Error {
-                error: TelError::UnsupportedOperation {
-                    operation: "to_boolean_object".to_owned(),
-                    message: "Can't convert object to boolean".to_owned(),
-                },
-            },
-            Description::ExactArray { .. } => Description::Error {
-                error: TelError::UnsupportedOperation {
-                    operation: "to_boolean_array".to_owned(),
-                    message: "Can't convert array to boolean".to_owned(),
-                },
-            },
-            Description::Array { .. } => Description::Error {
-                error: TelError::UnsupportedOperation {
-                    operation: "to_boolean_array".to_owned(),
-                    message: "Can't convert array to boolean".to_owned(),
-                },
-            },
-            Description::BaseType { field_type } => match field_type.as_str() {
-                "string" => Description::new_base_type("boolean"),
-                "number" => Description::new_base_type("boolean"),
-                "boolean" => Description::new_base_type("boolean"),
-                "object" => Description::Error {
-                    error: TelError::UnsupportedOperation {
-                        operation: "to_boolean_object".to_owned(),
-                        message: "Can't convert object to boolean".to_owned(),
-                    },
-                },
-                "array" => Description::Error {
-                    error: TelError::UnsupportedOperation {
-                        operation: "to_boolean_array".to_owned(),
-                        message: "Can't convert array to boolean".to_owned(),
-                    },
-                },
-                "string.uuid" => Description::BooleanValue { value: false },
-                _ => Description::Unknown,
-            },
+            Description::Object { .. } => Description::BooleanValue { value: true },
+            Description::ExactArray { .. } => Description::BooleanValue { value: true },
+            Description::Array { .. } => Description::BooleanValue { value: true },
+            Description::BaseType { field_type } => {
+                if field_type.starts_with("string") {
+                    return Description::new_base_type("boolean");
+                }
+
+                if field_type.starts_with("number") {
+                    return Description::new_base_type("boolean");
+                }
+
+                if field_type.starts_with("object") {
+                    return Description::BooleanValue { value: true };
+                }
+
+                if field_type.starts_with("array") {
+                    return Description::BooleanValue { value: true };
+                }
+
+                if field_type.starts_with("boolean") {
+                    return Description::new_base_type("boolean");
+                }
+                return Description::Any;
+            }
             Description::Union { of } => {
                 let mut descriptions = Vec::new();
                 for item in of {
@@ -729,7 +711,6 @@ impl Description {
             Description::Error { error } => Description::Error {
                 error: error.clone(),
             },
-            Description::Unknown => Description::Unknown,
             Description::Any => Description::Any,
         }
     }
@@ -1075,7 +1056,6 @@ pub fn parse_value_by_description(
             }
         }
         Description::Error { .. } => unreachable!(),
-        Description::Unknown => Ok(value),
         Description::Any => Ok(value),
         Description::BaseType { field_type } => {
             if field_type.starts_with("string") {
@@ -1259,7 +1239,7 @@ pub fn predict_description(
                         }
                         Err(error) => match error {
                             Some(e) => Description::new_error(e),
-                            None => Description::Unknown,
+                            None => Description::Any,
                         },
                     },
                     Description::Object { value } => match slice.to_string() {
@@ -1270,13 +1250,13 @@ pub fn predict_description(
                             Description::Any
                         }
                         Description::Any => Description::Any,
-                        _ => Description::Unknown,
+                        _ => Description::Any,
                     },
                     Description::ExactArray { value } => match slice.as_index() {
                         Ok(i) => value.get(i).cloned().unwrap_or(Description::Null),
                         Err(error) => match error {
                             Some(e) => Description::new_error(e),
-                            None => Description::Unknown,
+                            None => Description::Any,
                         },
                     },
                     Description::Array {
@@ -1300,7 +1280,6 @@ pub fn predict_description(
                     Description::Error { error: _ } => {
                         unreachable!("Error should be handled above")
                     }
-                    Description::Unknown => Description::Unknown,
                     Description::Any => Description::Any,
                     _ => Description::Error {
                         error: TelError::InvalidIndex {
@@ -1445,7 +1424,6 @@ pub fn evaluate_selector_description(
                     if_then.append(&mut if_else);
                     if_then
                 }
-                Description::Unknown => vec![SelectorDescription::Unknown],
                 e => {
                     vec![SelectorDescription::Error {
                         error: TelError::InvalidSelector {

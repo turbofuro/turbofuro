@@ -12,6 +12,7 @@
 //     },
 //     "numbers": [1, 2, 3, 4, 5],
 //     "anything": any
+//     "unknown": unknown
 // }
 // Environment
 // {
@@ -142,3 +143,5 @@ anything CHECK any
 {} < [] CHECK boolean
 "aaa" > "aa" CHECK boolean
 (5 || "Hello").type() CHECK "number" | "string"
+anything != null CHECK boolean
+unknown != null CHECK boolean
