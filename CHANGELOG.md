@@ -1,3 +1,7 @@
+## 0.1.22
+* Fix parsing objects with nullable properties
+* Remove 'unknown' description
+
 ## 0.1.21
 * Add support for `multipart` request body
 * Add support for function annotations

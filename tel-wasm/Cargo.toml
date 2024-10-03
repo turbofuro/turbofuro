@@ -1,6 +1,6 @@
 [package]
 name = "tel-wasm"
-version = "0.1.16"
+version = "0.1.17"
 edition = "2018"
 publish = false
 authors = ["Bartosz Wiśniewski <kontakt@pr0gramista.pl>"]
