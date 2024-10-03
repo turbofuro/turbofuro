@@ -118,9 +118,6 @@ export type Description =
       error: TelError;
     }
   | {
-      type: 'unknown';
-    }
-  | {
       type: 'any';
     };
 
