@@ -17,6 +17,7 @@ pub mod form_data;
 pub mod fs;
 pub mod http_client;
 pub mod http_server;
+pub mod image;
 pub mod kv;
 pub mod libsql;
 pub mod mail;

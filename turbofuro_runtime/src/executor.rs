@@ -39,6 +39,7 @@ use crate::actions::form_data;
 use crate::actions::fs;
 use crate::actions::http_client;
 use crate::actions::http_server;
+use crate::actions::image;
 use crate::actions::kv;
 use crate::actions::libsql;
 use crate::actions::mail;
@@ -1121,6 +1122,7 @@ async fn execute_native<'a>(
         "redis/low_level" => {
             redis::low_level_command(context, parameters, step_id, store_as).await?
         }
+        "image/convert" => image::convert(context, parameters, step_id, store_as).await?,
         "redis/get_connection" => redis::get_connection(context, parameters, step_id).await?,
         "redis/subscribe" => redis::subscribe(context, parameters, step_id).await?,
         "redis/unsubscribe" => redis::unsubscribe(context, parameters, step_id).await?,
