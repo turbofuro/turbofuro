@@ -1,3 +1,9 @@
+## 0.1.23
+* Support for libSQL and thus SQLite
+* Support for basic image processing
+* Update to Rust 1.82
+* Add closing frame reason to WS disconnection handler
+
 ## 0.1.22
 * Fix parsing objects with nullable properties
 * Remove 'unknown' description
