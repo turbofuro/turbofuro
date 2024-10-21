@@ -102,12 +102,19 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
         match msg {
             Ok(msg) => {
                 match msg {
-                    axum::extract::ws::Message::Close(_) => {
+                    axum::extract::ws::Message::Close(close_frame) => {
                         let mut initial_storage = HashMap::new();
-                        initial_storage.insert(
-                            "reason".to_string(),
-                            StorageValue::String("leaving".to_owned()),
-                        );
+                        if let Some(close_frame) = close_frame {
+                            initial_storage.insert(
+                                "reason".to_string(),
+                                StorageValue::String(close_frame.reason.into_owned()),
+                            );
+                        } else {
+                            initial_storage.insert(
+                                "reason".to_string(),
+                                StorageValue::String("unknown".to_owned()),
+                            );
+                        }
 
                         actor_link
                             .send(ActorCommand::Run {
