@@ -39,9 +39,9 @@ const FORM_DATA_DRAFT_TYPE: &str = "form_data_draft";
 const PENDING_FORM_DATA_TYPE: &str = "pending_form_data";
 const PENDING_FORM_DATA_FIELD_TYPE: &str = "pending_form_data_field";
 const ACTOR_LINK_TYPE: &str = "actor_link";
-const CANCELLATION: &str = "cancellation";
-const FILE_HANDLE: &str = "file_handle";
-const SQLITE_CONNECTION_RESOURCE_TYPE: &str = "sqlite_connection";
+const CANCELLATION_TYPE: &str = "cancellation";
+const FILE_HANDLE_TYPE: &str = "file_handle";
+const LIBSQL_CONNECTION_TYPE: &str = "libsql_connection";
 
 pub trait Resource {
     fn get_type() -> &'static str;
@@ -82,12 +82,17 @@ impl Resource for PostgresPool {
     }
 }
 
-#[derive(Debug)]
-pub struct SqlitePool(pub deadpool_sqlite::Pool);
+pub struct LibSql(pub libsql::Connection);
 
-impl Resource for SqlitePool {
+impl Resource for LibSql {
     fn get_type() -> &'static str {
-        SQLITE_CONNECTION_RESOURCE_TYPE
+        LIBSQL_CONNECTION_TYPE
+    }
+}
+
+impl Debug for LibSql {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("LibSql").field("0", &"LibSql").finish()
     }
 }
 
@@ -318,7 +323,7 @@ pub struct Cancellation {
 
 impl Resource for Cancellation {
     fn get_type() -> &'static str {
-        CANCELLATION
+        CANCELLATION_TYPE
     }
 }
 
@@ -329,7 +334,7 @@ pub struct FileHandle {
 
 impl Resource for FileHandle {
     fn get_type() -> &'static str {
-        FILE_HANDLE
+        FILE_HANDLE_TYPE
     }
 }
 
@@ -423,7 +428,7 @@ pub struct ResourceRegistry {
     pub actors: DashMap<String, ActorLink>,
     pub http_clients: DashMap<String, HttpClient>,
     pub router: Arc<Mutex<RegisteringRouter>>,
-    pub sqlite_pools: DashMap<String, SqlitePool>,
+    pub libsql: DashMap<String, LibSql>,
 }
 
 #[derive(Debug, Default)]
@@ -522,7 +527,7 @@ impl ActorResources {
         }
 
         Err(ExecutionError::MissingResource {
-            resource_type: FILE_HANDLE.to_string(),
+            resource_type: FILE_HANDLE_TYPE.to_string(),
         })
     }
 }

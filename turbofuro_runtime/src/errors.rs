@@ -337,10 +337,12 @@ impl From<ExecutionError> for ErrorRepresentation {
                 details: None,
                 metadata: None,
             },
-            ExecutionError::SqliteError { message } => ErrorRepresentation {
+            ExecutionError::SqliteError { message, stage } => ErrorRepresentation {
                 code: "SQLITE_ERROR".to_owned(),
                 message,
-                details: None,
+                details: Some(storage_value!({
+                    "stage": stage
+                })),
                 metadata: None,
             },
         }
@@ -424,6 +426,7 @@ pub enum ExecutionError {
     },
     SqliteError {
         message: String,
+        stage: String,
     },
     IoError {
         message: String,

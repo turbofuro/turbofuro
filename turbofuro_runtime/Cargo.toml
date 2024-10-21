@@ -80,8 +80,7 @@ arc-swap = "1.7.1"
 axum-extra = { version = "0.9.3", features = ["cookie"] }
 cookie = "0.18.1"
 multer = { version = "3.1.0", features = ["all", "tokio-io"] }
-rusqlite = { version = "0.31.0", features = ["bundled", "serde_json"] }
-deadpool-sqlite = "0.8.1"
+libsql = "0.6.0"
 
 [dev-dependencies]
 tower = { version = "0.4.13", features = ["util"] }

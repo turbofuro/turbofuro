@@ -1,4 +1,5 @@
 use chumsky::{prelude::*, Parser, Stream};
+use serde::de::value;
 use serde::Serializer;
 use serde_derive::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -152,6 +153,15 @@ impl StorageValue {
             StorageValue::Object(_) => "object",
             StorageValue::Null(_) => "null",
         }
+    }
+
+    pub fn new_byte_array(bytes: &[u8]) -> StorageValue {
+        StorageValue::Array(
+            bytes
+                .iter()
+                .map(|b| StorageValue::Number(*b as f64))
+                .collect(),
+        )
     }
 
     pub fn as_index(&self) -> Result<usize, TelError> {
