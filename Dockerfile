@@ -1,11 +1,11 @@
-FROM rust:1.81-bookworm as builder
+FROM rust:1.82-bookworm as builder
 RUN apt-get update
 RUN apt-get install -y pkg-config libssl-dev ca-certificates
 WORKDIR /build
 COPY . .
 RUN cargo build --release --locked
 
-FROM rust:1.81-slim-bookworm
+FROM rust:1.82-slim-bookworm
 COPY --from=builder /build/target/release/turbofuro_worker /turbofuro_worker
 
 RUN adduser --no-create-home --disabled-login turbofuro_user
