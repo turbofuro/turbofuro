@@ -41,6 +41,7 @@ const PENDING_FORM_DATA_FIELD_TYPE: &str = "pending_form_data_field";
 const ACTOR_LINK_TYPE: &str = "actor_link";
 const CANCELLATION: &str = "cancellation";
 const FILE_HANDLE: &str = "file_handle";
+const SQLITE_CONNECTION_RESOURCE_TYPE: &str = "sqlite_connection";
 
 pub trait Resource {
     fn get_type() -> &'static str;
@@ -78,6 +79,15 @@ pub struct PostgresPool(pub deadpool_postgres::Pool);
 impl Resource for PostgresPool {
     fn get_type() -> &'static str {
         POSTGRES_CONNECTION_RESOURCE_TYPE
+    }
+}
+
+#[derive(Debug)]
+pub struct SqlitePool(pub deadpool_sqlite::Pool);
+
+impl Resource for SqlitePool {
+    fn get_type() -> &'static str {
+        SQLITE_CONNECTION_RESOURCE_TYPE
     }
 }
 
@@ -413,6 +423,7 @@ pub struct ResourceRegistry {
     pub actors: DashMap<String, ActorLink>,
     pub http_clients: DashMap<String, HttpClient>,
     pub router: Arc<Mutex<RegisteringRouter>>,
+    pub sqlite_pools: DashMap<String, SqlitePool>,
 }
 
 #[derive(Debug, Default)]

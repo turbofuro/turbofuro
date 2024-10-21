@@ -1,6 +1,6 @@
 use deadpool_postgres::{Config, Runtime};
 use std::{collections::HashMap, time::SystemTime};
-use tel::{describe, Description, StorageValue};
+use tel::{describe, Description, StorageValue, NULL};
 use tokio_postgres::{
     types::{IsNull, ToSql, Type},
     NoTls, Row,
@@ -97,8 +97,6 @@ pub async fn get_connection<'a>(
 
     Ok(())
 }
-
-const NULL: StorageValue = StorageValue::Null(None);
 
 fn parse_row(row: Row) -> Result<StorageValue, ExecutionError> {
     let mut result: HashMap<String, StorageValue> = HashMap::new();

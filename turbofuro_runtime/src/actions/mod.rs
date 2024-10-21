@@ -25,6 +25,7 @@ pub mod os;
 pub mod postgres;
 pub mod pubsub;
 pub mod redis;
+pub mod sqlite;
 pub mod tasks;
 pub mod time;
 pub mod wasm;

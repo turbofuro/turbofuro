@@ -47,6 +47,7 @@ use crate::actions::os;
 use crate::actions::postgres;
 use crate::actions::pubsub;
 use crate::actions::redis;
+use crate::actions::sqlite;
 use crate::actions::tasks;
 use crate::actions::time;
 use crate::actions::wasm;
@@ -1115,6 +1116,8 @@ async fn execute_native<'a>(
         "postgres/get_connection" => postgres::get_connection(context, parameters, step_id).await?,
         "postgres/query_one" => postgres::query_one(context, parameters, step_id, store_as).await?,
         "postgres/query" => postgres::query(context, parameters, step_id, store_as).await?,
+        "sqlite/query" => sqlite::query(context, parameters, step_id, store_as).await?,
+        "sqlite/open_database" => sqlite::open_database(context, parameters, step_id).await?,
         "redis/low_level" => {
             redis::low_level_command(context, parameters, step_id, store_as).await?
         }
