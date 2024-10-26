@@ -1,3 +1,11 @@
+
+## 0.1.25 (unreleased)
+
+## 0.1.24
+* Add `replace` string function
+* Add support for deep encoding of form `application/x-www-form-urlencoded` request bodies
+* Improve image and libSQL error handling
+
 ## 0.1.23
 * Support for libSQL and thus SQLite
 * Support for basic image processing
@@ -22,7 +30,8 @@
 * Improve Throw step
 * Support for Parse and Transform steps
 * Upgrade to Rust 1.81
-q## 0.1.19
+
+## 0.1.19
 * Re-release of 0.1.18 because of broken GitHub actions pipeline
 
 ## 0.1.18
