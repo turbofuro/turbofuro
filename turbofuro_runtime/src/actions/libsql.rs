@@ -17,7 +17,7 @@ use super::store_value;
 
 impl From<Error> for ExecutionError {
     fn from(error: Error) -> Self {
-        ExecutionError::SqliteError {
+        ExecutionError::LibSqlError {
             message: error.to_string(),
             stage: "unknown".into(),
         }
@@ -25,9 +25,6 @@ impl From<Error> for ExecutionError {
 }
 
 pub struct LibSqlValue(StorageValue);
-
-// #[derive(Serialize, Deserialize)]
-type LibSqlValueRow = HashMap<String, StorageValue>;
 
 impl From<LibSqlValue> for StorageValue {
     fn from(value: LibSqlValue) -> Self {
@@ -109,7 +106,7 @@ pub async fn get_connection<'a>(
         "file" => {
             let file_path = url
                 .to_file_path()
-                .map_err(|e| ExecutionError::ParameterInvalid {
+                .map_err(|_| ExecutionError::ParameterInvalid {
                     name: "connectionString".into(),
                     message: "Could not parse file path".into(),
                 })?;
@@ -119,7 +116,7 @@ pub async fn get_connection<'a>(
             libsql::Builder::new_local(file_path)
                 .build()
                 .await
-                .map_err(|e| ExecutionError::SqliteError {
+                .map_err(|e| ExecutionError::LibSqlError {
                     message: e.to_string(),
                     stage: "db_creation_local".into(),
                 })?
@@ -132,7 +129,7 @@ pub async fn get_connection<'a>(
         }
     };
 
-    let connection = db.connect().map_err(|e| ExecutionError::SqliteError {
+    let connection = db.connect().map_err(|e| ExecutionError::LibSqlError {
         message: e.to_string(),
         stage: "connection_creation".into(),
     })?;

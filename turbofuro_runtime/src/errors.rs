@@ -337,12 +337,18 @@ impl From<ExecutionError> for ErrorRepresentation {
                 details: None,
                 metadata: None,
             },
-            ExecutionError::SqliteError { message, stage } => ErrorRepresentation {
-                code: "SQLITE_ERROR".to_owned(),
+            ExecutionError::LibSqlError { message, stage } => ErrorRepresentation {
+                code: "LIBSQL_ERROR".to_owned(),
                 message,
                 details: Some(storage_value!({
                     "stage": stage
                 })),
+                metadata: None,
+            },
+            ExecutionError::ImageError { message } => ErrorRepresentation {
+                code: "IMAGE_ERROR".to_owned(),
+                message,
+                details: None,
                 metadata: None,
             },
         }
@@ -424,7 +430,7 @@ pub enum ExecutionError {
     RedisError {
         message: String,
     },
-    SqliteError {
+    LibSqlError {
         message: String,
         stage: String,
     },
@@ -439,6 +445,9 @@ pub enum ExecutionError {
         message: String,
     },
     ParseError {
+        message: String,
+    },
+    ImageError {
         message: String,
     },
 }
@@ -513,6 +522,14 @@ impl From<wasmtime::Error> for ExecutionError {
 impl From<RedisError> for ExecutionError {
     fn from(error: RedisError) -> Self {
         ExecutionError::RedisError {
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<image::ImageError> for ExecutionError {
+    fn from(error: image::ImageError) -> Self {
+        ExecutionError::ImageError {
             message: error.to_string(),
         }
     }

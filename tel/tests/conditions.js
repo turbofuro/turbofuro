@@ -157,6 +157,14 @@ numbers[0] + numbers[1] == 3
 {} > [] == false
 {} < [] == false 
 "aaa" > "aa" == true
+"hello_world".replace("world") == "hello_"
+"hello_world".stripPrefix("hello") == "_world"
+"hello_world".stripSuffix("_world") == "hello"
+"hello_world".toUpperCase() == "HELLO_WORLD"
+"Hello_World".toLowerCase() == "hello_world"
+"image.jpg".endsWith(".jpg") == true
+"image.jpg".endsWith(".png") == false
+"hello world".replace("world", "there") == "hello there"
 // "true".toBoolean() == true
 // "false".toBoolean() == false
 // "Hello".toBoolean() == true

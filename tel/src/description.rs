@@ -254,6 +254,7 @@ static METHODS: Lazy<HashMap<&'static str, Description>> = Lazy::new(|| {
     map.insert("string_endsWith", Description::new_base_type("boolean"));
     map.insert("string_stripPrefix", Description::new_base_type("string"));
     map.insert("string_stripSuffix", Description::new_base_type("string"));
+    map.insert("string_replace", Description::new_base_type("string"));
     map.insert("number_toString", Description::new_base_type("string"));
     map.insert("number_type", Description::new_string("number".to_string()));
     map.insert("number_round", Description::new_base_type("number"));

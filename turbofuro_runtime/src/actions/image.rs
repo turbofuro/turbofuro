@@ -149,8 +149,7 @@ fn process(
         Output::Jpeg { quality } => {
             let mut writer = std::io::BufWriter::new(file);
             let encoder = JpegEncoder::new_with_quality(&mut writer, quality.unwrap_or(90));
-            img.write_with_encoder(encoder)
-                .map_err(|e| ExecutionError::Continue)?;
+            img.write_with_encoder(encoder)?;
         }
         Output::Png => {
             let mut writer = std::io::BufWriter::new(file);
@@ -159,20 +158,17 @@ fn process(
                 image::codecs::png::CompressionType::default(),
                 image::codecs::png::FilterType::default(),
             );
-            img.write_with_encoder(encoder)
-                .map_err(|e| ExecutionError::Continue)?;
+            img.write_with_encoder(encoder)?;
         }
         Output::Webp => {
             let mut writer = std::io::BufWriter::new(file);
             let encoder = WebPEncoder::new_lossless(&mut writer);
-            img.write_with_encoder(encoder)
-                .map_err(|e| ExecutionError::Continue)?;
+            img.write_with_encoder(encoder)?;
         }
         Output::Bmp => {
             let mut writer = std::io::BufWriter::new(file);
             let encoder = BmpEncoder::new(&mut writer);
-            img.write_with_encoder(encoder)
-                .map_err(|e| ExecutionError::Continue)?;
+            img.write_with_encoder(encoder)?;
         }
     }
 
@@ -183,8 +179,8 @@ fn process(
 pub async fn convert(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
-    step_id: &str,
-    store_as: Option<&str>,
+    _step_id: &str,
+    _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let source = as_string(
         eval_param("source", parameters, &context.storage, &context.environment)?,

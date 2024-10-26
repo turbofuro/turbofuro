@@ -1,6 +1,7 @@
 use chumsky::{prelude::*, Parser, Stream};
 use serde::Serializer;
 use serde_derive::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::fmt::Display;
 use std::{collections::HashMap, vec};
 
@@ -1306,6 +1307,31 @@ pub fn evaluate_value<T: Storage>(
                     "toLowerCase" => StorageValue::String(s.to_lowercase()),
                     "trim" => StorageValue::String(s.trim().to_string()),
                     "isEmpty" => StorageValue::Boolean(s.is_empty()),
+                    "replace" => {
+                        let mut arguments = VecDeque::from(arguments);
+                        let from = arguments.pop_front();
+                        let to = arguments.pop_front();
+                        if let Some(from) = from {
+                            let from = evaluate_value(from, storage, environment)?;
+                            let from = from.to_string()?;
+
+                            if let Some(to) = to {
+                                let to = evaluate_value(to, storage, environment)?;
+                                let to = to.to_string()?;
+
+                                println!("Replacing {} with {}", from, to);
+
+                                StorageValue::String(s.replace(from.as_str(), to.as_str()))
+                            } else {
+                                StorageValue::String(s.replace(from.as_str(), ""))
+                            }
+                        } else {
+                            return Err(TelError::MissingArgument {
+                                index: 0,
+                                method_name: "replace".to_owned(),
+                            });
+                        }
+                    }
                     "stripPrefix" => {
                         let arg = arguments.pop();
                         if let Some(arg) = arg {
@@ -1327,7 +1353,7 @@ pub fn evaluate_value<T: Storage>(
                             let arg = evaluate_value(arg, storage, environment)?;
                             let arg = arg.to_string()?;
 
-                            if let Some(removed) = s.strip_prefix(arg.as_str()) {
+                            if let Some(removed) = s.strip_suffix(arg.as_str()) {
                                 StorageValue::String(removed.to_string())
                             } else {
                                 s.into()
@@ -1748,6 +1774,20 @@ pub fn store_value(
 #[cfg(test)]
 mod test_tel {
     use super::*;
+
+    #[test]
+    fn test_string_replace() {
+        let result = evaluate_value(
+            parse("(\"hello world\").replace(\"world\", \"there\")")
+                .expr
+                .unwrap(),
+            &HashMap::new(),
+            &HashMap::new(),
+        )
+        .unwrap();
+
+        assert_eq!(result, StorageValue::String("hello there".to_owned()));
+    }
 
     #[test]
     fn test_serialize_number_as_integer() {
