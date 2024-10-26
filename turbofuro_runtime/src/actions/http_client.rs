@@ -103,6 +103,76 @@ impl ResponseMetadata {
     }
 }
 
+/// Flattens nested objects and arrays in the object
+///
+/// Example:
+/// { items: [{ name: "John" }, { name: "Mary" }] }
+///
+/// Becomes:
+/// items[0][name]=John
+/// items[1][name]=Mary
+fn prepare_deep_encoded(obj: ObjectBody) -> ObjectBody {
+    let mut flatten = HashMap::new();
+    for (key, value) in obj {
+        match deep_encode(value) {
+            StorageValue::Object(obj) => {
+                for (sub_key, value) in obj {
+                    flatten.insert(format!("{}{}", key, sub_key), value);
+                }
+            }
+            v => {
+                flatten.insert(key, v);
+            }
+        };
+    }
+    flatten
+}
+
+fn deep_encode(value: StorageValue) -> StorageValue {
+    match value {
+        StorageValue::Object(obj) => {
+            let mut result = HashMap::new();
+            for (key, value) in obj {
+                let value = deep_encode(value);
+                match value {
+                    StorageValue::Object(obj) => {
+                        for (sub_key, value) in obj {
+                            result.insert(format!("[{}]{}", key, sub_key), value);
+                        }
+                    }
+                    StorageValue::Array(arr) => {
+                        for item in arr {
+                            result.insert(format!("[{}]", key), item);
+                        }
+                    }
+                    _ => {
+                        result.insert(format!("[{}]", key), value);
+                    }
+                };
+            }
+            StorageValue::Object(result)
+        }
+        StorageValue::Array(arr) => {
+            let mut result = HashMap::new();
+            for (i, item) in arr.into_iter().enumerate() {
+                let item = deep_encode(item);
+                match item {
+                    StorageValue::Object(obj) => {
+                        for (key, value) in obj {
+                            result.insert(format!("[{}]{}", i, key), value);
+                        }
+                    }
+                    value => {
+                        result.insert(format!("[{}]", i), value);
+                    }
+                };
+            }
+            StorageValue::Object(result)
+        }
+        v => v,
+    }
+}
+
 fn get_metadata_object_from_response(response: &Response) -> ResponseMetadata {
     ResponseMetadata {
         ok: response.status().is_success(),
@@ -173,12 +243,11 @@ fn set_static_body_from_parameters(
     if let Some(form_param) = form_param {
         match form_param {
             StorageValue::Object(obj) => {
-                let serialized = serde_urlencoded::to_string(obj).map_err(|e| {
-                    ExecutionError::ParameterInvalid {
+                let serialized: String = serde_urlencoded::to_string(prepare_deep_encoded(obj))
+                    .map_err(|e| ExecutionError::ParameterInvalid {
                         name: "form".to_string(),
                         message: format!("Failed to serialize object: {}", e),
-                    }
-                })?;
+                    })?;
                 request_builder = request_builder.body(serialized);
                 request_builder = request_builder.header(
                     CONTENT_TYPE,
@@ -628,4 +697,55 @@ pub async fn stream_http_request_with_form_data<'a>(
     .await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test_http_client {
+    use serde_json::json;
+    use tel::NULL;
+
+    use super::*;
+
+    #[test]
+    fn test_deep_encode_ignore_primitives() {
+        assert_eq!(deep_encode("Hello World".into()), "Hello World".into());
+        assert_eq!(deep_encode(5.into()), 5.into());
+        assert_eq!(deep_encode(true.into()), true.into());
+        assert_eq!(deep_encode(NULL), NULL);
+    }
+
+    #[test]
+    fn test_deep_encode() {
+        let input: ObjectBody = serde_json::from_value(json!({
+            "items": [
+                {
+                    "name": "John",
+                    "age": 30
+                },
+                {
+                    "name": "Mary",
+                    "age": 25
+                }
+            ],
+            "message": "Hello World",
+            "details": {
+                "name": "John",
+                "age": 30
+            }
+        }))
+        .unwrap();
+
+        let expected: ObjectBody = serde_json::from_value(json!({
+            "items[0][name]": "John",
+            "items[0][age]": 30,
+            "items[1][name]": "Mary",
+            "items[1][age]": 25,
+            "message": "Hello World",
+            "details[name]": "John",
+            "details[age]": 30
+        }))
+        .unwrap();
+
+        assert_eq!(prepare_deep_encoded(input), expected);
+    }
 }
