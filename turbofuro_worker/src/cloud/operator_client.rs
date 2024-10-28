@@ -285,6 +285,8 @@ impl OperatorClient {
                                 };
                             }
                         });
+
+                        self.cloud_agent_handler.handle_operator_connection().await;
                     }
                     Err(e) => {
                         warn!("Failed to connect to operator ({:?})", e);
@@ -343,6 +345,10 @@ impl OperatorClient {
                 }
             },
             OperatorClientMessage::ReconnectWithDelay => {
+                self.cloud_agent_handler
+                    .handle_operator_disconnection()
+                    .await;
+
                 let delay = self.reconnect_delay.next();
 
                 debug!("Operator reconnecting in {:?}", delay);

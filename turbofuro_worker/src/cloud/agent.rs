@@ -60,6 +60,8 @@ enum CloudAgentMessage {
         id: String,
         value: StorageValue,
     },
+    OperatorDisconnected,
+    OperatorConnected,
 }
 
 #[derive(Debug)]
@@ -414,6 +416,8 @@ impl CloudAgent {
                     let _ = listener.sender.send(value);
                 }
             }
+            CloudAgentMessage::OperatorDisconnected => {}
+            CloudAgentMessage::OperatorConnected => self.update_state().await,
         }
     }
 
@@ -670,5 +674,16 @@ impl CloudAgentHandle {
 
     pub async fn reload_environment(&mut self) {
         let _ = self.sender.send(CloudAgentMessage::ReloadEnvironment).await;
+    }
+
+    pub async fn handle_operator_connection(&mut self) {
+        let _ = self.sender.send(CloudAgentMessage::OperatorConnected).await;
+    }
+
+    pub async fn handle_operator_disconnection(&mut self) {
+        let _ = self
+            .sender
+            .send(CloudAgentMessage::OperatorDisconnected)
+            .await;
     }
 }
