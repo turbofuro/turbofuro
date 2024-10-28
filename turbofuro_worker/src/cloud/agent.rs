@@ -277,11 +277,19 @@ impl CloudAgent {
                             self.global.clone(),
                             self.module_version_resolver.clone(),
                         )
-                        .await
-                        .unwrap(); // TODO: Handle errors
+                        .await;
 
-                        should_reload_worker = true;
-                        Some(module)
+                        match module {
+                            Ok(module) => {
+                                should_reload_worker = true;
+                                Some(module)
+                            }
+                            Err(err) => {
+                                // TODO: Report error
+                                warn!("Could not install module: {}", err);
+                                None
+                            }
+                        }
                     }
                     None => None,
                 };
