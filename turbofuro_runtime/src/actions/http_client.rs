@@ -243,7 +243,7 @@ fn set_static_body_from_parameters(
     if let Some(form_param) = form_param {
         match form_param {
             StorageValue::Object(obj) => {
-                let serialized: String = serde_urlencoded::to_string(prepare_deep_encoded(obj))
+                let serialized: String = serde_html_form::to_string(prepare_deep_encoded(obj))
                     .map_err(|e| ExecutionError::ParameterInvalid {
                         name: "form".to_string(),
                         message: format!("Failed to serialize object: {}", e),

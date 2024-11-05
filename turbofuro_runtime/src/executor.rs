@@ -556,13 +556,14 @@ impl DebugState {
         }
     }
 
-    pub fn remove_old_entries(&mut self) -> bool {
+    pub fn old_entries(&self) -> Vec<DebugEntry> {
         let now = Instant::now();
-        let before = self.entries.len();
 
         self.entries
-            .retain(|e| e.last_activity + Duration::from_secs(300) > now);
-        before == self.entries.len()
+            .iter()
+            .filter(|e| e.last_activity + Duration::from_secs(300) > now)
+            .cloned()
+            .collect()
     }
 }
 

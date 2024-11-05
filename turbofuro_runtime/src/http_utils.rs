@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, hash::Hash, vec};
 
 use axum::{
     body::{Body, Bytes},
@@ -218,9 +218,34 @@ pub async fn build_request_object(
         DetectedContentType::Form => {
             let bytes = Bytes::from_request(request, &()).await.ok();
             if let Some(bytes) = bytes {
-                let body = serde_urlencoded::from_bytes(&bytes).ok();
+                let body: Option<Vec<(String, StorageValue)>> =
+                    serde_html_form::from_bytes(&bytes).ok();
                 if let Some(body) = body {
-                    request_object.insert("form".to_string(), body);
+                    let mut form: HashMap<String, Vec<StorageValue>> = HashMap::new();
+                    for (key, value) in body {
+                        let removed = form.remove(&key);
+                        if let Some(mut removed) = removed {
+                            removed.push(value);
+                            form.insert(key, removed);
+                        } else {
+                            form.insert(key, vec![value]);
+                        }
+                    }
+
+                    request_object.insert(
+                        "form".to_string(),
+                        StorageValue::Object(
+                            form.into_iter()
+                                .map(|(k, v)| {
+                                    if v.len() == 1 {
+                                        (k, v[0].clone())
+                                    } else {
+                                        (k, StorageValue::Array(v))
+                                    }
+                                })
+                                .collect(),
+                        ),
+                    );
                 }
             }
         }

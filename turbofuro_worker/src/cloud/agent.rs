@@ -421,8 +421,13 @@ impl CloudAgent {
         }
     }
 
-    async fn check_stale_debug(&mut self) {
-        self.debug_state.remove_old_entries();
+    async fn remove_stale_debugs(&mut self) {
+        let to_disable = self.debug_state.old_entries();
+        for entry in to_disable {
+            self.child_handle
+                .disable_debugger(entry.module_id.clone())
+                .await;
+        }
     }
 
     async fn update_state(&mut self) {
@@ -440,7 +445,7 @@ impl CloudAgent {
     }
 
     async fn handle_tick(&mut self) {
-        self.check_stale_debug().await;
+        self.remove_stale_debugs().await;
 
         // Let's update state every so often
         self.update_state().await
