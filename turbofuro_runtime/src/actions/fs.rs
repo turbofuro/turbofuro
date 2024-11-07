@@ -466,6 +466,134 @@ pub async fn cancel_watcher<'a>(
     Ok(())
 }
 
+#[instrument(level = "trace", skip_all)]
+pub async fn create_directory<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    _step_id: &str,
+) -> Result<(), ExecutionError> {
+    // Get path
+    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
+    let path = as_string(path_param, "path")?;
+
+    // Get recursive
+    let recursive_param = eval_optional_param_with_default(
+        "recursive",
+        parameters,
+        &context.storage,
+        &context.environment,
+        true.into(),
+    )?;
+    let recursive = as_boolean(recursive_param, "recursive")?;
+
+    if recursive {
+        tokio::fs::create_dir_all(path).await?;
+    } else {
+        tokio::fs::create_dir(path).await?;
+    }
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn rename<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    _step_id: &str,
+) -> Result<(), ExecutionError> {
+    // Get paths
+    let from_param = eval_param("from", parameters, &context.storage, &context.environment)?;
+    let from = as_string(from_param, "from")?;
+
+    let to_param = eval_param("to", parameters, &context.storage, &context.environment)?;
+    let to = as_string(to_param, "to")?;
+
+    tokio::fs::rename(from, to).await?;
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn remove_file<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    _step_id: &str,
+) -> Result<(), ExecutionError> {
+    // Get path
+    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
+    let path = as_string(path_param, "path")?;
+
+    tokio::fs::remove_file(path).await?;
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn remove_directory<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    _step_id: &str,
+) -> Result<(), ExecutionError> {
+    // Get path
+    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
+    let path = as_string(path_param, "path")?;
+
+    // Get recursive
+    let recursive_param = eval_optional_param_with_default(
+        "recursive",
+        parameters,
+        &context.storage,
+        &context.environment,
+        true.into(),
+    )?;
+    let recursive = as_boolean(recursive_param, "recursive")?;
+
+    if recursive {
+        tokio::fs::remove_dir_all(path).await?;
+    } else {
+        tokio::fs::remove_dir(path).await?;
+    }
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn copy<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    _step_id: &str,
+) -> Result<(), ExecutionError> {
+    // Get paths
+    let from_param = eval_param("from", parameters, &context.storage, &context.environment)?;
+    let from = as_string(from_param, "from")?;
+
+    let to_param = eval_param("to", parameters, &context.storage, &context.environment)?;
+    let to = as_string(to_param, "to")?;
+
+    tokio::fs::copy(from, to).await?;
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn canonicalize<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    // Get path
+    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
+    let path = as_string(path_param, "path")?;
+
+    let canonicalized = tokio::fs::canonicalize(path).await?;
+    let canonicalized = canonicalized.to_string_lossy().to_string();
+
+    store_value(store_as, context, step_id, canonicalized.into()).await?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{evaluations::eval, executor::ExecutionTest};
@@ -503,5 +631,117 @@ mod tests {
         );
 
         let _ = tokio::fs::remove_file("test.txt").await;
+    }
+
+    #[tokio::test]
+    async fn test_copy_rename_remove_file() {
+        let mut t = ExecutionTest::default();
+        let mut context = t.get_context();
+
+        simple_write_string(
+            &mut context,
+            &vec![
+                Parameter::tel("path", "\"test_a.txt\""),
+                Parameter::tel("content", "\"This is a test message\""),
+            ],
+            "test_write",
+        )
+        .await
+        .unwrap();
+
+        copy(
+            &mut context,
+            &vec![
+                Parameter::tel("from", "\"test_a.txt\""),
+                Parameter::tel("to", "\"test_b.txt\""),
+            ],
+            "test_copy",
+        )
+        .await
+        .unwrap();
+
+        remove_file(
+            &mut context,
+            &vec![Parameter::tel("path", "\"test_a.txt\"")],
+            "test_remove_file_a",
+        )
+        .await
+        .unwrap();
+
+        rename(
+            &mut context,
+            &vec![
+                Parameter::tel("from", "\"test_b.txt\""),
+                Parameter::tel("to", "\"test_c.txt\""),
+            ],
+            "test_rename",
+        )
+        .await
+        .unwrap();
+
+        remove_file(
+            &mut context,
+            &vec![Parameter::tel("path", "\"test_c.txt\"")],
+            "test_remove_file_c",
+        )
+        .await
+        .unwrap();
+
+        assert!(!tokio::fs::try_exists("test_a.txt").await.unwrap());
+        assert!(!tokio::fs::try_exists("test_b.txt").await.unwrap());
+        assert!(!tokio::fs::try_exists("test_c.txt").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_create_remove_directory() {
+        let mut t = ExecutionTest::default();
+        let mut context = t.get_context();
+
+        create_directory(
+            &mut context,
+            &vec![
+                Parameter::tel("path", "\"test_dir/test_subdir\""),
+                Parameter::tel("recursive", "true"),
+            ],
+            "test_mkdir",
+        )
+        .await
+        .unwrap();
+
+        assert!(tokio::fs::try_exists("test_dir/test_subdir").await.unwrap());
+
+        remove_directory(
+            &mut context,
+            &vec![
+                Parameter::tel("path", "\"test_dir/test_subdir\""),
+                Parameter::tel("recursive", "true"),
+            ],
+            "test_mkdir",
+        )
+        .await
+        .unwrap();
+
+        assert!(!tokio::fs::try_exists("test_dir/test_subdir").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_canonicalize() {
+        let mut t = ExecutionTest::default();
+        let mut context = t.get_context();
+
+        canonicalize(
+            &mut context,
+            &vec![
+                Parameter::tel("path", "\"src/actions/fs.rs\""),
+                Parameter::tel("content", "\"This is a test message\""),
+            ],
+            "test_write",
+            Some("path"),
+        )
+        .await
+        .unwrap();
+
+        let path = context.storage.get("path").unwrap().to_string().unwrap();
+        assert!(path.ends_with("turbofuro_runtime/src/actions/fs.rs"));
     }
 }
