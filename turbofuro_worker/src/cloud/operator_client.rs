@@ -14,6 +14,7 @@ use tokio::sync::mpsc::{self};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use tracing::{debug, warn};
 use turbofuro_runtime::{
+    debug::DebugOption,
     executor::{Callee, DebugState, ExecutionEvent, ExecutionStatus, Parameter},
     Description, StorageValue,
 };
@@ -23,20 +24,37 @@ use super::agent::CloudAgentHandle;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum DebugAction {
-    AskForInput {
+    AskForValue {
         id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
         text: String,
-        label: String,
-        placeholder: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        label: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        placeholder: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        value: Option<StorageValue>,
+        mode: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        options: Option<Vec<DebugOption>>,
     },
     ShowResult {
         id: String,
-        value: StorageValue,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        text: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        value: Option<StorageValue>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        variant: Option<String>,
     },
     ShowNotification {
         id: String,
         text: String,
-        variant: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        variant: Option<String>,
     },
     PlaySound {
         id: String,

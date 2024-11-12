@@ -103,30 +103,6 @@ fn spawn_debugger_handle_reader(
     tokio::spawn(async move {
         while let Some(message) = receiver.recv().await {
             match message {
-                DebugMessage::AskForInput {
-                    id,
-                    text,
-                    label,
-                    placeholder,
-                    sender,
-                } => {
-                    // Add id and sender to the debug state
-                    cloud_agent_handler
-                        .setup_debugger_listener(id.clone(), sender)
-                        .await;
-
-                    operator_client
-                        .send_command(SendingCommand::DebugAction {
-                            module_id: module_id.clone(),
-                            action: crate::cloud::operator_client::DebugAction::AskForInput {
-                                id,
-                                text,
-                                label,
-                                placeholder,
-                            },
-                        })
-                        .await;
-                }
                 DebugMessage::StartReport {
                     id,
                     status,
@@ -174,10 +150,22 @@ fn spawn_debugger_handle_reader(
                         })
                         .await;
                 }
-                DebugMessage::ShowResult { id, value } => {
+                DebugMessage::ShowResult {
+                    id,
+                    value,
+                    title,
+                    text,
+                    variant,
+                } => {
                     operator_client
                         .send_command(SendingCommand::DebugAction {
-                            action: super::operator_client::DebugAction::ShowResult { id, value },
+                            action: super::operator_client::DebugAction::ShowResult {
+                                id,
+                                value,
+                                variant,
+                                title,
+                                text,
+                            },
                             module_id: module_id.clone(),
                         })
                         .await;
@@ -199,6 +187,38 @@ fn spawn_debugger_handle_reader(
                         .send_command(SendingCommand::DebugAction {
                             action: super::operator_client::DebugAction::PlaySound { id, sound },
                             module_id: module_id.clone(),
+                        })
+                        .await;
+                }
+                DebugMessage::AskForValue {
+                    id,
+                    title,
+                    text,
+                    label,
+                    placeholder,
+                    value,
+                    sender,
+                    mode,
+                    options,
+                } => {
+                    // Add id and sender to the debug state
+                    cloud_agent_handler
+                        .setup_debugger_listener(id.clone(), sender)
+                        .await;
+
+                    operator_client
+                        .send_command(SendingCommand::DebugAction {
+                            module_id: module_id.clone(),
+                            action: crate::cloud::operator_client::DebugAction::AskForValue {
+                                id,
+                                text,
+                                label,
+                                placeholder,
+                                value,
+                                title,
+                                mode,
+                                options,
+                            },
                         })
                         .await;
                 }

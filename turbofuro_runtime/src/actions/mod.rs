@@ -4,7 +4,7 @@ use tel::{describe, Description, StorageValue};
 
 use crate::{
     errors::ExecutionError,
-    evaluations::eval_selector,
+    evaluations::{eval_optional_param, eval_param, eval_selector},
     executor::{ExecutionContext, Parameter},
 };
 
@@ -178,4 +178,25 @@ pub fn get_handler_from_parameters(
         .ok_or_else(|| ExecutionError::MissingParameter {
             name: parameter_name.to_owned(),
         })
+}
+
+pub fn eval_string_param(
+    name: &str,
+    parameters: &Vec<Parameter>,
+    context: &ExecutionContext<'_>,
+) -> Result<String, ExecutionError> {
+    let value = eval_param(name, parameters, &context.storage, &context.environment)?;
+    as_string(value, name)
+}
+
+pub fn eval_opt_string_param(
+    name: &str,
+    parameters: &Vec<Parameter>,
+    context: &ExecutionContext<'_>,
+) -> Result<Option<String>, ExecutionError> {
+    let value = eval_optional_param(name, parameters, &context.storage, &context.environment)?;
+    match value {
+        Some(value) => as_string(value, name).map(|s| Some(s)),
+        None => Ok(None),
+    }
 }

@@ -351,6 +351,12 @@ impl From<ExecutionError> for ErrorRepresentation {
                 details: None,
                 metadata: None,
             },
+            ExecutionError::DebugError { message } => ErrorRepresentation {
+                code: "DEBUG_ERROR".to_owned(),
+                message,
+                details: None,
+                metadata: None,
+            },
         }
     }
 }
@@ -448,6 +454,9 @@ pub enum ExecutionError {
         message: String,
     },
     ImageError {
+        message: String,
+    },
+    DebugError {
         message: String,
     },
 }

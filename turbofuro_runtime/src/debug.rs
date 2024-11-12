@@ -1,4 +1,5 @@
 use crate::executor::{ExecutionEvent, ExecutionReport, ExecutionStatus};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tel::{Description, StorageValue};
 use tokio::sync::{mpsc::Sender, oneshot};
@@ -9,6 +10,17 @@ pub enum LoggerMessage {
 }
 
 pub type ExecutionLoggerHandle = Sender<LoggerMessage>;
+
+pub type DebugOptionId = u64;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DebugOption {
+    pub label: String,
+    pub description: Option<String>,
+    pub icon: Option<String>,
+    pub theme: Option<String>,
+    pub value: StorageValue,
+}
 
 #[derive(Debug)]
 pub enum DebugMessage {
@@ -34,21 +46,28 @@ pub enum DebugMessage {
         finished_at: u64,
         status: ExecutionStatus,
     },
-    AskForInput {
+    AskForValue {
         id: String,
+        title: Option<String>,
         text: String,
-        label: String,
-        placeholder: String,
+        label: Option<String>,
+        placeholder: Option<String>,
+        options: Option<Vec<DebugOption>>,
+        value: Option<StorageValue>,
         sender: oneshot::Sender<StorageValue>,
+        mode: String,
     },
     ShowResult {
         id: String,
-        value: StorageValue,
+        title: Option<String>,
+        text: Option<String>,
+        value: Option<StorageValue>,
+        variant: Option<String>,
     },
     ShowNotification {
         id: String,
         text: String,
-        variant: String,
+        variant: Option<String>,
     },
     PlaySound {
         id: String,

@@ -1172,6 +1172,15 @@ async fn execute_native<'a>(
         "debug/ask_for_input" => {
             debug::ask_for_input(context, parameters, step_id, store_as).await?
         }
+        "debug/ask_for_value" => {
+            debug::ask_for_value(context, parameters, step_id, store_as).await?
+        }
+        "debug/ask_for_confirmation" => {
+            debug::ask_for_confirmation(context, parameters, step_id, store_as).await?
+        }
+        "debug/ask_to_choose" => {
+            debug::ask_to_choose(context, parameters, step_id, store_as).await?
+        }
         "debug/show_result" => debug::show_result(context, parameters, step_id, store_as).await?,
         "debug/show_notification" => {
             debug::show_notification(context, parameters, step_id, store_as).await?

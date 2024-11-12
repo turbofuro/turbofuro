@@ -351,11 +351,8 @@ impl Description {
             Description::Union { of } => {
                 let mut result = Vec::new();
                 for item in of {
-                    match item.only_positive() {
-                        Some(item) => {
-                            result.push(item);
-                        }
-                        None => {}
+                    if let Some(item) = item.only_positive() {
+                        result.push(item);
                     }
                 }
                 Some(Description::Union { of: result })
