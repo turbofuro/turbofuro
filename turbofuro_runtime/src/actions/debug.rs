@@ -27,6 +27,7 @@ pub async fn ask_for_value(
             let title = eval_opt_string_param("title", parameters, context)?;
             let placeholder = eval_opt_string_param("placeholder", parameters, context)?;
             let label = eval_opt_string_param("label", parameters, context)?;
+            let variant: Option<String> = eval_opt_string_param("variant", parameters, context)?;
 
             let (sender, receiver) = oneshot::channel();
             let _ = handle
@@ -41,6 +42,7 @@ pub async fn ask_for_value(
                     value,
                     mode: "raw".to_owned(),
                     options: None,
+                    variant,
                 })
                 .await;
 
@@ -81,6 +83,7 @@ pub async fn ask_for_input(
             let label = eval_opt_string_param("label", parameters, context)?;
             let mode = eval_opt_string_param("mode", parameters, context)?
                 .unwrap_or_else(|| "text".to_owned());
+            let variant: Option<String> = eval_opt_string_param("variant", parameters, context)?;
 
             let (sender, receiver) = oneshot::channel();
             let _ = handle
@@ -95,6 +98,7 @@ pub async fn ask_for_input(
                     title,
                     options: None,
                     value,
+                    variant,
                 })
                 .await;
 
@@ -131,6 +135,7 @@ pub async fn ask_for_confirmation(
             let title = eval_opt_string_param("title", parameters, context)?;
             let mode = eval_opt_string_param("mode", parameters, context)?
                 .unwrap_or_else(|| "confirm".to_owned());
+            let variant: Option<String> = eval_opt_string_param("variant", parameters, context)?;
 
             let (sender, receiver) = oneshot::channel();
             let _ = handle
@@ -145,6 +150,7 @@ pub async fn ask_for_confirmation(
                     placeholder: None,
                     options: None,
                     value: None,
+                    variant,
                 })
                 .await;
 
@@ -251,6 +257,7 @@ pub async fn ask_to_choose(
                 eval_optional_param("value", parameters, &context.storage, &context.environment)?;
             let options: Vec<DebugOption> =
                 eval_debug_options_param("options", parameters, context)?;
+            let variant: Option<String> = eval_opt_string_param("variant", parameters, context)?;
 
             let (sender, receiver) = oneshot::channel();
             let _ = handle
@@ -264,6 +271,7 @@ pub async fn ask_to_choose(
                     placeholder: None,
                     options: Some(options),
                     value,
+                    variant,
                     mode,
                 })
                 .await;
@@ -303,6 +311,7 @@ pub async fn show_result(
             let title = eval_opt_string_param("title", parameters, context)?;
             let variant: Option<String> = eval_opt_string_param("variant", parameters, context)?;
 
+            let (sender, receiver) = oneshot::channel();
             let _ = handle
                 .sender
                 .send(crate::debug::DebugMessage::ShowResult {
@@ -311,8 +320,19 @@ pub async fn show_result(
                     title,
                     value,
                     variant,
+                    sender,
                 })
                 .await;
+
+            timeout(Duration::from_secs(300), receiver)
+                .await
+                .map_err(|_| ExecutionError::DebugError {
+                    message: "Timeout while waiting for result confirmation".to_owned(),
+                })?
+                .map_err(|_| ExecutionError::DebugError {
+                    message: "Debug session ended before result confirmation was received"
+                        .to_owned(),
+                })?;
         }
         _ => {
             // No-op

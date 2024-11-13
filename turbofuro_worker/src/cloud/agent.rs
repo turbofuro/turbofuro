@@ -156,7 +156,13 @@ fn spawn_debugger_handle_reader(
                     title,
                     text,
                     variant,
+                    sender,
                 } => {
+                    // Add id and sender to the debug state
+                    cloud_agent_handler
+                        .setup_debugger_listener(id.clone(), sender)
+                        .await;
+
                     operator_client
                         .send_command(SendingCommand::DebugAction {
                             action: super::operator_client::DebugAction::ShowResult {
@@ -200,6 +206,7 @@ fn spawn_debugger_handle_reader(
                     sender,
                     mode,
                     options,
+                    variant,
                 } => {
                     // Add id and sender to the debug state
                     cloud_agent_handler
@@ -218,6 +225,7 @@ fn spawn_debugger_handle_reader(
                                 title,
                                 mode,
                                 options,
+                                variant,
                             },
                         })
                         .await;

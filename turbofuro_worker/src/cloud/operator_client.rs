@@ -38,6 +38,8 @@ pub enum DebugAction {
         mode: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         options: Option<Vec<DebugOption>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        variant: Option<String>,
     },
     ShowResult {
         id: String,

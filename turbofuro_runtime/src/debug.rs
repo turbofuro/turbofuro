@@ -55,6 +55,7 @@ pub enum DebugMessage {
         options: Option<Vec<DebugOption>>,
         value: Option<StorageValue>,
         sender: oneshot::Sender<StorageValue>,
+        variant: Option<String>,
         mode: String,
     },
     ShowResult {
@@ -63,6 +64,7 @@ pub enum DebugMessage {
         text: Option<String>,
         value: Option<StorageValue>,
         variant: Option<String>,
+        sender: oneshot::Sender<StorageValue>,
     },
     ShowNotification {
         id: String,
