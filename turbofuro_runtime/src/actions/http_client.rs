@@ -13,7 +13,10 @@ use tracing::{info, instrument};
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{eval_optional_param, eval_optional_param_with_default, eval_param},
+    evaluations::{
+        as_string, eval_opt_boolean_param, eval_opt_string_param, eval_opt_u64_param,
+        eval_optional_param, eval_optional_param_with_default, eval_string_param,
+    },
     executor::{ExecutionContext, Parameter},
     http_utils::decode_text_with_encoding,
     resources::{
@@ -21,7 +24,7 @@ use crate::{
     },
 };
 
-use super::{as_boolean, as_string, as_u64, store_value};
+use super::store_value;
 
 static DEFAULT_TIMEOUT: u64 = 60_000;
 
@@ -39,16 +42,9 @@ fn get_builder(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
 ) -> Result<RequestBuilder, ExecutionError> {
-    let url_param = eval_param("url", parameters, &context.storage, &context.environment)?;
-    let url = as_string(url_param, "url")?;
-    let method_value = eval_optional_param_with_default(
-        "method",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::String("get".to_string()),
-    )?;
-    let method = as_string(method_value, "method")?;
+    let url = eval_string_param("url", parameters, context)?;
+    let method =
+        eval_opt_string_param("method", parameters, context)?.unwrap_or_else(|| "get".to_owned());
     let method = match method.to_lowercase().as_str() {
         "get" => Method::GET,
         "post" => Method::POST,
@@ -402,9 +398,7 @@ pub async fn build_client<'a>(
     _step_id: &str,
     _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let name = eval_param("name", parameters, &context.storage, &context.environment)?;
-    let name = as_string(name, "name")?;
-
+    let name = eval_string_param("name", parameters, context)?;
     let certificates = eval_optional_param_with_default(
         "rootCertificates",
         parameters,
@@ -412,7 +406,6 @@ pub async fn build_client<'a>(
         &context.environment,
         StorageValue::Array(vec![]),
     )?;
-
     let certificates = match certificates {
         StorageValue::Array(arr) => {
             let mut result = Vec::new();
@@ -442,34 +435,11 @@ pub async fn build_client<'a>(
             actual: describe(s),
         }),
     }?;
-
-    let accept_invalid_certificates = eval_optional_param_with_default(
-        "acceptInvalidCertificates",
-        parameters,
-        &context.storage,
-        &context.environment,
-        false.into(),
-    )?;
     let accept_invalid_certificates =
-        as_boolean(accept_invalid_certificates, "acceptInvalidCertificates")?;
-
-    let user_agent = eval_optional_param_with_default(
-        "userAgent",
-        parameters,
-        &context.storage,
-        &context.environment,
-        USER_AGENT.into(),
-    )?;
-    let user_agent = as_string(user_agent, "userAgent")?;
-
-    let timeout_param = eval_optional_param_with_default(
-        "timeout",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::Number(DEFAULT_TIMEOUT as f64),
-    )?;
-    let timeout = as_u64(timeout_param, "timeout")?;
+        eval_opt_boolean_param("acceptInvalidCertificates", parameters, context)?.unwrap_or(false);
+    let user_agent = eval_opt_string_param("userAgent", parameters, context)?
+        .unwrap_or_else(|| USER_AGENT.to_owned());
+    let timeout = eval_opt_u64_param("timeout", parameters, context)?.unwrap_or(DEFAULT_TIMEOUT);
 
     // TODO: Add support for default headers
 

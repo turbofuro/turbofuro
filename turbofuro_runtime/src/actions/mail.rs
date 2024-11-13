@@ -1,9 +1,11 @@
 use std::{collections::HashMap, time::Duration};
 
 use crate::{
-    actions::as_string,
     errors::ExecutionError,
-    evaluations::{eval_optional_param, eval_param},
+    evaluations::{
+        as_string_or_array_string, eval_opt_string_param, eval_optional_param, eval_param,
+        eval_string_param,
+    },
     executor::{ExecutionContext, Parameter},
 };
 use lettre::{
@@ -14,7 +16,7 @@ use lettre::{
 use tel::StorageValue;
 use tracing::instrument;
 
-use super::{as_string_or_array_string, store_value};
+use super::store_value;
 
 #[derive(Debug)]
 enum Payload {
@@ -29,21 +31,17 @@ pub async fn sendmail_smtp_html<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let text_param =
-        eval_optional_param("text", parameters, &context.storage, &context.environment)?;
-
-    let html_param = eval_param("html", parameters, &context.storage, &context.environment)?;
-    let html_param = as_string(html_param, "html")?;
+    let text_param = eval_opt_string_param("text", parameters, context)?;
+    let html = eval_string_param("html", parameters, context)?;
 
     match text_param {
-        Some(text_param) => {
-            let text_param = as_string(text_param, "text")?;
+        Some(text) => {
             sendmail_smtp(
                 context,
                 parameters,
                 step_id,
                 store_as,
-                Payload::MultiPart(MultiPart::alternative_plain_html(text_param, html_param)),
+                Payload::MultiPart(MultiPart::alternative_plain_html(text, html)),
             )
             .await
         }
@@ -53,7 +51,7 @@ pub async fn sendmail_smtp_html<'a>(
                 parameters,
                 step_id,
                 store_as,
-                Payload::SinglePart(SinglePart::html(html_param)),
+                Payload::SinglePart(SinglePart::html(html)),
             )
             .await
         }
@@ -67,15 +65,14 @@ pub async fn sendmail_smtp_text<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let text_param = eval_param("text", parameters, &context.storage, &context.environment)?;
-    let text_param = as_string(text_param, "text")?;
+    let text = eval_string_param("text", parameters, context)?;
 
     sendmail_smtp(
         context,
         parameters,
         step_id,
         store_as,
-        Payload::SinglePart(SinglePart::plain(text_param)),
+        Payload::SinglePart(SinglePart::plain(text)),
     )
     .await
 }
@@ -87,25 +84,15 @@ async fn sendmail_smtp<'a>(
     store_as: Option<&str>,
     payload: Payload,
 ) -> Result<(), ExecutionError> {
-    let from_param = eval_param("from", parameters, &context.storage, &context.environment)?;
-    let from_param = as_string(from_param, "from")?;
+    let from = eval_string_param("from", parameters, context)?;
     let from: Mailbox =
-        from_param
-            .parse()
+        from.parse()
             .map_err(|e: AddressError| ExecutionError::ParameterInvalid {
                 name: "from".to_owned(),
                 message: e.to_string(),
             })?;
-
-    let subject_param = eval_param(
-        "subject",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let subject_param = as_string(subject_param, "subject")?;
-
-    let mut message_builder = MessageBuilder::new().from(from).subject(subject_param);
+    let subject = eval_string_param("subject", parameters, context)?;
+    let mut message_builder = MessageBuilder::new().from(from).subject(subject);
 
     let to_param = eval_param("to", parameters, &context.storage, &context.environment)?;
     let to_param: Vec<String> = as_string_or_array_string(to_param, "to")?;
@@ -120,13 +107,7 @@ async fn sendmail_smtp<'a>(
         message_builder = message_builder.to(to)
     }
 
-    let connection_param = eval_param(
-        "connectionUrl",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let connection_param = as_string(connection_param, "connectionUrl")?;
+    let connection_url = eval_string_param("connectionUrl", parameters, context)?;
 
     let reply_to_param = eval_optional_param(
         "replyTo",
@@ -177,7 +158,7 @@ async fn sendmail_smtp<'a>(
         }
     }
 
-    let mailer = AsyncSmtpTransport::<Tokio1Executor>::from_url(&connection_param)
+    let mailer = AsyncSmtpTransport::<Tokio1Executor>::from_url(&connection_url)
         .map_err(|e| ExecutionError::ParameterInvalid {
             name: "connectionUrl".to_owned(),
             message: e.to_string(),

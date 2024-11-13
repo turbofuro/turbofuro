@@ -4,12 +4,10 @@ use tracing::instrument;
 
 use crate::{
     errors::ExecutionError,
-    evaluations::eval_param,
+    evaluations::{eval_param, eval_string_param, get_handlers_from_parameters},
     executor::{ExecutionContext, Parameter},
     resources::{HttpRequestToRespond, HttpResponse, OpenWebSocket, Resource, WebSocketCommand},
 };
-
-use super::get_handlers_from_parameters;
 
 #[instrument(level = "debug", skip_all)]
 pub async fn setup_route<'a>(
@@ -17,16 +15,11 @@ pub async fn setup_route<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
+    let path = eval_string_param("path", parameters, context)?;
     let handlers = get_handlers_from_parameters(parameters);
     {
         let mut router = context.global.registry.router.lock().await;
-        router.add_route(
-            "get".into(),
-            path_param.to_string()?,
-            context.module.id.clone(),
-            handlers,
-        )
+        router.add_route("get".into(), path, context.module.id.clone(), handlers)
     }
 
     Ok(())

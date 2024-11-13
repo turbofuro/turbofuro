@@ -1,7 +1,10 @@
 use crate::{
     actor::ActorCommand,
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param},
+    evaluations::{
+        eval_integer_param, eval_optional_param_with_default, eval_string_param,
+        get_optional_handler_from_parameters,
+    },
     executor::{ExecutionContext, Global, Parameter},
     resources::{Cancellation, CancellationSubject, Resource},
 };
@@ -24,21 +27,13 @@ pub fn cancellation_name(alarm_id: u64) -> String {
     format!("alarm_{}", alarm_id)
 }
 
-use super::{as_integer, get_optional_handler_from_parameters};
-
 #[instrument(level = "trace", skip_all)]
 pub async fn set_alarm<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let time_param = eval_param(
-        "timeout",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let time = as_integer(time_param, "timeout")?;
+    let time = eval_integer_param("timeout", parameters, context)?;
     if time < 0 {
         return Err(ExecutionError::ParameterInvalid {
             name: "timeout".to_owned(),
@@ -185,13 +180,7 @@ pub async fn set_interval<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let time_param = eval_param(
-        "interval",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let time = as_integer(time_param, "interval")?;
+    let time = eval_integer_param("interval", parameters, context)?;
     if time < 0 {
         return Err(ExecutionError::ParameterInvalid {
             name: "interval".to_owned(),
@@ -348,13 +337,7 @@ pub async fn setup_cronjob<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let schedule_param = eval_param(
-        "schedule",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let schedule = schedule_param.to_string()?;
+    let schedule = eval_string_param("schedule", parameters, context)?;
     let data = eval_optional_param_with_default(
         "data",
         parameters,

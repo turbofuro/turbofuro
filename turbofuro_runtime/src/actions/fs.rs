@@ -12,15 +12,17 @@ use tokio::{fs::OpenOptions, io::AsyncWriteExt, sync::mpsc};
 use tracing::{debug, instrument, warn};
 
 use crate::{
-    actions::as_string,
     actor::ActorCommand,
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param},
+    evaluations::{
+        eval_opt_boolean_param, eval_opt_string_param, eval_opt_u64_param, eval_param,
+        eval_string_param, get_optional_handler_from_parameters,
+    },
     executor::{ExecutionContext, Parameter},
     resources::{Cancellation, CancellationSubject, FileHandle, Resource},
 };
 
-use super::{as_boolean, as_integer, get_optional_handler_from_parameters, store_value};
+use super::store_value;
 
 fn system_time_to_millis_since_epoch(time: SystemTime) -> f64 {
     match time.duration_since(UNIX_EPOCH) {
@@ -42,19 +44,8 @@ pub async fn open_file<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    // Get path
-    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
-    let path = as_string(path_param, "path")?;
-
-    // Get mode
-    let mode_param = eval_optional_param_with_default(
-        "mode",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::String("r".to_owned()),
-    )?;
-    let mode = as_string(mode_param, "mode")?;
+    let path = eval_string_param("path", parameters, context)?;
+    let mode = eval_opt_string_param("mode", parameters, context)?.unwrap_or("r".to_owned());
 
     let mut open_options = OpenOptions::new();
     match mode.as_str() {
@@ -121,8 +112,7 @@ pub async fn read_dir<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
-    let path = as_string(path_param, "path")?;
+    let path = eval_string_param("path", parameters, context)?;
 
     let mut dir = tokio::fs::read_dir(path)
         .await
@@ -181,9 +171,7 @@ pub async fn simple_read_to_string<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    // Get path
-    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
-    let path = as_string(path_param, "path")?;
+    let path = eval_string_param("path", parameters, context)?;
 
     let data = tokio::fs::read_to_string(path.clone())
         .await
@@ -199,9 +187,7 @@ pub async fn simple_write_string<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    // Get path
-    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
-    let path = as_string(path_param, "path")?;
+    let path = eval_string_param("path", parameters, context)?;
 
     // Get content
     let content = eval_param(
@@ -226,37 +212,13 @@ pub async fn setup_watcher<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
-    let path = as_string(path_param, "path")?;
-
-    let recursive_param = eval_optional_param_with_default(
-        "recursive",
-        parameters,
-        &context.storage,
-        &context.environment,
-        true.into(),
-    )?;
-    let recursive_param = as_boolean(recursive_param, "recursive")?;
-    let recursive_mode: RecursiveMode = match recursive_param {
+    let path = eval_string_param("path", parameters, context)?;
+    let recursive = eval_opt_boolean_param("recursive", parameters, context)?.unwrap_or(false);
+    let recursive_mode: RecursiveMode = match recursive {
         true => RecursiveMode::Recursive,
         false => RecursiveMode::NonRecursive,
     };
-
-    let debounce_time_param = eval_optional_param_with_default(
-        "debounceTime",
-        parameters,
-        &context.storage,
-        &context.environment,
-        500.into(),
-    )?;
-
-    let debounce: u64 =
-        u64::try_from(as_integer(debounce_time_param, "debounceTime")?).map_err(|e| {
-            ExecutionError::ParameterInvalid {
-                name: "debounceTime".to_owned(),
-                message: e.to_string(),
-            }
-        })?;
+    let debounce = eval_opt_u64_param("debounceTime", parameters, context)?.unwrap_or(500);
 
     let function_ref = get_optional_handler_from_parameters("onMessage", parameters);
     let actor_id = context.actor_id.clone();
@@ -472,19 +434,8 @@ pub async fn create_directory<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    // Get path
-    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
-    let path = as_string(path_param, "path")?;
-
-    // Get recursive
-    let recursive_param = eval_optional_param_with_default(
-        "recursive",
-        parameters,
-        &context.storage,
-        &context.environment,
-        true.into(),
-    )?;
-    let recursive = as_boolean(recursive_param, "recursive")?;
+    let path = eval_string_param("path", parameters, context)?;
+    let recursive = eval_opt_boolean_param("recursive", parameters, context)?.unwrap_or(false);
 
     if recursive {
         tokio::fs::create_dir_all(path).await?;
@@ -501,12 +452,8 @@ pub async fn rename<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    // Get paths
-    let from_param = eval_param("from", parameters, &context.storage, &context.environment)?;
-    let from = as_string(from_param, "from")?;
-
-    let to_param = eval_param("to", parameters, &context.storage, &context.environment)?;
-    let to = as_string(to_param, "to")?;
+    let from = eval_string_param("from", parameters, context)?;
+    let to = eval_string_param("to", parameters, context)?;
 
     tokio::fs::rename(from, to).await?;
 
@@ -519,9 +466,7 @@ pub async fn remove_file<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    // Get path
-    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
-    let path = as_string(path_param, "path")?;
+    let path = eval_string_param("path", parameters, context)?;
 
     tokio::fs::remove_file(path).await?;
 
@@ -534,19 +479,8 @@ pub async fn remove_directory<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    // Get path
-    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
-    let path = as_string(path_param, "path")?;
-
-    // Get recursive
-    let recursive_param = eval_optional_param_with_default(
-        "recursive",
-        parameters,
-        &context.storage,
-        &context.environment,
-        true.into(),
-    )?;
-    let recursive = as_boolean(recursive_param, "recursive")?;
+    let path = eval_string_param("path", parameters, context)?;
+    let recursive = eval_opt_boolean_param("recursive", parameters, context)?.unwrap_or(false);
 
     if recursive {
         tokio::fs::remove_dir_all(path).await?;
@@ -563,12 +497,8 @@ pub async fn copy<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    // Get paths
-    let from_param = eval_param("from", parameters, &context.storage, &context.environment)?;
-    let from = as_string(from_param, "from")?;
-
-    let to_param = eval_param("to", parameters, &context.storage, &context.environment)?;
-    let to = as_string(to_param, "to")?;
+    let from = eval_string_param("from", parameters, context)?;
+    let to = eval_string_param("to", parameters, context)?;
 
     tokio::fs::copy(from, to).await?;
 
@@ -582,9 +512,7 @@ pub async fn canonicalize<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    // Get path
-    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
-    let path = as_string(path_param, "path")?;
+    let path = eval_string_param("path", parameters, context)?;
 
     let canonicalized = tokio::fs::canonicalize(path).await?;
     let canonicalized = canonicalized.to_string_lossy().to_string();

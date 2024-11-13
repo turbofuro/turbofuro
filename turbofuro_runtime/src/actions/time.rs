@@ -1,13 +1,13 @@
 use crate::{
     errors::ExecutionError,
-    evaluations::eval_param,
+    evaluations::eval_u64_param,
     executor::{ExecutionContext, Parameter},
 };
 use chrono::{Datelike, Timelike, Utc};
 use tel::{ObjectBody, StorageValue};
 use tracing::instrument;
 
-use super::{as_integer, store_value};
+use super::store_value;
 
 #[instrument(level = "trace", skip_all)]
 pub async fn sleep<'a>(
@@ -15,30 +15,9 @@ pub async fn sleep<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let time_param = eval_param(
-        "milliseconds",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
+    let time = eval_u64_param("milliseconds", parameters, context)?;
 
-    let time = as_integer(time_param, "milliseconds")?;
-
-    if time < 0 {
-        return Err(ExecutionError::ParameterInvalid {
-            name: "milliseconds".to_owned(),
-            message: "Milliseconds must be a positive integer".to_owned(),
-        });
-    }
-
-    let millis: u64 = time
-        .try_into()
-        .map_err(|e| ExecutionError::ParameterInvalid {
-            name: "Milliseconds".to_owned(),
-            message: format!("Could not convert to milliseconds: {}", e),
-        })?;
-
-    tokio::time::sleep(tokio::time::Duration::from_millis(millis)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(time)).await;
 
     Ok(())
 }

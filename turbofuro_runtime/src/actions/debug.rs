@@ -1,10 +1,10 @@
 use std::time::Duration;
 
-use super::{as_string, eval_opt_string_param, eval_string_param, store_value};
+use super::store_value;
 use crate::{
     debug::DebugOption,
     errors::ExecutionError,
-    evaluations::{eval_optional_param, eval_param},
+    evaluations::{eval_opt_string_param, eval_optional_param, eval_param, eval_string_param},
     executor::{ExecutionContext, Parameter},
 };
 use nanoid::nanoid;
@@ -245,7 +245,7 @@ pub async fn ask_to_choose(
         crate::executor::ExecutionMode::Debug(handle) => {
             let text = eval_string_param("text", parameters, context)?;
             let title = eval_opt_string_param("title", parameters, context)?;
-            let mode = eval_opt_string_param("mode", parameters, context)?
+            let mode = eval_opt_string_param("mode", parameters, context)? // Mode can be radio/select/multiple
                 .unwrap_or_else(|| "radio".to_owned());
             let value =
                 eval_optional_param("value", parameters, &context.storage, &context.environment)?;

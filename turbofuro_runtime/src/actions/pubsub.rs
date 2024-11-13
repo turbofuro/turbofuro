@@ -5,20 +5,20 @@ use std::{
 
 use crate::{
     actor::ActorCommand,
-    evaluations::{eval_optional_param, eval_optional_param_with_default},
+    evaluations::{
+        eval_opt_string_param, eval_optional_param_with_default, eval_string_param,
+        get_optional_handler_from_parameters,
+    },
     resources::{Cancellation, CancellationSubject},
 };
 use tel::{ObjectBody, StorageValue, NULL};
 use tracing::{debug, error, instrument};
 
 use crate::{
-    actions::as_string,
     errors::ExecutionError,
     evaluations::eval_param,
     executor::{ExecutionContext, Global, Parameter},
 };
-
-use super::get_optional_handler_from_parameters;
 
 fn cancellation_name(channel: &str) -> String {
     format!("pubsub_{}", channel)
@@ -30,13 +30,7 @@ pub async fn publish<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let channel_param = eval_param(
-        "channel",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let channel: String = as_string(channel_param, "channel")?;
+    let channel = eval_string_param("channel", parameters, context)?;
     let value = eval_param("value", parameters, &context.storage, &context.environment)?;
 
     let pub_sub = context.global.pub_sub.lock().await;
@@ -123,13 +117,7 @@ pub async fn subscribe<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let channel_param = eval_param(
-        "channel",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let channel: String = as_string(channel_param, "channel")?;
+    let channel = eval_string_param("channel", parameters, context)?;
     let handler = get_optional_handler_from_parameters("onMessage", parameters);
 
     let context_param = eval_optional_param_with_default(
@@ -180,15 +168,9 @@ pub async fn unsubscribe<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let channel_param = eval_optional_param(
-        "channel",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
+    let channel = eval_opt_string_param("channel", parameters, context)?;
 
-    if let Some(channel_param) = channel_param {
-        let channel = channel_param.to_string()?;
+    if let Some(channel) = channel {
         let name = cancellation_name(&channel);
 
         let index =

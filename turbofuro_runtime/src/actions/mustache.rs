@@ -2,11 +2,11 @@ use tracing::instrument;
 
 use crate::{
     errors::ExecutionError,
-    evaluations::eval_param,
+    evaluations::{eval_param, eval_string_param},
     executor::{ExecutionContext, Parameter},
 };
 
-use super::{as_string, store_value};
+use super::store_value;
 
 #[instrument(level = "trace", skip_all)]
 pub async fn render_template(
@@ -15,13 +15,7 @@ pub async fn render_template(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let template = eval_param(
-        "template",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let raw_template = as_string(template, "template")?;
+    let raw_template = eval_string_param("template", parameters, context)?;
 
     // TODO: Cache compiled templates
     let template =

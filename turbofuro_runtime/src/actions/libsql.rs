@@ -5,10 +5,10 @@ use tel::{describe, Description, StorageValue, NULL};
 use tracing::{debug, instrument, warn};
 use url::Url;
 
+use crate::evaluations::{eval_opt_string_param, eval_string_param};
 use crate::{
-    actions::as_string,
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param},
+    evaluations::eval_optional_param_with_default,
     executor::{ExecutionContext, Parameter},
     resources::{LibSql, Resource},
 };
@@ -73,23 +73,8 @@ pub async fn get_connection<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let connection_string_param = eval_param(
-        "connectionString",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let connection_string = as_string(connection_string_param, "connectionString")?;
-
-    // Get name
-    let name_param = eval_optional_param_with_default(
-        "name",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::String("default".to_owned()),
-    )?;
-    let name = as_string(name_param, "name")?;
+    let connection_string = eval_string_param("connectionString", parameters, context)?;
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
 
     // Check if we already have a connection pool with this name
     let exists = { context.global.registry.libsql.contains_key(&name) };
@@ -151,23 +136,8 @@ pub async fn query<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    // First parse parameters before we do any async stuff
-    let connection_name_param = eval_optional_param_with_default(
-        "name",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::String("default".to_owned()),
-    )?;
-    let connection_name = as_string(connection_name_param, "name")?;
-
-    let statement_param = eval_param(
-        "statement",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let statement = as_string(statement_param, "statement")?;
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
+    let statement = eval_string_param("statement", parameters, context)?;
 
     let params_param = eval_optional_param_with_default(
         "params",
@@ -191,7 +161,7 @@ pub async fn query<'a>(
             .global
             .registry
             .libsql
-            .get(&connection_name)
+            .get(&name)
             .ok_or_else(LibSql::missing)
             .map(|r| r.value().0.clone())?
     };

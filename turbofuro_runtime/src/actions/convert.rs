@@ -6,11 +6,14 @@ use url::Url;
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{eval_optional_param, eval_optional_param_with_default, eval_param},
+    evaluations::{
+        eval_opt_boolean_param, eval_opt_string_param, eval_optional_param, eval_param,
+        eval_string_param,
+    },
     executor::{ExecutionContext, Parameter},
 };
 
-use super::{as_boolean, as_string, store_value};
+use super::store_value;
 
 #[instrument(level = "trace", skip_all)]
 pub async fn parse_json(
@@ -19,8 +22,7 @@ pub async fn parse_json(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let json = eval_param("json", parameters, &context.storage, &context.environment)?;
-    let json = as_string(json, "json")?;
+    let json = eval_string_param("json", parameters, context)?;
 
     let parsed: StorageValue =
         serde_json::from_str(&json).map_err(|e| ExecutionError::SerializationFailed {
@@ -41,15 +43,7 @@ pub async fn to_json(
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let value_param = eval_param("value", parameters, &context.storage, &context.environment)?;
-
-    let pretty = eval_optional_param_with_default(
-        "pretty",
-        parameters,
-        &context.storage,
-        &context.environment,
-        false.into(),
-    )?;
-    let pretty = as_boolean(pretty, "pretty")?;
+    let pretty = eval_opt_boolean_param("pretty", parameters, context)?.unwrap_or(false);
 
     let json = if pretty {
         serde_json::to_string_pretty(&value_param).map_err(|e| {
@@ -78,13 +72,7 @@ pub async fn parse_urlencoded(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let urlencoded = eval_param(
-        "urlencoded",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let urlencoded = as_string(urlencoded, "urlencoded")?;
+    let urlencoded = eval_string_param("urlencoded", parameters, context)?;
 
     let parsed: StorageValue = serde_urlencoded::from_str(&urlencoded).map_err(|e| {
         ExecutionError::SerializationFailed {
@@ -129,8 +117,7 @@ pub async fn parse_url(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let url_param = eval_param("url", parameters, &context.storage, &context.environment)?;
-    let url = as_string(url_param, "url")?;
+    let url = eval_string_param("url", parameters, context)?;
 
     let parsed = Url::parse(&url).map_err(|e| ExecutionError::ParameterInvalid {
         name: "url".into(),
@@ -182,42 +169,16 @@ pub async fn to_url(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let host_param = eval_param("host", parameters, &context.storage, &context.environment)?;
-    let host = as_string(host_param, "host")?;
-
-    let scheme_param: StorageValue = eval_optional_param_with_default(
-        "scheme",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::String("https".into()),
-    )?;
-    let scheme = as_string(scheme_param, "scheme")?;
+    let host = eval_string_param("host", parameters, context)?;
+    let scheme = eval_opt_string_param("scheme", parameters, context)?.unwrap_or("https".into());
     let port_param =
         eval_optional_param("port", parameters, &context.storage, &context.environment)?;
 
-    let path_param =
-        eval_optional_param("path", parameters, &context.storage, &context.environment)?;
-    let query_param =
-        eval_optional_param("query", parameters, &context.storage, &context.environment)?;
-    let fragment = eval_optional_param(
-        "fragment",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let username = eval_optional_param(
-        "username",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let password = eval_optional_param(
-        "password",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
+    let path = eval_opt_string_param("path", parameters, context)?;
+    let query = eval_opt_string_param("query", parameters, context)?;
+    let fragment = eval_opt_string_param("fragment", parameters, context)?;
+    let username = eval_opt_string_param("username", parameters, context)?;
+    let password = eval_opt_string_param("password", parameters, context)?;
 
     // Construct the URL
     let mut url = Url::parse(&format!("{}://{}", scheme, host)).map_err(|e| {
@@ -257,23 +218,19 @@ pub async fn to_url(
             })?;
     }
 
-    if let Some(path) = path_param {
-        let path = as_string(path, "path")?;
+    if let Some(path) = path {
         url.set_path(&path);
     }
 
-    if let Some(query) = query_param {
-        let query = as_string(query, "query")?;
+    if let Some(query) = query {
         url.set_query(Some(&query));
     }
 
     if let Some(fragment) = fragment {
-        let fragment = as_string(fragment, "fragment")?;
         url.set_fragment(Some(&fragment));
     }
 
     if let Some(username) = username {
-        let username = as_string(username, "username")?;
         url.set_username(&username)
             .map_err(|_e| ExecutionError::StateInvalid {
                 message: "Username could not be set".into(),
@@ -283,7 +240,6 @@ pub async fn to_url(
     }
 
     if let Some(password) = password {
-        let password = as_string(password, "password")?;
         url.set_password(Some(&password))
             .map_err(|_e| ExecutionError::StateInvalid {
                 message: "Password could not be set".into(),

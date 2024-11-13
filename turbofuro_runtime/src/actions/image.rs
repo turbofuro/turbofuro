@@ -8,11 +8,9 @@ use tracing::instrument;
 
 use crate::{
     errors::ExecutionError,
-    evaluations::eval_param,
+    evaluations::{eval_param, eval_string_param},
     executor::{ExecutionContext, Parameter},
 };
-
-use super::as_string;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -182,20 +180,8 @@ pub async fn convert(
     _step_id: &str,
     _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let source = as_string(
-        eval_param("source", parameters, &context.storage, &context.environment)?,
-        "source",
-    )?;
-
-    let destination = as_string(
-        eval_param(
-            "destination",
-            parameters,
-            &context.storage,
-            &context.environment,
-        )?,
-        "path",
-    )?;
+    let source = eval_string_param("source", parameters, context)?;
+    let destination = eval_string_param("destination", parameters, context)?;
 
     let actions = match eval_param(
         "actions",

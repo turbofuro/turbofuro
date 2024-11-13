@@ -1,7 +1,9 @@
 use crate::{
     actor::ActorCommand,
     errors::ExecutionError,
-    evaluations::eval_optional_param_with_default,
+    evaluations::{
+        eval_opt_u64_param, eval_optional_param_with_default, get_handler_from_parameters,
+    },
     executor::{ExecutionContext, Global, Parameter},
     resources::{Cancellation, CancellationSubject, Resource},
 };
@@ -16,8 +18,6 @@ use std::{
 use tel::{ObjectBody, StorageValue};
 use tracing::{debug, instrument};
 
-use super::{as_integer, get_handler_from_parameters};
-
 static TASK_ID: AtomicU64 = AtomicU64::new(0);
 
 pub fn cancellation_name(task_id: u64) -> String {
@@ -30,26 +30,7 @@ pub async fn run_task_continuously<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let time_param = eval_optional_param_with_default(
-        "backoff",
-        parameters,
-        &context.storage,
-        &context.environment,
-        5000.into(),
-    )?;
-    let time = as_integer(time_param, "backoff")?;
-    if time < 0 {
-        return Err(ExecutionError::ParameterInvalid {
-            name: "backoff".to_owned(),
-            message: "Backoff must be a positive integer".to_owned(),
-        });
-    }
-    let millis: u64 = time
-        .try_into()
-        .map_err(|e| ExecutionError::ParameterInvalid {
-            name: "interval".to_owned(),
-            message: format!("Could not convert to milliseconds: {}", e),
-        })?;
+    let backoff = eval_opt_u64_param("backoff", parameters, context)?.unwrap_or(5000);
 
     let data = eval_optional_param_with_default(
         "data",
@@ -73,7 +54,7 @@ pub async fn run_task_continuously<'a>(
                 global,
                 actor_id,
                 data,
-                millis,
+                backoff,
                 function_ref,
             ) => {
                 debug!("Continuous task finished");

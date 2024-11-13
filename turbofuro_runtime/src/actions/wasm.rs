@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::Path};
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param},
+    evaluations::{eval_opt_string_param, eval_optional_param_with_default, eval_string_param},
     executor::{ExecutionContext, Parameter},
 };
 use tel::{describe, Description, StorageValue};
@@ -11,7 +11,7 @@ use wasi_common::pipe::{ReadPipe, WritePipe};
 use wasmtime::{Config, Engine, Linker, Module, Store};
 use wasmtime_wasi::{ambient_authority, tokio::WasiCtxBuilder};
 
-use super::{as_string, store_value};
+use super::store_value;
 
 #[derive(Clone)]
 struct WasmInstance {
@@ -41,17 +41,8 @@ pub async fn run_wasi(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let path = eval_param("path", parameters, &context.storage, &context.environment)?;
-    let path = as_string(path, "path")?;
-
-    let input = eval_optional_param_with_default(
-        "input",
-        parameters,
-        &context.storage,
-        &context.environment,
-        "".into(),
-    )?;
-    let input = as_string(input, "input")?;
+    let path = eval_string_param("path", parameters, context)?;
+    let input = eval_opt_string_param("input", parameters, context)?.unwrap_or("".to_owned());
 
     let env = eval_optional_param_with_default(
         "env",

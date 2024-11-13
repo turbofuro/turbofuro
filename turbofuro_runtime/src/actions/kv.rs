@@ -7,11 +7,11 @@ use tracing::{instrument, warn};
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{eval_optional_param, eval_optional_param_with_default, eval_param},
+    evaluations::{eval_opt_number_param, eval_opt_u64_param, eval_param, eval_string_param},
     executor::{get_timestamp, ExecutionContext, Parameter},
 };
 
-use super::{as_number, as_u64, store_value};
+use super::store_value;
 
 #[derive(Debug, Clone)]
 struct KvValue {
@@ -93,21 +93,10 @@ pub async fn write_to_store<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let key_param = eval_param("key", parameters, &context.storage, &context.environment)?;
-    let key = key_param.to_string().map_err(ExecutionError::from)?;
-
+    let key = eval_string_param("key", parameters, context)?;
     let value = eval_param("value", parameters, &context.storage, &context.environment)?;
-
-    let mut expiration = None;
-    let expiration_param = eval_optional_param(
-        "expiration",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    if let Some(expiration_param) = expiration_param {
-        expiration = Some(get_timestamp() + as_u64(expiration_param, "expiration")?);
-    }
+    let expiration =
+        eval_opt_u64_param("expiration", parameters, context)?.map(|v| v + get_timestamp());
 
     KV.insert(key, KvValue { value, expiration });
 
@@ -120,28 +109,10 @@ pub async fn increment_store<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let key_param = eval_param("key", parameters, &context.storage, &context.environment)?;
-    let key = key_param.to_string().map_err(ExecutionError::from)?;
-
-    let value = eval_optional_param_with_default(
-        "increment",
-        parameters,
-        &context.storage,
-        &context.environment,
-        1.into(),
-    )?;
-    let increment = as_number(value, "increment")?;
-
-    let mut expiration = None;
-    let expiration_param = eval_optional_param(
-        "expiration",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    if let Some(expiration_param) = expiration_param {
-        expiration = Some(get_timestamp() + as_u64(expiration_param, "expiration")?);
-    }
+    let key = eval_string_param("key", parameters, context)?;
+    let increment = eval_opt_number_param("increment", parameters, context)?.unwrap_or(1.0);
+    let expiration =
+        eval_opt_u64_param("expiration", parameters, context)?.map(|v| v + get_timestamp());
 
     if let Some(mut existing) = KV.get_mut(key.as_str()) {
         existing.expiration = expiration;

@@ -1,12 +1,14 @@
+use std::collections::HashMap;
+
 use memoize::memoize;
 use tel::{
-    parse_description, Description, ObjectBody, ParseResult, Selector, SelectorPart, Storage,
-    StorageValue, TelError,
+    describe, parse_description, Description, ObjectBody, ParseResult, Selector, SelectorPart,
+    Storage, StorageValue, TelError,
 };
 
 use crate::{
     errors::ExecutionError,
-    executor::{Environment, Parameter},
+    executor::{Environment, ExecutionContext, Parameter},
 };
 
 #[memoize]
@@ -149,4 +151,244 @@ pub fn eval_description(description: &str) -> Result<Description, ExecutionError
 
     let evaluated = tel::evaluate_description_notation(expr).map_err(ExecutionError::from)?;
     Ok(evaluated)
+}
+
+pub fn as_string(s: StorageValue, name: &str) -> Result<String, ExecutionError> {
+    match s {
+        StorageValue::String(s) => Ok(s),
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: name.to_owned(),
+            expected: Description::new_base_type("string"),
+            actual: describe(s),
+        }),
+    }
+}
+
+pub fn as_string_or_array_string(
+    s: StorageValue,
+    name: &str,
+) -> Result<Vec<String>, ExecutionError> {
+    match s {
+        StorageValue::String(s) => Ok(vec![s]),
+        StorageValue::Array(arr) => {
+            let mut result = Vec::new();
+            for s in arr {
+                match s {
+                    StorageValue::String(s) => result.push(s),
+                    s => {
+                        return Err(ExecutionError::ParameterTypeMismatch {
+                            name: name.to_owned(),
+                            expected: Description::new_base_type("string"),
+                            actual: describe(s),
+                        })
+                    }
+                }
+            }
+            Ok(result)
+        }
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: name.to_owned(),
+            expected: Description::new_base_type("string"),
+            actual: describe(s),
+        }),
+    }
+}
+
+pub fn as_integer(s: StorageValue, name: &str) -> Result<i64, ExecutionError> {
+    match s {
+        StorageValue::Number(f) => Ok(f as i64),
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: name.to_owned(),
+            expected: Description::new_base_type("number"),
+            actual: describe(s),
+        }),
+    }
+}
+
+pub fn as_boolean(s: StorageValue, name: &str) -> Result<bool, ExecutionError> {
+    match s {
+        StorageValue::Boolean(b) => Ok(b),
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: name.to_owned(),
+            expected: Description::new_base_type("boolean"),
+            actual: describe(s),
+        }),
+    }
+}
+
+pub fn as_number(s: StorageValue, name: &str) -> Result<f64, ExecutionError> {
+    match s {
+        StorageValue::Number(s) => Ok(s),
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: name.to_owned(),
+            expected: Description::new_base_type("number"),
+            actual: describe(s),
+        }),
+    }
+}
+
+pub fn as_u64(s: StorageValue, name: &str) -> Result<u64, ExecutionError> {
+    match s {
+        StorageValue::Number(f) => Ok(f as u64),
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: name.to_owned(),
+            expected: Description::new_base_type("number"),
+            actual: describe(s),
+        }),
+    }
+}
+
+pub fn get_handlers_from_parameters(parameters: &Vec<Parameter>) -> HashMap<String, String> {
+    let mut handlers: HashMap<String, String> = HashMap::new();
+    for parameter in parameters {
+        match parameter {
+            Parameter::Tel { .. } => {}
+            Parameter::FunctionRef { name, id } => {
+                if name.starts_with("on") {
+                    handlers.insert(name.to_owned(), id.into());
+                }
+            }
+        }
+    }
+    handlers
+}
+
+pub fn get_optional_handler_from_parameters(
+    parameter_name: &str,
+    parameters: &[Parameter],
+) -> Option<String> {
+    parameters
+        .iter()
+        .find(|p| match p {
+            Parameter::FunctionRef { name, id: _ } => name == parameter_name,
+            _ => false,
+        })
+        .map(|p| match p {
+            Parameter::FunctionRef { id, .. } => id.clone(),
+            _ => unreachable!(),
+        })
+}
+
+pub fn get_handler_from_parameters(
+    parameter_name: &str,
+    parameters: &[Parameter],
+) -> Result<String, ExecutionError> {
+    parameters
+        .iter()
+        .find(|p| match p {
+            Parameter::FunctionRef { name, id: _ } => name == parameter_name,
+            _ => false,
+        })
+        .map(|p| match p {
+            Parameter::FunctionRef { id, .. } => id.clone(),
+            _ => unreachable!(),
+        })
+        .ok_or_else(|| ExecutionError::MissingParameter {
+            name: parameter_name.to_owned(),
+        })
+}
+
+pub fn eval_string_param(
+    name: &str,
+    parameters: &Vec<Parameter>,
+    context: &ExecutionContext<'_>,
+) -> Result<String, ExecutionError> {
+    let value = eval_param(name, parameters, &context.storage, &context.environment)?;
+    as_string(value, name)
+}
+
+pub fn eval_opt_string_param(
+    name: &str,
+    parameters: &Vec<Parameter>,
+    context: &ExecutionContext<'_>,
+) -> Result<Option<String>, ExecutionError> {
+    let value = eval_optional_param(name, parameters, &context.storage, &context.environment)?;
+    match value {
+        Some(value) => as_string(value, name).map(|s| Some(s)),
+        None => Ok(None),
+    }
+}
+
+pub fn eval_integer_param(
+    name: &str,
+    parameters: &Vec<Parameter>,
+    context: &ExecutionContext<'_>,
+) -> Result<i64, ExecutionError> {
+    let value = eval_param(name, parameters, &context.storage, &context.environment)?;
+    as_integer(value, name)
+}
+
+pub fn eval_opt_integer_param(
+    name: &str,
+    parameters: &Vec<Parameter>,
+    context: &ExecutionContext<'_>,
+) -> Result<Option<i64>, ExecutionError> {
+    let value = eval_optional_param(name, parameters, &context.storage, &context.environment)?;
+    match value {
+        Some(value) => as_integer(value, name).map(|i| Some(i)),
+        None => Ok(None),
+    }
+}
+
+pub fn eval_boolean_param(
+    name: &str,
+    parameters: &Vec<Parameter>,
+    context: &ExecutionContext<'_>,
+) -> Result<bool, ExecutionError> {
+    let value = eval_param(name, parameters, &context.storage, &context.environment)?;
+    as_boolean(value, name)
+}
+
+pub fn eval_opt_boolean_param(
+    name: &str,
+    parameters: &Vec<Parameter>,
+    context: &ExecutionContext<'_>,
+) -> Result<Option<bool>, ExecutionError> {
+    let value = eval_optional_param(name, parameters, &context.storage, &context.environment)?;
+    match value {
+        Some(value) => as_boolean(value, name).map(|i| Some(i)),
+        None => Ok(None),
+    }
+}
+
+pub fn eval_u64_param(
+    name: &str,
+    parameters: &Vec<Parameter>,
+    context: &ExecutionContext<'_>,
+) -> Result<u64, ExecutionError> {
+    let value = eval_param(name, parameters, &context.storage, &context.environment)?;
+    as_u64(value, name)
+}
+
+pub fn eval_opt_u64_param(
+    name: &str,
+    parameters: &Vec<Parameter>,
+    context: &ExecutionContext<'_>,
+) -> Result<Option<u64>, ExecutionError> {
+    let value = eval_optional_param(name, parameters, &context.storage, &context.environment)?;
+    match value {
+        Some(value) => as_u64(value, name).map(|i| Some(i)),
+        None => Ok(None),
+    }
+}
+
+pub fn eval_number_param(
+    name: &str,
+    parameters: &Vec<Parameter>,
+    context: &ExecutionContext<'_>,
+) -> Result<f64, ExecutionError> {
+    let value = eval_param(name, parameters, &context.storage, &context.environment)?;
+    as_number(value, name)
+}
+
+pub fn eval_opt_number_param(
+    name: &str,
+    parameters: &Vec<Parameter>,
+    context: &ExecutionContext<'_>,
+) -> Result<Option<f64>, ExecutionError> {
+    let value = eval_optional_param(name, parameters, &context.storage, &context.environment)?;
+    match value {
+        Some(value) => as_number(value, name).map(|i| Some(i)),
+        None => Ok(None),
+    }
 }

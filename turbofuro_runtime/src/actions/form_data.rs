@@ -7,12 +7,10 @@ use tracing::instrument;
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{eval_optional_param, eval_param},
+    evaluations::{eval_opt_string_param, eval_opt_u64_param, eval_string_param},
     executor::{ExecutionContext, Parameter},
     resources::{FormDataDraft, Resource},
 };
-
-use super::{as_string, as_u64};
 
 #[instrument(level = "trace", skip_all)]
 pub fn create_form_data<'a>(
@@ -49,21 +47,10 @@ pub async fn add_stream_part_to_form_data<'a>(
     _step_id: &str,
     _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let name_param = eval_param("name", parameters, &context.storage, &context.environment)?;
-    let name = as_string(name_param, "name")?;
-
-    let size_param =
-        eval_optional_param("size", parameters, &context.storage, &context.environment)?;
-
-    let filename_param = eval_optional_param(
-        "filename",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-
-    let mime_param =
-        eval_optional_param("mime", parameters, &context.storage, &context.environment)?;
+    let name = eval_string_param("name", parameters, context)?;
+    let size_param = eval_opt_u64_param("size", parameters, context)?;
+    let filename_param = eval_opt_string_param("filename", parameters, context)?;
+    let mime_param = eval_opt_string_param("mime", parameters, context)?;
 
     // Get form data from resources
     let mut form_data = context
@@ -75,8 +62,7 @@ pub async fn add_stream_part_to_form_data<'a>(
     let stream = context.resources.get_nearest_stream()?;
 
     let mut part: Part = {
-        if let Some(size_param) = size_param {
-            let size = as_u64(size_param, "size")?;
+        if let Some(size) = size_param {
             Part::stream_with_length(StreamPart::new(stream), size)
         } else {
             Part::stream(StreamPart::new(stream))
@@ -84,12 +70,10 @@ pub async fn add_stream_part_to_form_data<'a>(
     };
 
     if let Some(filename) = filename_param {
-        let filename = as_string(filename, "filename")?;
         part = part.file_name(filename);
     }
 
     if let Some(mime) = mime_param {
-        let mime = as_string(mime, "mime")?;
         part = part
             .mime_str(&mime)
             .map_err(|e| ExecutionError::ParameterInvalid {
@@ -113,21 +97,10 @@ pub async fn add_text_part_to_form_data<'a>(
     _step_id: &str,
     _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let name_param = eval_param("name", parameters, &context.storage, &context.environment)?;
-    let name = as_string(name_param, "name")?;
-
-    let value_param = eval_param("value", parameters, &context.storage, &context.environment)?;
-    let value = as_string(value_param, "value")?; // TODO: as_bytes or as_string?
-
-    let filename_param = eval_optional_param(
-        "filename",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-
-    let mime_param =
-        eval_optional_param("mime", parameters, &context.storage, &context.environment)?;
+    let name = eval_string_param("name", parameters, context)?;
+    let value = eval_string_param("value", parameters, context)?; // TODO: Add support for bytes?
+    let filename = eval_opt_string_param("filename", parameters, context)?;
+    let mime = eval_opt_string_param("mime", parameters, context)?;
 
     // Get form data from resources
     let mut form_data = context
@@ -138,13 +111,11 @@ pub async fn add_text_part_to_form_data<'a>(
 
     let mut part: Part = Part::text(value);
 
-    if let Some(filename) = filename_param {
-        let filename = as_string(filename, "filename")?;
+    if let Some(filename) = filename {
         part = part.file_name(filename);
     }
 
-    if let Some(mime) = mime_param {
-        let mime = as_string(mime, "mime")?;
+    if let Some(mime) = mime {
         part = part
             .mime_str(&mime)
             .map_err(|e| ExecutionError::ParameterInvalid {

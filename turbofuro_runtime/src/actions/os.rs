@@ -3,11 +3,11 @@ use tracing::instrument;
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param},
+    evaluations::{as_string, eval_optional_param_with_default, eval_string_param},
     executor::{ExecutionContext, Parameter},
 };
 
-use super::{as_string, store_value};
+use super::store_value;
 
 #[instrument(level = "trace", skip_all)]
 pub async fn run_command(
@@ -16,13 +16,7 @@ pub async fn run_command(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let program = eval_param(
-        "program",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let program = as_string(program, "program")?;
+    let program = eval_string_param("program", parameters, context)?;
 
     let args = eval_optional_param_with_default(
         "args",
@@ -79,11 +73,8 @@ pub async fn set_environment_variable(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let key = eval_param("key", parameters, &context.storage, &context.environment)?;
-    let key = as_string(key, "key")?;
-
-    let value = eval_param("value", parameters, &context.storage, &context.environment)?;
-    let value = as_string(value, "value")?;
+    let key = eval_string_param("key", parameters, context)?;
+    let value = eval_string_param("value", parameters, context)?;
 
     std::env::set_var(key, value);
 
@@ -97,8 +88,7 @@ pub async fn read_environment_variable(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let key = eval_param("key", parameters, &context.storage, &context.environment)?;
-    let key = as_string(key, "key")?;
+    let key = eval_string_param("key", parameters, context)?;
 
     let value: StorageValue = match std::env::var(key) {
         Ok(v) => Ok(v.into()),

@@ -14,12 +14,14 @@ use tracing::{debug, instrument};
 use crate::{
     actor::ActorCommand,
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param},
+    evaluations::{
+        as_boolean, as_number, as_string, eval_opt_integer_param, eval_opt_string_param,
+        eval_optional_param_with_default, eval_param, eval_string_param,
+        get_handlers_from_parameters,
+    },
     executor::{ExecutionContext, Parameter},
     resources::{HttpRequestToRespond, HttpResponse, OpenSseStream, Resource},
 };
-
-use super::{as_boolean, as_integer, as_number, as_string, get_handlers_from_parameters};
 
 #[instrument(level = "debug", skip_all)]
 pub async fn setup_route<'a>(
@@ -27,20 +29,15 @@ pub async fn setup_route<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let method_param = eval_optional_param_with_default(
-        "method",
-        parameters,
-        &context.storage,
-        &context.environment,
-        "get".into(),
-    )?;
-    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
+    let method_param =
+        eval_opt_string_param("method", parameters, context)?.unwrap_or_else(|| "get".to_owned());
+    let path_param = eval_string_param("path", parameters, context)?;
     let handlers = get_handlers_from_parameters(parameters);
     {
         let mut router = context.global.registry.router.lock().await;
         router.add_route(
-            method_param.to_string()?,
-            path_param.to_string()?,
+            method_param,
+            path_param,
             context.module.id.clone(),
             handlers,
         )
@@ -146,13 +143,7 @@ pub async fn respond_with<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let status_type_param = eval_optional_param_with_default(
-        "status",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::Number(200.0),
-    )?;
+    let status = eval_opt_integer_param("status", parameters, context)?.unwrap_or(200);
     let headers_param = eval_optional_param_with_default(
         "headers",
         parameters,
@@ -167,7 +158,6 @@ pub async fn respond_with<'a>(
         &context.environment,
         StorageValue::Array(vec![]),
     )?;
-    let status = as_integer(status_type_param, "status")?;
 
     let body = eval_optional_param_with_default(
         "body",
@@ -338,13 +328,7 @@ pub async fn respond_with_stream<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let status_type_param = eval_optional_param_with_default(
-        "status",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::Number(200.0),
-    )?;
+    let status = eval_opt_integer_param("status", parameters, context)?.unwrap_or(200);
     let headers_param = eval_optional_param_with_default(
         "headers",
         parameters,
@@ -359,7 +343,6 @@ pub async fn respond_with_stream<'a>(
         &context.environment,
         StorageValue::Array(vec![]),
     )?;
-    let status = as_integer(status_type_param, "status")?;
 
     let mut response_builder = Response::builder().status(status as u16);
     // TODO: Make this more verbose and handle other types by specialized functions

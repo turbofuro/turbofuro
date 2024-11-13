@@ -5,11 +5,11 @@ use uuid::Uuid;
 
 use crate::{
     errors::ExecutionError,
-    evaluations::eval_param,
+    evaluations::eval_string_param,
     executor::{ExecutionContext, Parameter},
 };
 
-use super::{as_string, store_value};
+use super::store_value;
 
 #[instrument(level = "trace", skip_all)]
 pub async fn get_uuid_v4(
@@ -42,15 +42,8 @@ pub async fn jwt_decode(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let token = as_string(
-        eval_param("token", parameters, &context.storage, &context.environment)?,
-        "token",
-    )?;
-
-    let secret = as_string(
-        eval_param("secret", parameters, &context.storage, &context.environment)?,
-        "secret",
-    )?;
+    let token = eval_string_param("token", parameters, context)?;
+    let secret = eval_string_param("secret", parameters, context)?;
 
     // TODO: Add more options?
     // let should_validate = eval_optional_param_with_default(

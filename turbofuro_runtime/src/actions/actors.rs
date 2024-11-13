@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
 use crate::{
-    actions::{as_string, get_handlers_from_parameters},
     actor::{activate_actor, Actor, ActorCommand},
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param},
+    evaluations::{
+        eval_opt_string_param, eval_optional_param_with_default, eval_param, eval_string_param,
+        get_handlers_from_parameters,
+    },
     executor::{ExecutionContext, Parameter},
     resources::{ActorLink, ActorResources, Resource},
 };
@@ -21,8 +23,7 @@ pub async fn check_actor_exists<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let id_param = eval_param("id", parameters, &context.storage, &context.environment)?;
-    let id = as_string(id_param, "id")?;
+    let id = eval_string_param("id", parameters, context)?;
 
     let exists = { context.global.registry.actors.contains_key(&id) };
     store_value(store_as, context, step_id, exists.into()).await?;
@@ -83,8 +84,7 @@ pub async fn send<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let id_param = eval_param("id", parameters, &context.storage, &context.environment)?;
-    let id = as_string(id_param, "id")?;
+    let id = eval_string_param("id", parameters, context)?;
 
     let messenger = {
         context
@@ -128,8 +128,7 @@ pub async fn request<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let id_param = eval_param("id", parameters, &context.storage, &context.environment)?;
-    let id = as_string(id_param, "id")?;
+    let id = eval_string_param("id", parameters, context)?;
 
     let messenger = {
         context
@@ -182,14 +181,8 @@ pub async fn terminate<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let id_param = eval_optional_param_with_default(
-        "id",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::String(context.actor_id.clone()),
-    )?;
-    let id = as_string(id_param, "id")?;
+    let id = eval_opt_string_param("id", parameters, context)?
+        .unwrap_or(context.actor_id.clone().into());
 
     let messenger = {
         context

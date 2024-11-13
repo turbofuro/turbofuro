@@ -10,9 +10,8 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::{
-    actions::as_string,
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param},
+    evaluations::{eval_opt_string_param, eval_optional_param_with_default, eval_string_param},
     executor::{ExecutionContext, Parameter},
     resources::{PostgresPool, Resource},
 };
@@ -25,24 +24,8 @@ pub async fn get_connection<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    // Get connection string
-    let connection_string_param = eval_param(
-        "connectionString",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let connection_string = as_string(connection_string_param, "connectionString")?;
-
-    // Get name
-    let name_param = eval_optional_param_with_default(
-        "name",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::String("default".to_owned()),
-    )?;
-    let name = as_string(name_param, "name")?;
+    let connection_string = eval_string_param("connectionString", parameters, context)?;
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
 
     // Check if we already have a connection pool with this name
     let exists = { context.global.registry.postgres_pools.contains_key(&name) };
@@ -320,23 +303,8 @@ pub async fn query_one<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    // First parse parameters before we do any async stuff
-    let connection_name_param = eval_optional_param_with_default(
-        "name",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::String("default".to_owned()),
-    )?;
-    let connection_name = as_string(connection_name_param, "name")?;
-
-    let statement_param = eval_param(
-        "statement",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let statement = as_string(statement_param, "statement")?;
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
+    let statement = eval_string_param("statement", parameters, context)?;
 
     // It is a little bit quirky to get the query params done here
     let params_param = eval_optional_param_with_default(
@@ -366,7 +334,7 @@ pub async fn query_one<'a>(
             .global
             .registry
             .postgres_pools
-            .get(&connection_name)
+            .get(&name)
             .ok_or_else(PostgresPool::missing)
             .map(|r| r.value().0.clone())?
     };
@@ -400,23 +368,8 @@ pub async fn query<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    // First parse parameters before we do any async stuff
-    let connection_name_param = eval_optional_param_with_default(
-        "name",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::String("default".to_owned()),
-    )?;
-    let connection_name = as_string(connection_name_param, "name")?;
-
-    let statement_param = eval_param(
-        "statement",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let statement = as_string(statement_param, "statement")?;
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
+    let statement = eval_string_param("statement", parameters, context)?;
 
     // It is a little bit quirky to get the query params done here
     let params_param = eval_optional_param_with_default(
@@ -446,7 +399,7 @@ pub async fn query<'a>(
             .global
             .registry
             .postgres_pools
-            .get(&connection_name)
+            .get(&name)
             .ok_or_else(PostgresPool::missing)
             .map(|r| r.value().0.clone())?
     };

@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use crate::{
     actor::ActorCommand,
+    evaluations::{eval_opt_string_param, eval_string_param, get_optional_handler_from_parameters},
     resources::{Cancellation, CancellationSubject},
 };
 use deadpool_redis::{Config, Runtime};
@@ -12,14 +13,13 @@ use tokio::time::sleep;
 use tracing::{debug, error, instrument, warn};
 
 use crate::{
-    actions::as_string,
     errors::ExecutionError,
-    evaluations::{eval_optional_param_with_default, eval_param},
+    evaluations::eval_param,
     executor::{ExecutionContext, Global, Parameter},
     resources::{RedisPool, Resource},
 };
 
-use super::{get_optional_handler_from_parameters, store_value};
+use super::store_value;
 
 #[instrument(level = "trace", skip_all)]
 pub async fn get_connection<'a>(
@@ -27,22 +27,8 @@ pub async fn get_connection<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let connection_string_param = eval_param(
-        "connectionString",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let connection_string = as_string(connection_string_param, "connectionString")?;
-
-    let name_param = eval_optional_param_with_default(
-        "name",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::String("default".to_owned()),
-    )?;
-    let name = as_string(name_param, "name")?;
+    let connection_string = eval_string_param("connectionString", parameters, context)?;
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
 
     // Check if we already have a connection pool with this name
     let exists = { context.global.registry.redis_pools.contains_key(&name) };
@@ -94,22 +80,8 @@ pub async fn low_level_command<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let connection_name_param = eval_optional_param_with_default(
-        "name",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::String("default".to_owned()),
-    )?;
-    let connection_name = as_string(connection_name_param, "name")?;
-
-    let command_param = eval_param(
-        "command",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let command: String = as_string(command_param, "command")?;
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
+    let command = eval_string_param("command", parameters, context)?;
 
     let args_param = eval_param("args", parameters, &context.storage, &context.environment)?;
     let args = match args_param {
@@ -127,7 +99,7 @@ pub async fn low_level_command<'a>(
             .global
             .registry
             .redis_pools
-            .get(&connection_name)
+            .get(&name)
             .ok_or_else(RedisPool::missing)
             .map(|r| r.value().0.clone())?
     };
@@ -172,22 +144,8 @@ pub async fn subscribe<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let connection_name_param = eval_optional_param_with_default(
-        "name",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::String("default".to_owned()),
-    )?;
-    let connection_name = as_string(connection_name_param, "name")?;
-
-    let channel_param = eval_param(
-        "channel",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let channel: String = as_string(channel_param, "channel")?;
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
+    let channel = eval_string_param("channel", parameters, context)?;
 
     let handler = get_optional_handler_from_parameters("onMessage", parameters);
 
@@ -197,7 +155,7 @@ pub async fn subscribe<'a>(
             .global
             .registry
             .redis_pools
-            .get(&connection_name)
+            .get(&name)
             .ok_or_else(RedisPool::missing)
             .map(|r| r.value().1.clone())?
     };
@@ -217,29 +175,15 @@ pub async fn unsubscribe<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let connection_name_param = eval_optional_param_with_default(
-        "name",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::String("default".to_owned()),
-    )?;
-    let connection_name = as_string(connection_name_param, "name")?;
-
-    let channel_param = eval_param(
-        "channel",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
-    let channel: String = as_string(channel_param, "channel")?;
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
+    let channel = eval_string_param("channel", parameters, context)?;
 
     let mut redis_subscriber = {
         context
             .global
             .registry
             .redis_pools
-            .get(&connection_name)
+            .get(&name)
             .ok_or_else(RedisPool::missing)
             .map(|r| r.value().1.clone())?
     };
