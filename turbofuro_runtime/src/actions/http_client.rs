@@ -475,24 +475,34 @@ pub async fn send_http_request<'a>(
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let mut request_builder = get_builder(context, parameters)?;
+    let throw_on_http_error =
+        eval_opt_boolean_param("throwOnHttpError", parameters, context)?.unwrap_or(true);
 
     // Set body
     request_builder = set_static_body_from_parameters(context, parameters, request_builder)?;
 
     let response = bare_http_request(context, parameters, request_builder).await?;
     let metadata = get_metadata_object_from_response(&response);
+    let is_errored = response.status().is_server_error() || response.status().is_client_error();
 
     // Parse body
     let body = collect_body(response, metadata.content_type.clone()).await?;
     let mut response_object = metadata.into_storage_object();
     response_object.insert("body".to_string(), body);
-    store_value(
-        store_as,
-        context,
-        step_id,
-        StorageValue::Object(response_object),
-    )
-    .await?;
+
+    if throw_on_http_error && is_errored {
+        return Err(ExecutionError::HttpResponseError {
+            response: StorageValue::Object(response_object),
+        });
+    } else {
+        store_value(
+            store_as,
+            context,
+            step_id,
+            StorageValue::Object(response_object),
+        )
+        .await?;
+    }
 
     Ok(())
 }
@@ -505,6 +515,8 @@ pub async fn send_http_request_with_stream<'a>(
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let mut request_builder = get_builder(context, parameters)?;
+    let throw_on_http_error =
+        eval_opt_boolean_param("throwOnHttpError", parameters, context)?.unwrap_or(true);
 
     // Pick a stream and set it as body
     let stream = context.resources.get_nearest_stream()?;
@@ -512,18 +524,25 @@ pub async fn send_http_request_with_stream<'a>(
 
     let response = bare_http_request(context, parameters, request_builder).await?;
     let metadata = get_metadata_object_from_response(&response);
+    let is_errored = response.status().is_server_error() || response.status().is_client_error();
 
     // Parse body
     let body = collect_body(response, metadata.content_type.clone()).await?;
     let mut response_object = metadata.into_storage_object();
     response_object.insert("body".to_string(), body);
-    store_value(
-        store_as,
-        context,
-        step_id,
-        StorageValue::Object(response_object),
-    )
-    .await?;
+    if throw_on_http_error && is_errored {
+        return Err(ExecutionError::HttpResponseError {
+            response: StorageValue::Object(response_object),
+        });
+    } else {
+        store_value(
+            store_as,
+            context,
+            step_id,
+            StorageValue::Object(response_object),
+        )
+        .await?;
+    }
 
     Ok(())
 }
@@ -536,6 +555,8 @@ pub async fn send_http_request_with_form_data<'a>(
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let mut request_builder = get_builder(context, parameters)?;
+    let throw_on_http_error =
+        eval_opt_boolean_param("throwOnHttpError", parameters, context)?.unwrap_or(true);
 
     // Set body
     // Get form data from resources
@@ -549,18 +570,25 @@ pub async fn send_http_request_with_form_data<'a>(
 
     let response = bare_http_request(context, parameters, request_builder).await?;
     let metadata = get_metadata_object_from_response(&response);
+    let is_errored = response.status().is_server_error() || response.status().is_client_error();
 
     // Parse body
     let body = collect_body(response, metadata.content_type.clone()).await?;
     let mut response_object = metadata.into_storage_object();
     response_object.insert("body".to_string(), body);
-    store_value(
-        store_as,
-        context,
-        step_id,
-        StorageValue::Object(response_object),
-    )
-    .await?;
+    if throw_on_http_error && is_errored {
+        return Err(ExecutionError::HttpResponseError {
+            response: StorageValue::Object(response_object),
+        });
+    } else {
+        store_value(
+            store_as,
+            context,
+            step_id,
+            StorageValue::Object(response_object),
+        )
+        .await?;
+    }
 
     Ok(())
 }
@@ -573,12 +601,15 @@ pub async fn stream_http_request<'a>(
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let mut request_builder = get_builder(context, parameters)?;
+    let throw_on_http_error =
+        eval_opt_boolean_param("throwOnHttpError", parameters, context)?.unwrap_or(true);
 
     // Set body
     request_builder = set_static_body_from_parameters(context, parameters, request_builder)?;
 
     let response = bare_http_request(context, parameters, request_builder).await?;
     let metadata = get_metadata_object_from_response(&response);
+    let is_errored = response.status().is_server_error() || response.status().is_client_error();
 
     // Put pending response
     context
@@ -586,13 +617,19 @@ pub async fn stream_http_request<'a>(
         .pending_response_body
         .push(PendingHttpResponseBody::new(response));
 
-    store_value(
-        store_as,
-        context,
-        step_id,
-        StorageValue::Object(metadata.into_storage_object()),
-    )
-    .await?;
+    if throw_on_http_error && is_errored {
+        return Err(ExecutionError::HttpResponseError {
+            response: StorageValue::Object(metadata.into_storage_object()),
+        });
+    } else {
+        store_value(
+            store_as,
+            context,
+            step_id,
+            StorageValue::Object(metadata.into_storage_object()),
+        )
+        .await?;
+    }
 
     Ok(())
 }
@@ -605,6 +642,8 @@ pub async fn stream_http_request_with_stream<'a>(
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let mut request_builder = get_builder(context, parameters)?;
+    let throw_on_http_error =
+        eval_opt_boolean_param("throwOnHttpError", parameters, context)?.unwrap_or(true);
 
     // Pick a stream and set it as body
     let stream = context.resources.get_nearest_stream()?;
@@ -612,6 +651,7 @@ pub async fn stream_http_request_with_stream<'a>(
 
     let response = bare_http_request(context, parameters, request_builder).await?;
     let metadata = get_metadata_object_from_response(&response);
+    let is_errored = response.status().is_server_error() || response.status().is_client_error();
 
     // Put pending response
     context
@@ -619,13 +659,19 @@ pub async fn stream_http_request_with_stream<'a>(
         .pending_response_body
         .push(PendingHttpResponseBody::new(response));
 
-    store_value(
-        store_as,
-        context,
-        step_id,
-        StorageValue::Object(metadata.into_storage_object()),
-    )
-    .await?;
+    if throw_on_http_error && is_errored {
+        return Err(ExecutionError::HttpResponseError {
+            response: StorageValue::Object(metadata.into_storage_object()),
+        });
+    } else {
+        store_value(
+            store_as,
+            context,
+            step_id,
+            StorageValue::Object(metadata.into_storage_object()),
+        )
+        .await?;
+    }
 
     Ok(())
 }
@@ -638,6 +684,8 @@ pub async fn stream_http_request_with_form_data<'a>(
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let mut request_builder = get_builder(context, parameters)?;
+    let throw_on_http_error =
+        eval_opt_boolean_param("throwOnHttpError", parameters, context)?.unwrap_or(true);
 
     // Set body
     // Get form data from resources
@@ -651,6 +699,7 @@ pub async fn stream_http_request_with_form_data<'a>(
 
     let response = bare_http_request(context, parameters, request_builder).await?;
     let metadata = get_metadata_object_from_response(&response);
+    let is_errored = response.status().is_server_error() || response.status().is_client_error();
 
     // Put pending response
     context
@@ -658,13 +707,19 @@ pub async fn stream_http_request_with_form_data<'a>(
         .pending_response_body
         .push(PendingHttpResponseBody::new(response));
 
-    store_value(
-        store_as,
-        context,
-        step_id,
-        StorageValue::Object(metadata.into_storage_object()),
-    )
-    .await?;
+    if throw_on_http_error && is_errored {
+        return Err(ExecutionError::HttpResponseError {
+            response: StorageValue::Object(metadata.into_storage_object()),
+        });
+    } else {
+        store_value(
+            store_as,
+            context,
+            step_id,
+            StorageValue::Object(metadata.into_storage_object()),
+        )
+        .await?;
+    }
 
     Ok(())
 }

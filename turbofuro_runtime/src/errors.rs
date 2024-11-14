@@ -357,6 +357,12 @@ impl From<ExecutionError> for ErrorRepresentation {
                 details: None,
                 metadata: None,
             },
+            ExecutionError::HttpResponseError { response } => ErrorRepresentation {
+                code: "HTTP_RESPONSE_ERROR".to_owned(),
+                message: "Server returned status code indicating error".to_owned(),
+                details: Some(response),
+                metadata: None,
+            },
         }
     }
 }
@@ -458,6 +464,9 @@ pub enum ExecutionError {
     },
     DebugError {
         message: String,
+    },
+    HttpResponseError {
+        response: StorageValue,
     },
 }
 
