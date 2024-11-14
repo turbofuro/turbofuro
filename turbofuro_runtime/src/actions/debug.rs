@@ -509,19 +509,40 @@ mod test_debug {
         let (debugger_handle, mut receiver) = DebuggerHandle::new();
         let mut context = t.get_debug_context(debugger_handle);
 
+        tokio::spawn(async move {
+            let result = receiver.recv().await.unwrap();
+            match result {
+                DebugMessage::ShowResult {
+                    sender,
+                    text,
+                    title,
+                    value,
+                    variant,
+                    ..
+                } => {
+                    assert!(value == Some("Hello World".into()));
+                    assert!(text == Some("Query returned following result:".to_owned()));
+                    assert!(title == Some("Query finished successfully".to_owned()));
+                    assert!(variant == Some("success".to_owned()));
+                    let _ = sender.send(StorageValue::String("test".to_owned()));
+                }
+                _ => panic!("Expected correct AskForValue message"),
+            }
+        });
+
         show_result(
             &mut context,
-            &vec![Parameter::tel("value", "\"Hello World\"")],
+            &vec![
+                Parameter::tel("value", "\"Hello World\""),
+                Parameter::tel("text", "\"Query returned following result:\""),
+                Parameter::tel("title", "\"Query finished successfully\""),
+                Parameter::tel("variant", "\"success\""),
+            ],
             "test",
             None,
         )
         .await
         .unwrap();
-
-        let result = receiver.recv().await.unwrap();
-        assert!(
-            matches!(result, DebugMessage::ShowResult { value, .. } if value.clone().unwrap() == StorageValue::String("Hello World".to_owned()))
-        );
     }
 
     #[tokio::test]
