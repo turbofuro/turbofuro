@@ -1802,6 +1802,30 @@ mod test_tel {
     }
 
     #[test]
+    fn test_serialize_array() {
+        let array = StorageValue::Array(vec![
+            StorageValue::String("a".to_owned()),
+            StorageValue::Number(1.0),
+        ]);
+
+        assert_eq!(serde_json::to_string(&array).unwrap(), "[\"a\",1]");
+    }
+
+    #[test]
+    fn test_serialize_nested_array() {
+        let array = StorageValue::Array(vec![
+            StorageValue::String("a".to_owned()),
+            StorageValue::Number(1.0),
+        ]);
+
+        let mut map = HashMap::new();
+        map.insert("a".to_owned(), array.clone());
+        let object = StorageValue::Object(map);
+
+        assert_eq!(serde_json::to_string(&object).unwrap(), r#"{"a":["a",1]}"#);
+    }
+
+    #[test]
     fn test_recognizes_multiline_string() {
         let input = r#"```
 foo: bar
