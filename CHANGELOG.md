@@ -1,5 +1,11 @@
 
-## 0.1.25 (unreleased)
+## 0.1.25
+* Add support for `throwOnHttpError` parameter in HTTP functions
+* Improved debug functions
+* Add new file system functions `copy`, `canonicalize`, `create_directory`, `rename`, `remove_file`, `remove_directory`
+* Fix panic when debug module can't be started
+* Improve state reporting
+* Deactivate stale debug sessions
 
 ## 0.1.24
 * Add `replace` string function
