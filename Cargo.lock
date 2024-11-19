@@ -4399,7 +4399,7 @@ dependencies = [
 
 [[package]]
 name = "tel-wasm"
-version = "0.1.19"
+version = "0.1.20"
 dependencies = [
  "console_error_panic_hook",
  "serde",
