@@ -83,6 +83,7 @@ multer = { version = "3.1.0", features = ["all", "tokio-io"] }
 libsql = "0.6.0"
 image = "0.25.4"
 serde_html_form = "0.2.6"
+mlua = { version = "0.10.1", features = ["async", "lua54", "send", "serialize", "vendored"] }
 
 [dev-dependencies]
 tower = { version = "0.4.13", features = ["util"] }

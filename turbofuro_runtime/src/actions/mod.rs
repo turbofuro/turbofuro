@@ -14,6 +14,7 @@ pub mod http_server;
 pub mod image;
 pub mod kv;
 pub mod libsql;
+pub mod lua;
 pub mod mail;
 pub mod multipart;
 pub mod mustache;

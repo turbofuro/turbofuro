@@ -42,6 +42,7 @@ use crate::actions::http_server;
 use crate::actions::image;
 use crate::actions::kv;
 use crate::actions::libsql;
+use crate::actions::lua;
 use crate::actions::mail;
 use crate::actions::multipart;
 use crate::actions::mustache;
@@ -1041,6 +1042,7 @@ async fn execute_native<'a>(
         "fs/remove_directory" => fs::remove_directory(context, parameters, step_id).await?,
         "fs/copy" => fs::copy(context, parameters, step_id).await?,
         "fs/canonicalize" => fs::canonicalize(context, parameters, step_id, store_as).await?,
+        "lua/run_function" => lua::run_function(context, parameters, step_id, store_as).await?,
         "alarms/set_alarm" => alarms::set_alarm(context, parameters, step_id).await?,
         "alarms/set_interval" => alarms::set_interval(context, parameters, step_id).await?,
         "alarms/cancel" => alarms::cancel_alarm(context, parameters, step_id).await?,
