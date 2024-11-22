@@ -191,3 +191,148 @@ pub async fn query<'a>(
 
     Ok(())
 }
+
+#[instrument(level = "trace", skip_all)]
+pub async fn query_one<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
+    let statement = eval_string_param("statement", parameters, context)?;
+
+    let params_param = eval_optional_param_with_default(
+        "params",
+        parameters,
+        &context.storage,
+        &context.environment,
+        StorageValue::Array(vec![]),
+    )?;
+    let p: Vec<LibSqlValue> = match params_param {
+        StorageValue::Array(v) => Ok(v.into_iter().map(LibSqlValue).collect()),
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: "params".to_owned(),
+            actual: describe(s),
+            expected: Description::new_base_type("array"),
+        }),
+    }?;
+
+    // Retrieve the connection pool
+    let connection = {
+        context
+            .global
+            .registry
+            .libsql
+            .get(&name)
+            .ok_or_else(LibSql::missing)
+            .map(|r| r.value().0.clone())?
+    };
+
+    let mut rows = connection.query(&statement, params_from_iter(p)).await?;
+
+    let mut row_to_return: Option<StorageValue> = None;
+    while let Some(row) = rows.next().await? {
+        let mut result: HashMap<String, StorageValue> = HashMap::new();
+        for column in 0..row.column_count() {
+            let value = row.get_value(column)?;
+            let value = parse_libsql_value(value);
+            let column_name = row.column_name(column);
+            match column_name {
+                Some(c) => {
+                    result.insert(c.to_string(), value);
+                }
+                None => {
+                    warn!("Could not find column name for index {}", column);
+                }
+            }
+        }
+
+        match row_to_return {
+            Some(_) => {
+                return Err(ExecutionError::LibSqlError {
+                    message: "Unexpected number of rows returned, expected one got multiple"
+                        .to_owned(),
+                    stage: "parse".to_owned(),
+                });
+            }
+            None => row_to_return = Some(StorageValue::Object(result)),
+        }
+    }
+
+    if let Some(row_to_return) = row_to_return {
+        store_value(store_as, context, step_id, row_to_return).await?;
+    } else {
+        return Err(ExecutionError::LibSqlError {
+            message: "Unexpected number of rows returned, expected one got none".to_owned(),
+            stage: "parse".to_owned(),
+        });
+    }
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn execute<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
+    let statement = eval_string_param("statement", parameters, context)?;
+
+    let params_param = eval_optional_param_with_default(
+        "params",
+        parameters,
+        &context.storage,
+        &context.environment,
+        StorageValue::Array(vec![]),
+    )?;
+    let p: Vec<LibSqlValue> = match params_param {
+        StorageValue::Array(v) => Ok(v.into_iter().map(LibSqlValue).collect()),
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: "params".to_owned(),
+            actual: describe(s),
+            expected: Description::new_base_type("array"),
+        }),
+    }?;
+
+    // Retrieve the connection pool
+    let connection = {
+        context
+            .global
+            .registry
+            .libsql
+            .get(&name)
+            .ok_or_else(LibSql::missing)
+            .map(|r| r.value().0.clone())?
+    };
+
+    let rows_affected = connection.execute(&statement, params_from_iter(p)).await?;
+
+    store_value(
+        store_as,
+        context,
+        step_id,
+        StorageValue::Number(rows_affected as f64),
+    )
+    .await?;
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn drop_connection<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
+
+    let removed = context.global.registry.libsql.remove(&name);
+    store_value(store_as, context, step_id, removed.is_some().into()).await?;
+
+    Ok(())
+}

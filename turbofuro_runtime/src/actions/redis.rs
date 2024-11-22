@@ -573,3 +573,18 @@ async fn setup_pubsub_coordinator(
 
     Ok(RedisPubSubCoordinatorHandle::new(tx))
 }
+
+#[instrument(level = "trace", skip_all)]
+pub async fn drop_connection<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
+
+    let removed = context.global.registry.redis_pools.remove(&name);
+    store_value(store_as, context, step_id, removed.is_some().into()).await?;
+
+    Ok(())
+}

@@ -428,3 +428,87 @@ pub async fn query<'a>(
     store_value(store_as, context, step_id, value).await?;
     Ok(())
 }
+
+#[instrument(level = "trace", skip_all)]
+pub async fn execute<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
+    let statement = eval_string_param("statement", parameters, context)?;
+
+    // It is a little bit quirky to get the query params done here
+    let params_param = eval_optional_param_with_default(
+        "params",
+        parameters,
+        &context.storage,
+        &context.environment,
+        StorageValue::Array(vec![]),
+    )?;
+    let params: Vec<QueryArgument> = match params_param {
+        StorageValue::Array(v) => Ok(v.into_iter().map(QueryArgument).collect()),
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: "params".to_owned(),
+            actual: describe(s),
+            expected: Description::new_base_type("array"),
+        }),
+    }?;
+
+    let query_params: Vec<&(dyn ToSql + Sync)> = params
+        .iter()
+        .map(|x| x as &(dyn ToSql + Sync))
+        .collect::<Vec<_>>();
+
+    // Retrieve the connection pool
+    let postgres_pool = {
+        context
+            .global
+            .registry
+            .postgres_pools
+            .get(&name)
+            .ok_or_else(PostgresPool::missing)
+            .map(|r| r.value().0.clone())?
+    };
+
+    let client = postgres_pool
+        .get()
+        .await
+        .map_err(|e| ExecutionError::PostgresError {
+            message: e.to_string(),
+            stage: "pool".into(),
+        })?;
+
+    let rows_affected = client
+        .execute(&statement, &query_params)
+        .await
+        .map_err(|e| ExecutionError::PostgresError {
+            message: e.to_string(),
+            stage: "query".into(),
+        })?;
+
+    store_value(
+        store_as,
+        context,
+        step_id,
+        StorageValue::Number(rows_affected as f64),
+    )
+    .await?;
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn drop_connection<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
+
+    let removed = context.global.registry.postgres_pools.remove(&name);
+    store_value(store_as, context, step_id, removed.is_some().into()).await?;
+
+    Ok(())
+}

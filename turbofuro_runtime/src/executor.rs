@@ -1126,8 +1126,17 @@ async fn execute_native<'a>(
         "postgres/get_connection" => postgres::get_connection(context, parameters, step_id).await?,
         "postgres/query_one" => postgres::query_one(context, parameters, step_id, store_as).await?,
         "postgres/query" => postgres::query(context, parameters, step_id, store_as).await?,
+        "postgres/execute" => postgres::execute(context, parameters, step_id, store_as).await?,
+        "postgres/drop_connection" => {
+            postgres::drop_connection(context, parameters, step_id, store_as).await?
+        }
         "libsql/query" => libsql::query(context, parameters, step_id, store_as).await?,
+        "libsql/query_one" => libsql::query_one(context, parameters, step_id, store_as).await?,
+        "libsql/execute" => libsql::execute(context, parameters, step_id, store_as).await?,
         "libsql/get_connection" => libsql::get_connection(context, parameters, step_id).await?,
+        "libsql/drop_connection" => {
+            libsql::drop_connection(context, parameters, step_id, store_as).await?
+        }
         "redis/low_level" => {
             redis::low_level_command(context, parameters, step_id, store_as).await?
         }
@@ -1135,6 +1144,9 @@ async fn execute_native<'a>(
         "redis/get_connection" => redis::get_connection(context, parameters, step_id).await?,
         "redis/subscribe" => redis::subscribe(context, parameters, step_id).await?,
         "redis/unsubscribe" => redis::unsubscribe(context, parameters, step_id).await?,
+        "redis/drop_connection" => {
+            redis::drop_connection(context, parameters, step_id, store_as).await?
+        }
         "websocket/accept_ws" => websocket::accept_ws(context, parameters, step_id).await?,
         "websocket/send_message" => websocket::send_message(context, parameters, step_id).await?,
         "websocket/close" => websocket::close_websocket(context, parameters, step_id).await?,
