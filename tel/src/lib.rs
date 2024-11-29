@@ -1,4 +1,5 @@
 use chumsky::{prelude::*, Parser, Stream};
+use num::ToPrimitive;
 use serde::Serializer;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -206,6 +207,42 @@ impl StorageValue {
             StorageValue::Array(_) => Ok(true),
             StorageValue::Object(_) => Ok(true),
             StorageValue::Null(_) => Ok(false),
+        }
+    }
+
+    pub fn to_byte_array(&self) -> Result<Vec<u8>, TelError> {
+        match self {
+            StorageValue::String(s) => Ok(s.as_bytes().to_vec()),
+            StorageValue::Array(arr) => {
+                let mut result = Vec::new();
+                for (i, s) in arr.into_iter().enumerate() {
+                    match s {
+                        StorageValue::Number(n) => match n.to_u8() {
+                            Some(b) => result.push(b),
+                            None => {
+                                return Err(TelError::ConversionError {
+                                    message: "Could not convert to byte array".to_owned(),
+                                    from: s.get_type().to_owned(),
+                                    to: "number.byte".to_owned(),
+                                });
+                            }
+                        },
+                        _ => {
+                            return Err(TelError::ConversionError {
+                                message: "Could not convert to byte array".to_owned(),
+                                from: s.get_type().to_owned(),
+                                to: "number.byte".to_owned(),
+                            });
+                        }
+                    }
+                }
+                Ok(result)
+            }
+            s => Err(TelError::ConversionError {
+                message: "Could not convert to byte array".to_owned(),
+                from: s.get_type().to_owned(),
+                to: "array".to_owned(),
+            }),
         }
     }
 }
@@ -1284,6 +1321,9 @@ pub fn evaluate_value<T: Storage>(
 
             match value {
                 StorageValue::String(s) => match name.as_str() {
+                    "bytes" => StorageValue::Array(
+                        s.bytes().map(|b| StorageValue::Number(b as f64)).collect(),
+                    ),
                     "length" => s.len().into(),
                     "type" => StorageValue::String("string".to_string()),
                     "toString" => StorageValue::String(s),
@@ -1459,6 +1499,10 @@ pub fn evaluate_value<T: Storage>(
                     _ => NULL,
                 },
                 StorageValue::Array(arr) => match name.as_str() {
+                    "toHexString" => {
+                        let bytes = StorageValue::Array(arr).to_byte_array()?;
+                        StorageValue::String(hex::encode(bytes))
+                    }
                     "type" => StorageValue::String("array".to_string()),
                     "join" => {
                         let arg = arguments.pop();

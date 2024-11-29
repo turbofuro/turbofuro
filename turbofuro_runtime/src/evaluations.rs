@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use memoize::memoize;
+use num::ToPrimitive;
 use tel::{
     describe, parse_description, Description, ObjectBody, ParseResult, Selector, SelectorPart,
     Storage, StorageValue, TelError,
@@ -159,6 +160,46 @@ pub fn as_string(s: StorageValue, name: &str) -> Result<String, ExecutionError> 
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: name.to_owned(),
             expected: Description::new_base_type("string"),
+            actual: describe(s),
+        }),
+    }
+}
+
+pub fn as_byte_array(s: StorageValue, name: &str) -> Result<Vec<u8>, ExecutionError> {
+    match s {
+        StorageValue::String(s) => Ok(s.as_bytes().to_vec()),
+        StorageValue::Array(arr) => {
+            let mut result = Vec::new();
+            for (i, s) in arr.into_iter().enumerate() {
+                match s {
+                    StorageValue::Number(n) => match n.to_u8() {
+                        Some(b) => result.push(b),
+                        None => {
+                            return Err(ExecutionError::ParameterInvalid {
+                                name: name.to_owned(),
+                                message: "Could not convert number to byte".to_owned(),
+                            })
+                        }
+                    },
+                    _ => {
+                        return Err(ExecutionError::ParameterTypeMismatch {
+                            name: format!("{}[{}]", name, i),
+                            expected: Description::new_base_type("number"),
+                            actual: describe(s),
+                        });
+                    }
+                }
+            }
+            Ok(result)
+        }
+        s => Err(ExecutionError::ParameterTypeMismatch {
+            name: name.to_owned(),
+            expected: Description::Union {
+                of: vec![
+                    Description::new_base_type("array"),
+                    Description::new_base_type("string"),
+                ],
+            },
             actual: describe(s),
         }),
     }
@@ -391,4 +432,13 @@ pub fn eval_opt_number_param(
         Some(value) => as_number(value, name).map(|i| Some(i)),
         None => Ok(None),
     }
+}
+
+pub fn eval_byte_array_param(
+    name: &str,
+    parameters: &Vec<Parameter>,
+    context: &ExecutionContext<'_>,
+) -> Result<Vec<u8>, ExecutionError> {
+    let value = eval_param(name, parameters, &context.storage, &context.environment)?;
+    as_byte_array(value, name)
 }
