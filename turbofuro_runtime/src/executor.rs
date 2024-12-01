@@ -46,6 +46,7 @@ use crate::actions::lua;
 use crate::actions::mail;
 use crate::actions::multipart;
 use crate::actions::mustache;
+use crate::actions::ollama;
 use crate::actions::os;
 use crate::actions::postgres;
 use crate::actions::pubsub;
@@ -1042,6 +1043,10 @@ async fn execute_native<'a>(
         "fs/remove_directory" => fs::remove_directory(context, parameters, step_id).await?,
         "fs/copy" => fs::copy(context, parameters, step_id).await?,
         "fs/canonicalize" => fs::canonicalize(context, parameters, step_id, store_as).await?,
+        "fs/read_to_bytes" => {
+            fs::simple_read_to_bytes(context, parameters, step_id, store_as).await?
+        }
+        "fs/write_bytes" => fs::simple_write_bytes(context, parameters, step_id).await?,
         "lua/run_function" => lua::run_function(context, parameters, step_id, store_as).await?,
         "alarms/set_alarm" => alarms::set_alarm(context, parameters, step_id).await?,
         "alarms/set_interval" => alarms::set_interval(context, parameters, step_id).await?,
@@ -1206,6 +1211,7 @@ async fn execute_native<'a>(
         "http_server/get_multipart_field" => {
             multipart::get_field(context, parameters, step_id, store_as).await?
         }
+        "ollama/generate" => ollama::generate(context, parameters, step_id, store_as).await?,
         id => {
             return Err(ExecutionError::Unsupported {
                 message: format!("Native function {} not found", id),

@@ -310,8 +310,7 @@ pub async fn query_one<'a>(
     let params_param = eval_optional_param_with_default(
         "params",
         parameters,
-        &context.storage,
-        &context.environment,
+        context,
         StorageValue::Array(vec![]),
     )?;
     let params: Vec<QueryArgument> = match params_param {
@@ -375,8 +374,7 @@ pub async fn query<'a>(
     let params_param = eval_optional_param_with_default(
         "params",
         parameters,
-        &context.storage,
-        &context.environment,
+        context,
         StorageValue::Array(vec![]),
     )?;
     let params: Vec<QueryArgument> = match params_param {
@@ -443,8 +441,7 @@ pub async fn execute<'a>(
     let params_param = eval_optional_param_with_default(
         "params",
         parameters,
-        &context.storage,
-        &context.environment,
+        context,
         StorageValue::Array(vec![]),
     )?;
     let params: Vec<QueryArgument> = match params_param {

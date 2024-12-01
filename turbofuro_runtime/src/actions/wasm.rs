@@ -47,8 +47,7 @@ pub async fn run_wasi(
     let env = eval_optional_param_with_default(
         "env",
         parameters,
-        &context.storage,
-        &context.environment,
+        context,
         StorageValue::Object(HashMap::new()),
     )?;
     let env: Result<Vec<(String, String)>, ExecutionError> = match env {
@@ -70,8 +69,7 @@ pub async fn run_wasi(
     let args = eval_optional_param_with_default(
         "args",
         parameters,
-        &context.storage,
-        &context.environment,
+        &context,
         StorageValue::Array(vec![]),
     )?;
     let args = match args {

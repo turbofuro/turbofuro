@@ -190,8 +190,8 @@ pub async fn hmac(
 pub async fn hmac_verify(
     context: &mut ExecutionContext<'_>,
     parameters: &Vec<Parameter>,
-    step_id: &str,
-    store_as: Option<&str>,
+    _step_id: &str,
+    _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let hash =
         eval_opt_string_param("hash", parameters, context)?.unwrap_or_else(|| "sha512".to_owned());

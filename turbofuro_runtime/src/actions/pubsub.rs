@@ -31,7 +31,7 @@ pub async fn publish<'a>(
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
     let channel = eval_string_param("channel", parameters, context)?;
-    let value = eval_param("value", parameters, &context.storage, &context.environment)?;
+    let value = eval_param("value", parameters, context)?;
 
     let pub_sub = context.global.pub_sub.lock().await;
     pub_sub
@@ -120,13 +120,7 @@ pub async fn subscribe<'a>(
     let channel = eval_string_param("channel", parameters, context)?;
     let handler = get_optional_handler_from_parameters("onMessage", parameters);
 
-    let context_param = eval_optional_param_with_default(
-        "context",
-        parameters,
-        &context.storage,
-        &context.environment,
-        NULL,
-    )?;
+    let context_param = eval_optional_param_with_default("context", parameters, context, NULL)?;
 
     let mut pub_sub = context.global.pub_sub.lock().await;
     let subscription_receiver = match pub_sub.entry(channel.clone()) {

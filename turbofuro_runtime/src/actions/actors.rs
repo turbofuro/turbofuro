@@ -37,13 +37,8 @@ pub async fn spawn_actor<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let state_param = eval_optional_param_with_default(
-        "state",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::Null(None),
-    )?;
+    let state_param =
+        eval_optional_param_with_default("state", parameters, context, StorageValue::Null(None))?;
 
     let handlers = get_handlers_from_parameters(parameters);
 
@@ -96,12 +91,7 @@ pub async fn send<'a>(
             .map(|r| r.value().clone())?
     };
 
-    let message_param = eval_param(
-        "message",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
+    let message_param = eval_param("message", parameters, context)?;
 
     let mut storage = ObjectBody::new();
     storage.insert("message".to_owned(), message_param);
@@ -140,12 +130,7 @@ pub async fn request<'a>(
             .map(|r| r.value().clone())?
     };
 
-    let message_param = eval_param(
-        "message",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
+    let message_param = eval_param("message", parameters, context)?;
 
     let mut storage = ObjectBody::new();
     storage.insert("message".to_owned(), message_param);

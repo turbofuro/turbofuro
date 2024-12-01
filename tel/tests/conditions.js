@@ -165,6 +165,14 @@ numbers[0] + numbers[1] == 3
 "image.jpg".endsWith(".jpg") == true
 "image.jpg".endsWith(".png") == false
 "hello world".replace("world", "there") == "hello there"
+"image.png".stripFileExtension() == "image"
+"image.jpg".stripFileExtension() == "image"
+"image".stripFileExtension() == "image"
+"abc".toBytes() == [97, 98, 99]
+"FFAC".fromHexString() == [255, 172]
+[250, 204, 21].toHexString() == "facc15"
+"dHVyYm9mdXJv".fromBase64String().toString() == "turbofuro"
+"dHVyYm9mdXJv".fromBase64String() == [116, 117, 114, 98, 111, 102, 117, 114, 111]
 // "true".toBoolean() == true
 // "false".toBoolean() == false
 // "Hello".toBoolean() == true

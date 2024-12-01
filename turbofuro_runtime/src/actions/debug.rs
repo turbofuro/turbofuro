@@ -22,8 +22,7 @@ pub async fn ask_for_value(
     match &context.mode {
         crate::executor::ExecutionMode::Debug(handle) => {
             let text = eval_string_param("text", parameters, context)?;
-            let value =
-                eval_optional_param("value", parameters, &context.storage, &context.environment)?;
+            let value = eval_optional_param("value", parameters, context)?;
             let title = eval_opt_string_param("title", parameters, context)?;
             let placeholder = eval_opt_string_param("placeholder", parameters, context)?;
             let label = eval_opt_string_param("label", parameters, context)?;
@@ -76,8 +75,7 @@ pub async fn ask_for_input(
     match &context.mode {
         crate::executor::ExecutionMode::Debug(handle) => {
             let text = eval_string_param("text", parameters, context)?;
-            let value =
-                eval_optional_param("value", parameters, &context.storage, &context.environment)?;
+            let value = eval_optional_param("value", parameters, context)?;
             let title = eval_opt_string_param("title", parameters, context)?;
             let placeholder = eval_opt_string_param("placeholder", parameters, context)?;
             let label = eval_opt_string_param("label", parameters, context)?;
@@ -179,7 +177,7 @@ pub fn eval_debug_options_param(
     parameters: &Vec<Parameter>,
     context: &ExecutionContext<'_>,
 ) -> Result<Vec<DebugOption>, ExecutionError> {
-    let value = eval_param(name, parameters, &context.storage, &context.environment)?;
+    let value = eval_param(name, parameters, context)?;
     match value {
         StorageValue::Array(arr) => {
             let mut result = Vec::with_capacity(arr.len());
@@ -253,8 +251,7 @@ pub async fn ask_to_choose(
             let title = eval_opt_string_param("title", parameters, context)?;
             let mode = eval_opt_string_param("mode", parameters, context)? // Mode can be radio/select/multiple
                 .unwrap_or_else(|| "radio".to_owned());
-            let value =
-                eval_optional_param("value", parameters, &context.storage, &context.environment)?;
+            let value = eval_optional_param("value", parameters, context)?;
             let options: Vec<DebugOption> =
                 eval_debug_options_param("options", parameters, context)?;
             let variant: Option<String> = eval_opt_string_param("variant", parameters, context)?;
@@ -306,8 +303,7 @@ pub async fn show_result(
     match &context.mode {
         crate::executor::ExecutionMode::Debug(handle) => {
             let text = eval_opt_string_param("text", parameters, context)?;
-            let value =
-                eval_optional_param("value", parameters, &context.storage, &context.environment)?;
+            let value = eval_optional_param("value", parameters, context)?;
             let title = eval_opt_string_param("title", parameters, context)?;
             let variant: Option<String> = eval_opt_string_param("variant", parameters, context)?;
 

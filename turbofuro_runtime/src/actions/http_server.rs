@@ -52,19 +52,14 @@ pub async fn setup_streaming_route<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let method_param = eval_optional_param_with_default(
-        "method",
-        parameters,
-        &context.storage,
-        &context.environment,
-        "get".into(),
-    )?;
-    let path_param = eval_param("path", parameters, &context.storage, &context.environment)?;
+    let method =
+        eval_opt_string_param("method", parameters, context)?.unwrap_or_else(|| "get".to_owned());
+    let path_param = eval_param("path", parameters, context)?;
     let handlers = get_handlers_from_parameters(parameters);
     {
         let mut router = context.global.registry.router.lock().await;
         router.add_streaming_route(
-            method_param.to_string()?,
+            method,
             path_param.to_string()?,
             context.module.id.clone(),
             handlers,
@@ -147,25 +142,18 @@ pub async fn respond_with<'a>(
     let headers_param = eval_optional_param_with_default(
         "headers",
         parameters,
-        &context.storage,
-        &context.environment,
+        context,
         StorageValue::Object(HashMap::new()),
     )?;
     let cookies_param = eval_optional_param_with_default(
         "cookies",
         parameters,
-        &context.storage,
-        &context.environment,
+        context,
         StorageValue::Array(vec![]),
     )?;
 
-    let body = eval_optional_param_with_default(
-        "body",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::Null(None),
-    )?;
+    let body =
+        eval_optional_param_with_default("body", parameters, context, StorageValue::Null(None))?;
 
     let http_request_to_respond = context
         .resources
@@ -332,15 +320,13 @@ pub async fn respond_with_stream<'a>(
     let headers_param = eval_optional_param_with_default(
         "headers",
         parameters,
-        &context.storage,
-        &context.environment,
+        context,
         StorageValue::Object(HashMap::new()),
     )?;
     let cookies_param = eval_optional_param_with_default(
         "cookies",
         parameters,
-        &context.storage,
-        &context.environment,
+        context,
         StorageValue::Array(vec![]),
     )?;
 
@@ -393,8 +379,7 @@ pub async fn respond_with_sse_stream<'a>(
     let keep_alive_param = eval_optional_param_with_default(
         "keepAlive",
         parameters,
-        &context.storage,
-        &context.environment,
+        context,
         StorageValue::Number(60.0),
     )?;
 
@@ -472,7 +457,7 @@ pub async fn send_sse<'a>(
     _step_id: &str,
     _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let event_param = eval_param("event", parameters, &context.storage, &context.environment)?;
+    let event_param = eval_param("event", parameters, context)?;
     let event = match event_param {
         StorageValue::String(s) => sse::Event::default().data(s),
         StorageValue::Object(obj) => {

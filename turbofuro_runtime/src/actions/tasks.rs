@@ -32,13 +32,8 @@ pub async fn run_task_continuously<'a>(
 ) -> Result<(), ExecutionError> {
     let backoff = eval_opt_u64_param("backoff", parameters, context)?.unwrap_or(5000);
 
-    let data = eval_optional_param_with_default(
-        "data",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::Null(None),
-    )?;
+    let data =
+        eval_optional_param_with_default("data", parameters, context, StorageValue::Null(None))?;
     let function_ref = get_handler_from_parameters("onRun", parameters)?;
 
     let actor_id = context.actor_id.clone();

@@ -94,7 +94,7 @@ async fn sendmail_smtp<'a>(
     let subject = eval_string_param("subject", parameters, context)?;
     let mut message_builder = MessageBuilder::new().from(from).subject(subject);
 
-    let to_param = eval_param("to", parameters, &context.storage, &context.environment)?;
+    let to_param = eval_param("to", parameters, context)?;
     let to_param: Vec<String> = as_string_or_array_string(to_param, "to")?;
     for to_param in to_param {
         let to: Mailbox =
@@ -109,12 +109,7 @@ async fn sendmail_smtp<'a>(
 
     let connection_url = eval_string_param("connectionUrl", parameters, context)?;
 
-    let reply_to_param = eval_optional_param(
-        "replyTo",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
+    let reply_to_param = eval_optional_param("replyTo", parameters, context)?;
 
     if let Some(reply_to) = reply_to_param {
         let reply_to = as_string_or_array_string(reply_to, "replyTo")?;
@@ -130,7 +125,7 @@ async fn sendmail_smtp<'a>(
         }
     }
 
-    let bcc_param = eval_optional_param("bcc", parameters, &context.storage, &context.environment)?;
+    let bcc_param = eval_optional_param("bcc", parameters, context)?;
     if let Some(bcc) = bcc_param {
         let bcc = as_string_or_array_string(bcc, "bcc")?;
         for bcc in bcc {
@@ -144,7 +139,7 @@ async fn sendmail_smtp<'a>(
         }
     }
 
-    let cc_param = eval_optional_param("cc", parameters, &context.storage, &context.environment)?;
+    let cc_param = eval_optional_param("cc", parameters, context)?;
     if let Some(cc) = cc_param {
         let cc = as_string_or_array_string(cc, "cc")?;
         for cc in cc {

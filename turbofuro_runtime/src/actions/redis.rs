@@ -83,7 +83,7 @@ pub async fn low_level_command<'a>(
     let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
     let command = eval_string_param("command", parameters, context)?;
 
-    let args_param = eval_param("args", parameters, &context.storage, &context.environment)?;
+    let args_param = eval_param("args", parameters, context)?;
     let args = match args_param {
         StorageValue::Array(a) => Ok(a),
         s => Err(ExecutionError::ParameterTypeMismatch {

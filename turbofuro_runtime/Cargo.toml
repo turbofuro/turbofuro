@@ -89,6 +89,7 @@ sha2 = "0.10.8"
 hmac = "0.12.1"
 hex = "0.4.3"
 num = "0.4.3"
+ollama-rs = "0.2.1"
 
 [dev-dependencies]
 tower = { version = "0.4.13", features = ["util"] }

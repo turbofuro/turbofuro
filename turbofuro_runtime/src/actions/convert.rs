@@ -42,7 +42,7 @@ pub async fn to_json(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let value_param = eval_param("value", parameters, &context.storage, &context.environment)?;
+    let value_param = eval_param("value", parameters, context)?;
     let pretty = eval_opt_boolean_param("pretty", parameters, context)?.unwrap_or(false);
 
     let json = if pretty {
@@ -93,7 +93,7 @@ pub async fn to_urlencoded(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let value_param = eval_param("value", parameters, &context.storage, &context.environment)?;
+    let value_param = eval_param("value", parameters, context)?;
 
     let json = serde_urlencoded::to_string(value_param).map_err(|e| {
         ExecutionError::SerializationFailed {
@@ -171,8 +171,7 @@ pub async fn to_url(
 ) -> Result<(), ExecutionError> {
     let host = eval_string_param("host", parameters, context)?;
     let scheme = eval_opt_string_param("scheme", parameters, context)?.unwrap_or("https".into());
-    let port_param =
-        eval_optional_param("port", parameters, &context.storage, &context.environment)?;
+    let port_param = eval_optional_param("port", parameters, context)?;
 
     let path = eval_opt_string_param("path", parameters, context)?;
     let query = eval_opt_string_param("query", parameters, context)?;

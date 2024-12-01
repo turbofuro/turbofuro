@@ -1,9 +1,12 @@
+use base64::engine::general_purpose::STANDARD;
+use base64::prelude::*;
 use chumsky::{prelude::*, Parser, Stream};
 use num::ToPrimitive;
 use serde::Serializer;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::fmt::Display;
+use std::path::Path;
 use std::{collections::HashMap, vec};
 
 mod description;
@@ -215,7 +218,7 @@ impl StorageValue {
             StorageValue::String(s) => Ok(s.as_bytes().to_vec()),
             StorageValue::Array(arr) => {
                 let mut result = Vec::new();
-                for (i, s) in arr.into_iter().enumerate() {
+                for s in arr.iter() {
                     match s {
                         StorageValue::Number(n) => match n.to_u8() {
                             Some(b) => result.push(b),
@@ -1321,9 +1324,33 @@ pub fn evaluate_value<T: Storage>(
 
             match value {
                 StorageValue::String(s) => match name.as_str() {
-                    "bytes" => StorageValue::Array(
+                    "toBytes" => StorageValue::Array(
                         s.bytes().map(|b| StorageValue::Number(b as f64)).collect(),
                     ),
+                    "fromHexString" => {
+                        StorageValue::new_byte_array(&hex::decode(s).map_err(|e| {
+                            TelError::ConversionError {
+                                message: format!(
+                                    "Could not convert HEX string to byte array: {}",
+                                    e
+                                ),
+                                from: "string".to_owned(),
+                                to: "array".to_owned(),
+                            }
+                        })?)
+                    }
+                    "fromBase64String" => {
+                        StorageValue::new_byte_array(&STANDARD.decode(s).map_err(|e| {
+                            TelError::ConversionError {
+                                message: format!(
+                                    "Could not convert HEX string to byte array: {}",
+                                    e
+                                ),
+                                from: "string".to_owned(),
+                                to: "array".to_owned(),
+                            }
+                        })?)
+                    }
                     "length" => s.len().into(),
                     "type" => StorageValue::String("string".to_string()),
                     "toString" => StorageValue::String(s),
@@ -1422,6 +1449,11 @@ pub fn evaluate_value<T: Storage>(
                             StorageValue::Boolean(false)
                         }
                     }
+                    "stripFileExtension" => Path::new(&s)
+                        .file_stem()
+                        .map(|s| s.to_string_lossy().to_string())
+                        .unwrap_or(s)
+                        .into(),
                     _ => NULL,
                 },
                 StorageValue::Number(f) => match name.as_str() {
@@ -1502,6 +1534,14 @@ pub fn evaluate_value<T: Storage>(
                     "toHexString" => {
                         let bytes = StorageValue::Array(arr).to_byte_array()?;
                         StorageValue::String(hex::encode(bytes))
+                    }
+                    "toBase64String" => {
+                        let bytes = StorageValue::Array(arr).to_byte_array()?;
+                        StorageValue::String(STANDARD.encode(bytes))
+                    }
+                    "toString" => {
+                        let bytes = StorageValue::Array(arr).to_byte_array()?;
+                        String::from_utf8_lossy(&bytes).to_string().into()
                     }
                     "type" => StorageValue::String("array".to_string()),
                     "join" => {

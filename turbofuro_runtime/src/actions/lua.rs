@@ -19,10 +19,10 @@ pub async fn run_function(
     let code: String = eval_string_param("code", parameters, context)?;
     let lua = Lua::new();
 
-    let value = eval_optional_param("value", parameters, &context.storage, &context.environment)?
+    let value = eval_optional_param("value", parameters, &context)?
         .map(|v| lua.to_value(&v))
         .transpose()
-        .map_err(|e| ExecutionError::ParameterInvalid {
+        .map_err(|_e| ExecutionError::ParameterInvalid {
             name: "value".to_owned(),
             message: "Could not convert value to Lua value".to_owned(),
         })?;

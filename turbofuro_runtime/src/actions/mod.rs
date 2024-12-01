@@ -18,6 +18,7 @@ pub mod lua;
 pub mod mail;
 pub mod multipart;
 pub mod mustache;
+pub mod ollama;
 pub mod os;
 pub mod postgres;
 pub mod pubsub;

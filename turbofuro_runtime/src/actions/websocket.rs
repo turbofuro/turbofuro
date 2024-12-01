@@ -60,12 +60,7 @@ pub async fn send_message<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let message_param = eval_param(
-        "message",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?;
+    let message_param = eval_param("message", parameters, context)?;
 
     let message: Message = match message_param {
         StorageValue::String(s) => Message::Text(s),

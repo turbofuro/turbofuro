@@ -15,8 +15,8 @@ use crate::{
     actor::ActorCommand,
     errors::ExecutionError,
     evaluations::{
-        eval_opt_boolean_param, eval_opt_string_param, eval_opt_u64_param, eval_param,
-        eval_string_param, get_optional_handler_from_parameters,
+        eval_byte_array_param, eval_opt_boolean_param, eval_opt_string_param, eval_opt_u64_param,
+        eval_param, eval_string_param, get_optional_handler_from_parameters,
     },
     executor::{ExecutionContext, Parameter},
     resources::{Cancellation, CancellationSubject, FileHandle, Resource},
@@ -190,14 +190,50 @@ pub async fn simple_write_string<'a>(
     let path = eval_string_param("path", parameters, context)?;
 
     // Get content
-    let content = eval_param(
-        "content",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )?
-    .to_string()
-    .map_err(ExecutionError::from)?;
+    let content = eval_param("content", parameters, context)?
+        .to_string()
+        .map_err(ExecutionError::from)?;
+
+    tokio::fs::write(path, content)
+        .await
+        .map_err(ExecutionError::from)?;
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn simple_read_to_bytes<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let path = eval_string_param("path", parameters, context)?;
+
+    let data = tokio::fs::read(path.clone())
+        .await
+        .map_err(ExecutionError::from)?;
+
+    store_value(
+        store_as,
+        context,
+        step_id,
+        StorageValue::new_byte_array(&data),
+    )
+    .await?;
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
+pub async fn simple_write_bytes<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    _step_id: &str,
+) -> Result<(), ExecutionError> {
+    let path = eval_string_param("path", parameters, context)?;
+
+    // Get content
+    let content = eval_byte_array_param("content", parameters, context)?;
 
     tokio::fs::write(path, content)
         .await

@@ -18,13 +18,8 @@ pub async fn run_command(
 ) -> Result<(), ExecutionError> {
     let program = eval_string_param("program", parameters, context)?;
 
-    let args = eval_optional_param_with_default(
-        "args",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::Array(vec![]),
-    )?;
+    let args =
+        eval_optional_param_with_default("args", parameters, context, StorageValue::Array(vec![]))?;
     let args = match args {
         StorageValue::Array(a) => {
             let mut args = Vec::new();

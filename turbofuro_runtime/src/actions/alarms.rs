@@ -47,13 +47,8 @@ pub async fn set_alarm<'a>(
             message: format!("Could not convert to milliseconds: {}", e),
         })?;
 
-    let data = eval_optional_param_with_default(
-        "data",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::Null(None),
-    )?;
+    let data =
+        eval_optional_param_with_default("data", parameters, context, StorageValue::Null(None))?;
     let function_ref = get_optional_handler_from_parameters("onTimeout", parameters);
 
     let actor_id = context.actor_id.clone();
@@ -194,13 +189,8 @@ pub async fn set_interval<'a>(
             message: format!("Could not convert to milliseconds: {}", e),
         })?;
 
-    let data = eval_optional_param_with_default(
-        "data",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::Null(None),
-    )?;
+    let data =
+        eval_optional_param_with_default("data", parameters, context, StorageValue::Null(None))?;
     let function_ref = get_optional_handler_from_parameters("onTimeout", parameters);
 
     let actor_id = context.actor_id.clone();
@@ -338,13 +328,8 @@ pub async fn setup_cronjob<'a>(
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
     let schedule = eval_string_param("schedule", parameters, context)?;
-    let data = eval_optional_param_with_default(
-        "data",
-        parameters,
-        &context.storage,
-        &context.environment,
-        StorageValue::Null(None),
-    )?;
+    let data =
+        eval_optional_param_with_default("data", parameters, context, StorageValue::Null(None))?;
     let function_ref = get_optional_handler_from_parameters("onSchedule", parameters);
 
     let cron =

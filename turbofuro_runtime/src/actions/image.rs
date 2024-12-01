@@ -183,12 +183,7 @@ pub async fn convert(
     let source = eval_string_param("source", parameters, context)?;
     let destination = eval_string_param("destination", parameters, context)?;
 
-    let actions = match eval_param(
-        "actions",
-        parameters,
-        &context.storage,
-        &context.environment,
-    )? {
+    let actions = match eval_param("actions", parameters, context)? {
         StorageValue::Array(arr) => {
             serde_json::from_value::<Vec<Action>>(serde_json::to_value(arr).unwrap()).map_err(|e| {
                 ExecutionError::ParameterInvalid {
@@ -204,7 +199,7 @@ pub async fn convert(
         }),
     }?;
 
-    let output = match eval_param("output", parameters, &context.storage, &context.environment)? {
+    let output = match eval_param("output", parameters, context)? {
         StorageValue::Object(obj) => {
             serde_json::from_value::<Output>(serde_json::to_value(obj).unwrap()).map_err(|e| {
                 ExecutionError::ParameterInvalid {

@@ -66,7 +66,7 @@ pub async fn read_from_store<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let key_param = eval_param("key", parameters, &context.storage, &context.environment)?;
+    let key_param = eval_param("key", parameters, context)?;
     let key = key_param.to_string().map_err(ExecutionError::from)?;
 
     let kv_value = KV
@@ -94,7 +94,7 @@ pub async fn write_to_store<'a>(
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
     let key = eval_string_param("key", parameters, context)?;
-    let value = eval_param("value", parameters, &context.storage, &context.environment)?;
+    let value = eval_param("value", parameters, context)?;
     let expiration =
         eval_opt_u64_param("expiration", parameters, context)?.map(|v| v + get_timestamp());
 
@@ -145,7 +145,7 @@ pub async fn delete_from_store<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let key_param = eval_param("key", parameters, &context.storage, &context.environment)?;
+    let key_param = eval_param("key", parameters, context)?;
     let key = key_param.to_string().map_err(ExecutionError::from)?;
 
     KV.remove(key.as_str());

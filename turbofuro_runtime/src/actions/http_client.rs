@@ -30,7 +30,7 @@ static DEFAULT_TIMEOUT: u64 = 60_000;
 
 static USER_AGENT: &str = concat!("turbofuro/", env!("CARGO_PKG_VERSION"));
 
-static CLIENT: Lazy<Client> = Lazy::new(|| {
+pub(crate) static CLIENT: Lazy<Client> = Lazy::new(|| {
     reqwest::Client::builder()
         .user_agent(USER_AGENT)
         .timeout(Duration::from_millis(DEFAULT_TIMEOUT))
@@ -196,8 +196,7 @@ fn set_static_body_from_parameters(
     parameters: &Vec<Parameter>,
     mut request_builder: RequestBuilder,
 ) -> Result<RequestBuilder, ExecutionError> {
-    let body_param =
-        eval_optional_param("body", parameters, &context.storage, &context.environment)?;
+    let body_param = eval_optional_param("body", parameters, context)?;
     if let Some(body_param) = body_param {
         match body_param {
             StorageValue::String(data) => {
@@ -234,8 +233,7 @@ fn set_static_body_from_parameters(
             }
         }
     }
-    let form_param =
-        eval_optional_param("form", parameters, &context.storage, &context.environment)?;
+    let form_param = eval_optional_param("form", parameters, context)?;
     if let Some(form_param) = form_param {
         match form_param {
             StorageValue::Object(obj) => {
@@ -283,17 +281,14 @@ async fn bare_http_request<'a>(
     parameters: &Vec<Parameter>,
     mut request_builder: RequestBuilder,
 ) -> Result<Response, ExecutionError> {
-    if let Some(query) =
-        eval_optional_param("query", parameters, &context.storage, &context.environment)?
-    {
+    if let Some(query) = eval_optional_param("query", parameters, context)? {
         request_builder = request_builder.query(&query);
     }
 
     let headers_param = eval_optional_param_with_default(
         "headers",
         parameters,
-        &context.storage,
-        &context.environment,
+        context,
         StorageValue::Object(HashMap::new()),
     )?;
 
@@ -324,20 +319,16 @@ async fn bare_http_request<'a>(
             inner: e.to_string(),
         })?;
 
-    let client: Client =
-        match eval_optional_param("name", parameters, &context.storage, &context.environment)? {
-            Some(param) => {
-                let name = as_string(param, "name")?;
-                context
-                    .global
-                    .registry
-                    .http_clients
-                    .get(&name)
-                    .ok_or_else(HttpClient::missing)
-                    .map(|r| r.value().clone().0)?
-            }
-            None => CLIENT.clone(),
-        };
+    let client: Client = match eval_opt_string_param("name", parameters, context)? {
+        Some(name) => context
+            .global
+            .registry
+            .http_clients
+            .get(&name)
+            .ok_or_else(HttpClient::missing)
+            .map(|r| r.value().clone().0)?,
+        None => CLIENT.clone(),
+    };
 
     let response = match client
         .execute(request)
@@ -402,8 +393,7 @@ pub async fn build_client<'a>(
     let certificates = eval_optional_param_with_default(
         "rootCertificates",
         parameters,
-        &context.storage,
-        &context.environment,
+        context,
         StorageValue::Array(vec![]),
     )?;
     let certificates = match certificates {

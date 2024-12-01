@@ -20,14 +20,13 @@ fn parse_memoized(expression: String) -> ParseResult {
 pub fn eval_param(
     parameter_name: &str,
     parameters: &Vec<Parameter>,
-    storage: &ObjectBody,
-    environment: &Environment,
+    context: &ExecutionContext<'_>,
 ) -> Result<StorageValue, ExecutionError> {
     for parameter in parameters {
         match parameter {
             Parameter::Tel { name, expression } => {
                 if name == parameter_name {
-                    let value = eval(expression, storage, environment)?;
+                    let value = eval(expression, &context.storage, &context.environment)?;
                     return Ok(value);
                 }
             }
@@ -42,10 +41,9 @@ pub fn eval_param(
 pub fn eval_optional_param(
     parameter_name: &str,
     parameters: &Vec<Parameter>,
-    storage: &ObjectBody,
-    environment: &Environment,
+    context: &ExecutionContext<'_>,
 ) -> Result<Option<StorageValue>, ExecutionError> {
-    match eval_param(parameter_name, parameters, storage, environment) {
+    match eval_param(parameter_name, parameters, context) {
         Ok(value) => match value {
             StorageValue::Null(_) => Ok(None),
             value => Ok(Some(value)),
@@ -60,11 +58,10 @@ pub fn eval_optional_param(
 pub fn eval_optional_param_with_default(
     parameter_name: &str,
     parameters: &Vec<Parameter>,
-    storage: &ObjectBody,
-    environment: &Environment,
+    context: &ExecutionContext<'_>,
     default: StorageValue,
 ) -> Result<StorageValue, ExecutionError> {
-    match eval_param(parameter_name, parameters, storage, environment) {
+    match eval_param(parameter_name, parameters, context) {
         Ok(value) => match value {
             StorageValue::Null(_) => Ok(default),
             value => Ok(value),
@@ -334,7 +331,7 @@ pub fn eval_string_param(
     parameters: &Vec<Parameter>,
     context: &ExecutionContext<'_>,
 ) -> Result<String, ExecutionError> {
-    let value = eval_param(name, parameters, &context.storage, &context.environment)?;
+    let value = eval_param(name, parameters, context)?;
     as_string(value, name)
 }
 
@@ -343,7 +340,7 @@ pub fn eval_opt_string_param(
     parameters: &Vec<Parameter>,
     context: &ExecutionContext<'_>,
 ) -> Result<Option<String>, ExecutionError> {
-    let value = eval_optional_param(name, parameters, &context.storage, &context.environment)?;
+    let value = eval_optional_param(name, parameters, context)?;
     match value {
         Some(value) => as_string(value, name).map(|s| Some(s)),
         None => Ok(None),
@@ -355,7 +352,7 @@ pub fn eval_integer_param(
     parameters: &Vec<Parameter>,
     context: &ExecutionContext<'_>,
 ) -> Result<i64, ExecutionError> {
-    let value = eval_param(name, parameters, &context.storage, &context.environment)?;
+    let value = eval_param(name, parameters, context)?;
     as_integer(value, name)
 }
 
@@ -364,7 +361,7 @@ pub fn eval_opt_integer_param(
     parameters: &Vec<Parameter>,
     context: &ExecutionContext<'_>,
 ) -> Result<Option<i64>, ExecutionError> {
-    let value = eval_optional_param(name, parameters, &context.storage, &context.environment)?;
+    let value = eval_optional_param(name, parameters, context)?;
     match value {
         Some(value) => as_integer(value, name).map(|i| Some(i)),
         None => Ok(None),
@@ -376,7 +373,7 @@ pub fn eval_boolean_param(
     parameters: &Vec<Parameter>,
     context: &ExecutionContext<'_>,
 ) -> Result<bool, ExecutionError> {
-    let value = eval_param(name, parameters, &context.storage, &context.environment)?;
+    let value = eval_param(name, parameters, context)?;
     as_boolean(value, name)
 }
 
@@ -385,7 +382,7 @@ pub fn eval_opt_boolean_param(
     parameters: &Vec<Parameter>,
     context: &ExecutionContext<'_>,
 ) -> Result<Option<bool>, ExecutionError> {
-    let value = eval_optional_param(name, parameters, &context.storage, &context.environment)?;
+    let value = eval_optional_param(name, parameters, context)?;
     match value {
         Some(value) => as_boolean(value, name).map(|i| Some(i)),
         None => Ok(None),
@@ -397,7 +394,7 @@ pub fn eval_u64_param(
     parameters: &Vec<Parameter>,
     context: &ExecutionContext<'_>,
 ) -> Result<u64, ExecutionError> {
-    let value = eval_param(name, parameters, &context.storage, &context.environment)?;
+    let value = eval_param(name, parameters, context)?;
     as_u64(value, name)
 }
 
@@ -406,7 +403,7 @@ pub fn eval_opt_u64_param(
     parameters: &Vec<Parameter>,
     context: &ExecutionContext<'_>,
 ) -> Result<Option<u64>, ExecutionError> {
-    let value = eval_optional_param(name, parameters, &context.storage, &context.environment)?;
+    let value = eval_optional_param(name, parameters, context)?;
     match value {
         Some(value) => as_u64(value, name).map(|i| Some(i)),
         None => Ok(None),
@@ -418,7 +415,7 @@ pub fn eval_number_param(
     parameters: &Vec<Parameter>,
     context: &ExecutionContext<'_>,
 ) -> Result<f64, ExecutionError> {
-    let value = eval_param(name, parameters, &context.storage, &context.environment)?;
+    let value = eval_param(name, parameters, context)?;
     as_number(value, name)
 }
 
@@ -427,7 +424,7 @@ pub fn eval_opt_number_param(
     parameters: &Vec<Parameter>,
     context: &ExecutionContext<'_>,
 ) -> Result<Option<f64>, ExecutionError> {
-    let value = eval_optional_param(name, parameters, &context.storage, &context.environment)?;
+    let value = eval_optional_param(name, parameters, context)?;
     match value {
         Some(value) => as_number(value, name).map(|i| Some(i)),
         None => Ok(None),
@@ -439,6 +436,6 @@ pub fn eval_byte_array_param(
     parameters: &Vec<Parameter>,
     context: &ExecutionContext<'_>,
 ) -> Result<Vec<u8>, ExecutionError> {
-    let value = eval_param(name, parameters, &context.storage, &context.environment)?;
+    let value = eval_param(name, parameters, context)?;
     as_byte_array(value, name)
 }
