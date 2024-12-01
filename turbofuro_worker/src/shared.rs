@@ -99,14 +99,7 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
             _ => false,
         })
         .map(|s| match s {
-            Step::DefineFunction {
-                id,
-                parameters: _,
-                body,
-                exported: _,
-                name,
-                annotations: _,
-            } => Function::Normal {
+            Step::DefineFunction { id, body, name, .. } => Function::Normal {
                 id: id.clone(),
                 body: body.clone(),
                 name: name.clone(),
@@ -114,10 +107,8 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
             Step::DefineNativeFunction {
                 id,
                 native_id,
-                parameters: _,
-                exported: _,
                 name,
-                annotations: _,
+                ..
             } => Function::Native {
                 id: id.to_owned(),
                 native_id: native_id.to_owned(),
@@ -142,14 +133,7 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
             _ => false,
         })
         .map(|s| match s {
-            Step::DefineFunction {
-                id,
-                parameters: _,
-                body,
-                exported: _,
-                name,
-                annotations: _,
-            } => Function::Normal {
+            Step::DefineFunction { id, body, name, .. } => Function::Normal {
                 id: id.clone(),
                 body: body.clone(),
                 name: name.clone(),
@@ -157,10 +141,8 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
             Step::DefineNativeFunction {
                 id,
                 native_id,
-                parameters: _,
-                exported: _,
                 name,
-                annotations: _,
+                ..
             } => Function::Native {
                 id: id.to_owned(),
                 name: name.to_owned(),
@@ -185,14 +167,7 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
             _ => false,
         })
         .map(|s| match s {
-            Step::DefineFunction {
-                id,
-                parameters: _,
-                body,
-                exported: _,
-                name,
-                annotations: _,
-            } => Function::Normal {
+            Step::DefineFunction { id, body, name, .. } => Function::Normal {
                 id: id.clone(),
                 body: body.clone(),
                 name: name.clone(),
@@ -200,10 +175,8 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
             Step::DefineNativeFunction {
                 id,
                 native_id,
-                parameters: _,
-                exported: _,
                 name,
-                annotations: _,
+                ..
             } => Function::Native {
                 id: id.to_owned(),
                 native_id: native_id.to_owned(),
@@ -228,14 +201,7 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
             _ => false,
         })
         .map(|s| match s {
-            Step::DefineFunction {
-                id,
-                parameters: _,
-                body,
-                exported: _,
-                name,
-                annotations: _,
-            } => Function::Normal {
+            Step::DefineFunction { id, body, name, .. } => Function::Normal {
                 id: id.clone(),
                 body: body.clone(),
                 name: name.clone(),
@@ -243,10 +209,8 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
             Step::DefineNativeFunction {
                 id,
                 native_id,
-                parameters: _,
-                exported: _,
                 name,
-                annotations: _,
+                ..
             } => Function::Native {
                 id: id.to_owned(),
                 native_id: native_id.to_owned(),

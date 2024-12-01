@@ -170,6 +170,8 @@ pub enum Step {
         callee: Callee,
         parameters: Vec<Parameter>,
         store_as: Option<String>,
+        #[serde(default)]
+        disabled: bool,
     },
     #[serde(rename_all = "camelCase")]
     DefineFunction {
@@ -181,6 +183,8 @@ pub enum Step {
         exported: bool,
         body: Steps,
         name: String,
+        #[serde(default)]
+        disabled: bool,
     },
     #[serde(rename_all = "camelCase")]
     DefineNativeFunction {
@@ -192,6 +196,8 @@ pub enum Step {
         annotations: Vec<FunctionAnnotation>,
         #[serde(default = "default_exported")]
         exported: bool,
+        #[serde(default)]
+        disabled: bool,
     },
     If {
         id: String,
@@ -200,37 +206,53 @@ pub enum Step {
         branches: Option<Vec<Branch>>,
         #[serde(rename = "else")]
         else_: Option<Steps>,
+        #[serde(default)]
+        disabled: bool,
     },
     ForEach {
         id: String,
         items: String,
         item: String,
         body: Steps,
+        #[serde(default)]
+        disabled: bool,
     },
     While {
         id: String,
         condition: String,
         body: Steps,
+        #[serde(default)]
+        disabled: bool,
     },
     Return {
         id: String,
         value: Option<String>,
+        #[serde(default)]
+        disabled: bool,
     },
     Break {
         id: String,
+        #[serde(default)]
+        disabled: bool,
     },
     Continue {
         id: String,
+        #[serde(default)]
+        disabled: bool,
     },
     Assign {
         id: String,
         value: String,
         to: String,
+        #[serde(default)]
+        disabled: bool,
     },
     Try {
         id: String,
         body: Steps,
         catch: Steps,
+        #[serde(default)]
+        disabled: bool,
     },
     Throw {
         id: String,
@@ -238,6 +260,8 @@ pub enum Step {
         message: String,
         details: Option<String>,
         metadata: Option<String>,
+        #[serde(default)]
+        disabled: bool,
     },
     #[serde(rename_all = "camelCase")]
     Parse {
@@ -245,6 +269,8 @@ pub enum Step {
         description: String,
         value: String,
         store_as: String,
+        #[serde(default)]
+        disabled: bool,
     },
     #[serde(rename_all = "camelCase")]
     Transform {
@@ -254,6 +280,8 @@ pub enum Step {
         order_by: Option<String>,
         map: Option<String>,
         store_as: String,
+        #[serde(default)]
+        disabled: bool,
     },
 }
 
@@ -328,6 +356,25 @@ impl Step {
             Step::Throw { id, .. } => id,
             Step::Parse { id, .. } => id,
             Step::Transform { id, .. } => id,
+        }
+    }
+
+    pub fn is_disabled(&self) -> bool {
+        match self {
+            Step::Call { disabled, .. } => *disabled,
+            Step::If { disabled, .. } => *disabled,
+            Step::ForEach { disabled, .. } => *disabled,
+            Step::While { disabled, .. } => *disabled,
+            Step::Return { disabled, .. } => *disabled,
+            Step::Break { disabled, .. } => *disabled,
+            Step::Continue { disabled, .. } => *disabled,
+            Step::Assign { disabled, .. } => *disabled,
+            Step::DefineNativeFunction { disabled, .. } => *disabled,
+            Step::Try { disabled, .. } => *disabled,
+            Step::Throw { disabled, .. } => *disabled,
+            Step::Parse { disabled, .. } => *disabled,
+            Step::Transform { disabled, .. } => *disabled,
+            Step::DefineFunction { disabled, .. } => *disabled,
         }
     }
 }
@@ -1479,6 +1526,10 @@ async fn execute_step<'a>(
     step_id: &str,
 ) -> Result<(), ExecutionError> {
     debug!("Step: {}", step_id);
+    if step.is_disabled() {
+        return Ok(());
+    }
+
     match step {
         Step::Break { .. } => {
             return Err(ExecutionError::Break);
@@ -1486,7 +1537,7 @@ async fn execute_step<'a>(
         Step::Continue { .. } => {
             return Err(ExecutionError::Continue);
         }
-        Step::Return { id: _, value } => {
+        Step::Return { id: _, value, .. } => {
             let value = match value {
                 Some(value) => eval(value, &context.storage, &context.environment)?,
                 None => StorageValue::Null(None),
@@ -1514,6 +1565,7 @@ async fn execute_step<'a>(
             callee,
             parameters,
             store_as,
+            ..
         } => match callee {
             Callee::Local { function_id } => {
                 execute_function(
@@ -1555,6 +1607,7 @@ async fn execute_step<'a>(
             id: _,
             branches,
             else_,
+            ..
         } => {
             let value = eval(condition, &context.storage, &context.environment)?;
             if value == StorageValue::Boolean(true) {
@@ -1588,6 +1641,7 @@ async fn execute_step<'a>(
             items,
             item,
             body,
+            ..
         } => {
             let selector = eval_selector(item, &context.storage, &context.environment)?;
             let value = eval(items, &context.storage, &context.environment)?;
@@ -1603,6 +1657,7 @@ async fn execute_step<'a>(
             id,
             condition,
             body,
+            ..
         } => {
             let current_lc = context.loop_counts.last().map(|(_id, c)| c).unwrap_or(&0);
             context.loop_counts.push((id.clone(), *current_lc / 4));
@@ -1611,7 +1666,9 @@ async fn execute_step<'a>(
             context.loop_counts.pop();
             result?
         }
-        Step::Try { id, body, catch } => match execute_steps(body, context).await {
+        Step::Try {
+            id, body, catch, ..
+        } => match execute_steps(body, context).await {
             Ok(_) => {}
             Err(e) => match e {
                 ExecutionError::Break => {
@@ -1642,6 +1699,7 @@ async fn execute_step<'a>(
             message,
             details,
             metadata,
+            ..
         } => {
             let error = ExecutionError::Custom {
                 inner_code: code.to_owned(),
@@ -1890,6 +1948,7 @@ async fn execute_step<'a>(
             description,
             value,
             store_as,
+            ..
         } => {
             let value = eval(value, &context.storage, &context.environment)?;
             let selector = eval_selector(store_as, &context.storage, &context.environment)?;
@@ -1981,6 +2040,7 @@ mod test_executor {
             id: "1".to_owned(),
             value: "\"hello\"".to_owned(),
             to: "result".to_owned(),
+            disabled: false,
         }];
 
         execute(&steps, &mut context)
@@ -2080,11 +2140,13 @@ mod test_executor {
             exported: false,
             body: vec![Step::Break {
                 id: "break".to_owned(),
+                disabled: false,
             }],
             annotations: vec![
                 FunctionAnnotation::Exported,
                 FunctionAnnotation::ModuleStarter,
             ],
+            disabled: false,
         };
 
         let serialized = serde_json::to_value(step).unwrap();
@@ -2103,7 +2165,8 @@ mod test_executor {
                         "type": "module_starter"
                     }
                 ],
-                "body": [{ "type": "break", "id": "break" }]
+                "body": [{ "type": "break", "id": "break", "disabled": false }],
+                "disabled": false
             }
         );
         assert_eq!(serialized, expected);
