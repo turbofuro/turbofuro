@@ -42,6 +42,8 @@ const ACTOR_LINK_TYPE: &str = "actor_link";
 const CANCELLATION_TYPE: &str = "cancellation";
 const FILE_HANDLE_TYPE: &str = "file_handle";
 const LIBSQL_CONNECTION_TYPE: &str = "libsql_connection";
+const WEBDRIVER_CLIENT_TYPE: &str = "webdriver_client";
+const WEBDRIVER_ELEMENT_TYPE: &str = "webdriver_element";
 
 pub trait Resource {
     fn get_type() -> &'static str;
@@ -145,6 +147,24 @@ pub struct HttpClient(pub reqwest::Client);
 impl Resource for HttpClient {
     fn get_type() -> &'static str {
         HTTP_CLIENT_RESOURCE_TYPE
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct WebDriverClient(pub fantoccini::Client);
+
+impl Resource for WebDriverClient {
+    fn get_type() -> &'static str {
+        &WEBDRIVER_CLIENT_TYPE
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct WebDriverElement(pub fantoccini::elements::Element);
+
+impl Resource for WebDriverElement {
+    fn get_type() -> &'static str {
+        &WEBDRIVER_ELEMENT_TYPE
     }
 }
 
@@ -443,6 +463,8 @@ pub struct ActorResources {
     pub form_data: Vec<FormDataDraft>,
     pub pending_form_data: Vec<PendingFormData>,
     pub pending_form_data_fields: Vec<PendingFormDataField>,
+    pub webdriver_clients: Vec<WebDriverClient>,
+    pub webdriver_elements: Vec<WebDriverElement>,
 }
 
 impl ActorResources {
@@ -460,6 +482,7 @@ impl ActorResources {
         self.pending_form_data.append(&mut other.pending_form_data);
         self.pending_form_data_fields
             .append(&mut other.pending_form_data_fields);
+        self.webdriver_clients.append(&mut other.webdriver_clients);
     }
 }
 

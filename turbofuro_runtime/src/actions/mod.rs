@@ -7,6 +7,7 @@ pub mod alarms;
 pub mod convert;
 pub mod crypto;
 pub mod debug;
+pub mod fantoccini;
 pub mod form_data;
 pub mod fs;
 pub mod http_client;

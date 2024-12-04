@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
+use std::mem;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -35,6 +36,7 @@ use crate::actions::alarms;
 use crate::actions::convert;
 use crate::actions::crypto;
 use crate::actions::debug;
+use crate::actions::fantoccini;
 use crate::actions::form_data;
 use crate::actions::fs;
 use crate::actions::http_client;
@@ -172,6 +174,7 @@ pub enum Step {
         store_as: Option<String>,
         #[serde(default)]
         disabled: bool,
+        body: Option<Steps>, // Only if decorator is called
     },
     #[serde(rename_all = "camelCase")]
     DefineFunction {
@@ -181,10 +184,12 @@ pub enum Step {
         annotations: Vec<FunctionAnnotation>,
         #[serde(default = "default_exported")]
         exported: bool,
-        body: Steps,
         name: String,
         #[serde(default)]
         disabled: bool,
+        #[serde(default)]
+        decorator: bool,
+        body: Steps,
     },
     #[serde(rename_all = "camelCase")]
     DefineNativeFunction {
@@ -198,6 +203,8 @@ pub enum Step {
         exported: bool,
         #[serde(default)]
         disabled: bool,
+        #[serde(default)]
+        decorator: bool,
     },
     If {
         id: String,
@@ -1071,6 +1078,7 @@ async fn execute_native<'a>(
     parameters: &Vec<Parameter>,
     store_as: Option<&str>,
     step_id: &str,
+    body: &Option<Steps>,
 ) -> Result<(), ExecutionError> {
     match native_id {
         "wasm/run_wasi" => wasm::run_wasi(context, parameters, step_id, store_as).await?,
@@ -1259,6 +1267,61 @@ async fn execute_native<'a>(
             multipart::get_field(context, parameters, step_id, store_as).await?
         }
         "ollama/generate" => ollama::generate(context, parameters, step_id, store_as).await?,
+        "webdriver/get_client" => {
+            fantoccini::get_client(context, parameters, step_id, store_as).await?
+        }
+        "webdriver/get_text" => {
+            fantoccini::get_text(context, parameters, step_id, store_as).await?
+        }
+        "webdriver/get_html" => {
+            fantoccini::get_html(context, parameters, step_id, store_as).await?
+        }
+        "webdriver/get_attribute" => {
+            fantoccini::get_attribute(context, parameters, step_id, store_as).await?
+        }
+        "webdriver/get_property" => {
+            fantoccini::get_property(context, parameters, step_id, store_as).await?
+        }
+        "webdriver/send_keys" => {
+            fantoccini::send_keys(context, parameters, step_id, store_as).await?
+        }
+        "webdriver/screenshot" => {
+            fantoccini::screenshot(context, parameters, step_id, store_as).await?
+        }
+        "webdriver/execute" => fantoccini::execute(context, parameters, step_id, store_as).await?,
+        "webdriver/click" => fantoccini::click(context, parameters, step_id, store_as).await?,
+        "webdriver/goto" => fantoccini::goto(context, parameters, step_id, store_as).await?,
+        "webdriver/select_option" => {
+            fantoccini::select_option(context, parameters, step_id, store_as).await?
+        }
+        "webdriver/drop_client" => {
+            fantoccini::drop_client(context, parameters, step_id, store_as).await?
+        }
+        "webdriver/get_element" => {
+            fantoccini::get_element(context, parameters, step_id, store_as).await?;
+            if let Some(body) = body {
+                if body.is_empty() {
+                    return Ok(());
+                }
+                execute_steps(body, context).await?;
+                fantoccini::drop_element(context, parameters, step_id, store_as).await?;
+            };
+        }
+        "webdriver/get_elements" => {
+            fantoccini::get_elements(context, parameters, step_id, store_as).await?;
+            if let Some(body) = body {
+                if body.is_empty() {
+                    return Ok(());
+                }
+
+                let mut elements = vec![];
+                mem::swap(&mut elements, &mut context.resources.webdriver_elements);
+                for element in elements {
+                    context.resources.webdriver_elements.push(element);
+                    execute_steps(body, context).await?;
+                }
+            };
+        }
         id => {
             return Err(ExecutionError::Unsupported {
                 message: format!("Native function {} not found", id),
@@ -1298,6 +1361,7 @@ async fn execute_function<'a>(
     parameters: &Vec<Parameter>,
     store_as: Option<&str>,
     step_id: &str,
+    inner_steps: &Option<Steps>, // Present if a function is a decorator
 ) -> Result<(), ExecutionError> {
     let function = module.get_function(function_id)?;
     match function {
@@ -1340,6 +1404,10 @@ async fn execute_function<'a>(
                 },
             };
 
+            if let Some(inner) = inner_steps {
+                execute_steps(inner, &mut function_context).await?;
+            }
+
             context.log.events.append(&mut function_context.log.events);
             context.add_leave_function(function_id.to_owned()).await;
 
@@ -1353,13 +1421,20 @@ async fn execute_function<'a>(
             Ok(())
         }
         Function::Native {
-            id: _,
             native_id,
+            id: _,
             name: _,
-        } => match execute_native(native_id, context, parameters, store_as, step_id).await {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        },
+        } => {
+            execute_native(
+                native_id,
+                context,
+                parameters,
+                store_as,
+                step_id,
+                inner_steps,
+            )
+            .await
+        }
     }
 }
 
@@ -1565,6 +1640,7 @@ async fn execute_step<'a>(
             callee,
             parameters,
             store_as,
+            body,
             ..
         } => match callee {
             Callee::Local { function_id } => {
@@ -1575,6 +1651,7 @@ async fn execute_step<'a>(
                     parameters,
                     store_as.as_deref(),
                     step_id,
+                    body,
                 )
                 .await?
             }
@@ -1592,6 +1669,7 @@ async fn execute_step<'a>(
                         parameters,
                         store_as.as_deref(),
                         step_id,
+                        body,
                     )
                     .await?
                 } else {
@@ -2147,6 +2225,7 @@ mod test_executor {
                 FunctionAnnotation::ModuleStarter,
             ],
             disabled: false,
+            decorator: false,
         };
 
         let serialized = serde_json::to_value(step).unwrap();
@@ -2166,7 +2245,8 @@ mod test_executor {
                     }
                 ],
                 "body": [{ "type": "break", "id": "break", "disabled": false }],
-                "disabled": false
+                "disabled": false,
+                "decorator": false
             }
         );
         assert_eq!(serialized, expected);

@@ -363,6 +363,14 @@ impl From<ExecutionError> for ErrorRepresentation {
                 details: Some(response),
                 metadata: None,
             },
+            ExecutionError::WebDriverError { message, stage } => ErrorRepresentation {
+                code: "WEBDRIVER_ERROR".to_owned(),
+                message,
+                details: None,
+                metadata: Some(storage_value!({
+                    "stage": stage
+                })),
+            },
         }
     }
 }
@@ -467,6 +475,10 @@ pub enum ExecutionError {
     },
     HttpResponseError {
         response: StorageValue,
+    },
+    WebDriverError {
+        message: String,
+        stage: String,
     },
 }
 
