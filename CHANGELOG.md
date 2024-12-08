@@ -1,3 +1,14 @@
+## 0.1.26
+* Add support for decorators
+* Add support for disabled steps
+* Add binary/hex/base64 TEL functions
+* Add Ollama module (experimental)
+* Add Fantoccini module
+* Add File System all-in-one byte write/read functions
+* Add HMAC, SHA2 crypto
+* JWT decoding algorithm is now configurable
+* Add Lua module
+* Add LibSQL and Postgres execute and drop connection functions
 
 ## 0.1.25
 * Add support for `throwOnHttpError` parameter in HTTP functions

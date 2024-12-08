@@ -1,7 +1,7 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [package]
 name = "turbofuro_worker"
-version = "0.1.25"
+version = "0.1.26"
 edition = "2021"
 license.workspace = true
 repository.workspace = true
