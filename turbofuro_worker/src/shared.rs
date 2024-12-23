@@ -375,6 +375,7 @@ mod test_shared {
                     "version": "1.0.0",
                     "parameters": [
                       {
+                        "type": "tel",
                         "name": "request",
                         "optional": false,
                         "description": "The incoming request object."

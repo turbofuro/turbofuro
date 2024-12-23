@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
+use std::fmt::Display;
 use std::mem;
 use std::sync::Arc;
 use std::time::Duration;
@@ -70,9 +71,22 @@ use crate::resources::{ActorResources, ResourceRegistry};
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum ParameterType {
+    Tel,
+    FunctionRef,
+    Description,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ParameterDefinition {
     pub name: String,
     pub description: Option<String>,
+    #[serde(rename = "type")]
+    pub _type: ParameterType,
+    pub optional: bool,
+    pub value_description: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -94,7 +108,7 @@ fn default_exported() -> bool {
     false
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Callee {
     Local {
         function_id: String,
@@ -105,20 +119,24 @@ pub enum Callee {
     },
 }
 
+impl Display for Callee {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Callee::Local { function_id } => write!(f, "local/{}", function_id),
+            Callee::Import {
+                import_name,
+                function_id,
+            } => write!(f, "import/{}/{}", import_name, function_id),
+        }
+    }
+}
+
 impl serde::Serialize for Callee {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        match self {
-            Callee::Local { function_id } => {
-                serializer.serialize_str(&format!("local/{}", function_id))
-            }
-            Callee::Import {
-                import_name,
-                function_id,
-            } => serializer.serialize_str(&format!("import/{}/{}", import_name, function_id)),
-        }
+        serializer.serialize_str(&self.to_string())
     }
 }
 
@@ -307,6 +325,13 @@ impl Parameter {
         Parameter::Tel {
             name: name.to_owned(),
             expression: expression.to_owned(),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        match self {
+            Parameter::Tel { name, .. } => name,
+            Parameter::FunctionRef { name, .. } => name,
         }
     }
 }
@@ -1572,7 +1597,7 @@ async fn while_inner<'a>(
     condition: &str,
     body: &Steps,
 ) -> Result<(), ExecutionError> {
-    while eval(condition, &context.storage, &context.environment)? == StorageValue::Boolean(true) {
+    while eval(condition, &context.storage, &context.environment)?.to_boolean() {
         if let Some((_id, c)) = context.loop_counts.last_mut() {
             *c += 1;
         }
@@ -1688,7 +1713,7 @@ async fn execute_step<'a>(
             ..
         } => {
             let value = eval(condition, &context.storage, &context.environment)?;
-            if value == StorageValue::Boolean(true) {
+            if value.to_boolean() {
                 execute_steps(then, context).await?;
             } else {
                 let mut matched = false;
@@ -1827,7 +1852,7 @@ async fn execute_step<'a>(
                                 },
                                 &context.environment,
                             )?;
-                            if !ok.to_boolean()? {
+                            if !ok.to_boolean() {
                                 continue;
                             }
                         }
@@ -1909,7 +1934,7 @@ async fn execute_step<'a>(
                                 },
                                 &context.environment,
                             )?;
-                            if !ok.to_boolean()? {
+                            if !ok.to_boolean() {
                                 continue;
                             }
                         }
@@ -1992,7 +2017,7 @@ async fn execute_step<'a>(
                                 },
                                 &context.environment,
                             )?;
-                            if !ok.to_boolean()? {
+                            if !ok.to_boolean() {
                                 continue;
                             }
                         }

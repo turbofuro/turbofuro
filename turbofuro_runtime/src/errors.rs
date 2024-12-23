@@ -140,6 +140,12 @@ impl From<TelError> for ErrorRepresentation {
                 })),
                 metadata: None,
             },
+            TelError::Unknown { message } => ErrorRepresentation {
+                code: "UNKNOWN".to_owned(),
+                message,
+                details: None,
+                metadata: None,
+            },
         }
     }
 }

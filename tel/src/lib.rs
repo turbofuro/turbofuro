@@ -202,14 +202,14 @@ impl StorageValue {
         }
     }
 
-    pub fn to_boolean(&self) -> Result<bool, TelError> {
+    pub fn to_boolean(&self) -> bool {
         match self {
-            StorageValue::String(s) => Ok(!s.is_empty()),
-            StorageValue::Number(f) => Ok(*f != 0.0),
-            StorageValue::Boolean(b) => Ok(*b),
-            StorageValue::Array(_) => Ok(true),
-            StorageValue::Object(_) => Ok(true),
-            StorageValue::Null(_) => Ok(false),
+            StorageValue::String(s) => !s.is_empty(),
+            StorageValue::Number(f) => *f != 0.0,
+            StorageValue::Boolean(b) => *b,
+            StorageValue::Array(_) => true,
+            StorageValue::Object(_) => true,
+            StorageValue::Null(_) => false,
         }
     }
 
@@ -426,6 +426,16 @@ pub struct TelParseError {
     actions: Vec<TelParseAction>,
 }
 
+impl Display for TelParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}:{}: {} {}",
+            self.from, self.to, self.severity, self.message
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "code", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TelError {
@@ -472,6 +482,9 @@ pub enum TelError {
         index: usize,
         method_name: String,
     },
+    Unknown {
+        message: String,
+    },
 }
 
 impl TelError {
@@ -507,6 +520,7 @@ impl TelError {
             TelError::InvalidIndex { .. } => 9,
             TelError::InvalidArgument { .. } => 10,
             TelError::MissingArgument { .. } => 11,
+            TelError::Unknown { message } => 13,
         }
     }
 }
@@ -574,6 +588,9 @@ impl Display for TelError {
             }
             TelError::MissingArgument { index, method_name } => {
                 write!(f, "Missing argument {} of {}", index, method_name)
+            }
+            TelError::Unknown { message } => {
+                write!(f, "Unknown error: {}", message)
             }
         }
     }
@@ -1278,7 +1295,7 @@ pub fn evaluate_value<T: Storage>(
         Expr::BinaryOp { lhs, op, rhs } => {
             if matches!(op, BinaryOpType::And) {
                 let l = evaluate_value(*lhs, storage, environment)?;
-                let left = l.to_boolean()?;
+                let left = l.to_boolean();
                 if left {
                     let r = evaluate_value(*rhs, storage, environment)?;
                     return Ok(r);
@@ -1288,7 +1305,7 @@ pub fn evaluate_value<T: Storage>(
 
             if matches!(op, BinaryOpType::Or) {
                 let l = evaluate_value(*lhs, storage, environment)?;
-                let left = l.to_boolean()?;
+                let left = l.to_boolean();
                 if left {
                     return Ok(l.clone());
                 }

@@ -1,0 +1,78 @@
+[
+  {
+    "id": "O0uRvEERn3vy9gCKf0y2H",
+    "type": "defineFunction",
+    "name": "My function",
+    "description": "",
+    "parameters": [],
+    "body": [
+      {
+        "id": "K8-Kqbliifd0npjUuLW0L",
+        "type": "if",
+        "condition": "2 == 2",
+        "then": [],
+        "branches": [],
+        "else": []
+      },
+      {
+        "id": "iVsOTvD8Od3UAsEuIiAqg",
+        "type": "throw",
+        "code": "\"HELLO\"",
+        "message": "\"Test\""
+      },
+      {
+        "id": "kuiDpVb_mJOr1QFaQ44Mw",
+        "type": "call",
+        "callee": "local/DQSRBN1Hok-iV_crg4pwU",
+        "parameters": [
+          {
+            "type": "tel",
+            "name": "test",
+            "expression": "5"
+          },
+          {
+            "type": "tel",
+            "name": "badboi",
+            "expression": "2137"
+          }
+        ]
+      }
+    ],
+    "exported": false,
+    "annotations": [],
+    "decorator": false
+  },
+  {
+    "id": "DQSRBN1Hok-iV_crg4pwU",
+    "type": "defineFunction",
+    "name": "Do nothing",
+    "description": "",
+    "parameters": [
+      {
+        "name": "test",
+        "description": "",
+        "optional": false,
+        "type": "tel",
+        "valueDescription": "string | null"
+      },
+      {
+        "name": "optional",
+        "description": "",
+        "optional": true,
+        "type": "tel",
+        "valueDescription": "string"
+      }
+    ],
+    "body": [
+      {
+        "id": "dSIDq-Ga5PaRsNYWjkCZP",
+        "type": "return",
+        "value": "101"
+      }
+    ],
+    "exported": false,
+    "annotations": [],
+    "outputDescription": "string",
+    "decorator": false
+  }
+]

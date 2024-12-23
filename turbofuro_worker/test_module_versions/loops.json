@@ -17,6 +17,7 @@
       "annotations": [],
       "parameters": [
         {
+          "type": "tel",
           "name": "request",
           "description": "The incoming request object.",
           "optional": false

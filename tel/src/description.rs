@@ -54,6 +54,139 @@ pub enum Description {
     Any,
 }
 
+impl Description {
+    pub fn error(&self) -> Option<TelError> {
+        match self {
+            Description::Error { error } => Some(error.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn get_part(&self) -> Description {
+        match self {
+            Description::Array {
+                item_type,
+                length: _,
+            } => *item_type.clone(),
+            Description::StringValue { value: _ } => Description::new_base_type("string.char"),
+            Description::BaseType { field_type } => {
+                if field_type.starts_with("array") {
+                    // TODO: Better array detection
+                    Description::Any
+                } else if field_type.starts_with("string") {
+                    Description::new_base_type("string.char")
+                } else {
+                    Description::Any
+                }
+            }
+            Description::ExactArray { value } => Description::Union { of: value.clone() },
+            _ => Description::Any,
+        }
+    }
+
+    pub fn is_compatible(&self, other: &Description) -> bool {
+        if (self == other) || (other == &Description::Any) {
+            return true;
+        }
+
+        if matches!(self, Description::Error { error: _ })
+            || matches!(other, Description::Error { error: _ })
+        {
+            return false;
+        }
+
+        match self {
+            Description::Null => match other {
+                Description::Null => true,
+                Description::BaseType { field_type } => field_type.starts_with("null"), // TODO: Emit warning if it doesn't exact match
+                Description::Union { of } => of.iter().any(|d| d.is_compatible(self)),
+                _ => false,
+            },
+            Description::StringValue { value } => match other {
+                Description::StringValue { value: other } => value == other,
+                Description::BaseType { field_type } => field_type.starts_with("string"), // TODO: Emit warning if it doesn't exact match
+                Description::Union { of } => of.iter().any(|d| d.is_compatible(self)),
+                _ => false,
+            },
+            Description::NumberValue { value } => match other {
+                Description::NumberValue { value: other } => value == other,
+                Description::BaseType { field_type } => field_type.starts_with("number"), // TODO: Emit warning if it doesn't exact match
+                Description::Union { of } => of.iter().any(|d| d.is_compatible(self)),
+                _ => false,
+            },
+            Description::BooleanValue { value } => match other {
+                Description::BooleanValue { value: other } => value == other,
+                Description::BaseType { field_type } => field_type.starts_with("boolean"), // TODO: Emit warning if it doesn't exact match
+                Description::Union { of } => of.iter().any(|d| d.is_compatible(self)),
+                _ => false,
+            },
+            Description::Object { value } => match other {
+                Description::Object { value: other } => {
+                    for (key, value) in value {
+                        // If the other object doesn't have the key, it is compatible
+                        if !other.contains_key(key) {
+                            continue;
+                        }
+                        if !value.is_compatible(&other[key]) {
+                            return false;
+                        }
+                    }
+                    true
+                }
+                Description::BaseType { field_type } => field_type.starts_with("object"), // TODO: Emit warning if it doesn't exact match
+                Description::Union { of } => of.iter().any(|d| d.is_compatible(self)),
+                _ => false,
+            },
+            Description::ExactArray { value } => match other {
+                Description::ExactArray { value: other } => {
+                    for (i, item) in value.iter().enumerate() {
+                        if !item.is_compatible(&other[i]) {
+                            return false;
+                        }
+                    }
+                    true
+                }
+                Description::BaseType { field_type } => field_type.starts_with("array"), // TODO: Emit warning if it doesn't exact match
+                Description::Union { of } => of.iter().any(|d| d.is_compatible(self)),
+                _ => false,
+            },
+            Description::Array { item_type, .. } => match other {
+                Description::Array {
+                    item_type: other_item_type,
+                    ..
+                } => item_type.is_compatible(other_item_type),
+                Description::BaseType { field_type } => field_type.starts_with("array"), // TODO: Emit warning if it doesn't exact match
+                Description::Union { of } => of.iter().any(|d| d.is_compatible(self)),
+                _ => false,
+            },
+            Description::BaseType { field_type } => match other {
+                Description::BaseType { field_type: other } => {
+                    let t = field_type.split(".").collect::<Vec<&str>>();
+                    let o = other.split(".").collect::<Vec<&str>>();
+                    t.first() == o.first()
+                }
+                _ => false,
+            },
+            Description::Union { of } => {
+                for item in of {
+                    if !item.is_compatible(other) {
+                        return false;
+                    }
+                }
+                true
+            }
+            Description::Error { error: _ } => false,
+            Description::Any => true,
+        }
+    }
+}
+
+impl Default for Description {
+    fn default() -> Self {
+        Self::Any
+    }
+}
+
 impl Display for Description {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_notation())
@@ -697,7 +830,7 @@ impl Description {
                 if field_type.starts_with("boolean") {
                     return Description::new_base_type("boolean");
                 }
-                return Description::Any;
+                Description::Any
             }
             Description::Union { of } => {
                 let mut descriptions = Vec::new();

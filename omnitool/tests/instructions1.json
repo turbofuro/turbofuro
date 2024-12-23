@@ -1,0 +1,128 @@
+[
+  {
+    "id": "hF-T7oV7lIU6EsbDL8U7p",
+    "type": "defineFunction",
+    "name": "Test",
+    "description": "",
+    "parameters": [
+      {
+        "name": "path",
+        "description": "Path like /home/test/a.txt",
+        "optional": false,
+        "type": "tel",
+        "valueDescription": "string"
+      }
+    ],
+    "body": [
+      {
+        "id": "ctd1bYQ7Vf0DQOtrlginL",
+        "type": "assign",
+        "value": "path.trim()",
+        "to": "trimmed"
+      },
+      {
+        "id": "_Pw_v0PnW36ta_c3qIX7Z",
+        "type": "call",
+        "callee": "import/4e8cdd5a-bb8b-4b26-b274-b4ea299b90c4/parse_json",
+        "parameters": [
+          {
+            "type": "tel",
+            "name": "json",
+            "expression": "```json\n{\n  message: \"This should be a string!\"\n}\n```"
+          }
+        ],
+        "storeAs": "result"
+      },
+      {
+        "id": "pRnjL_zkHBI5N2WjIfQQX",
+        "type": "if",
+        "condition": "result.message == \"Hello World\"",
+        "then": [
+          {
+            "id": "iDRSlzawrK_pCwssoRaFN",
+            "type": "return"
+          }
+        ],
+        "branches": [],
+        "else": []
+      },
+      {
+        "id": "pqZA2VP1tcTIWazdHMaVq",
+        "type": "forEach",
+        "item": "item",
+        "items": "[1, 2, 3]",
+        "body": [
+          {
+            "id": "Q38Stvyu-xBoVh5RzjGjN",
+            "type": "call",
+            "callee": "local/d9yDX79zAbQmEbX9kGIGn",
+            "parameters": [
+              {
+                "type": "tel",
+                "name": "a",
+                "expression": "item"
+              },
+              {
+                "type": "tel",
+                "name": "b",
+                "expression": "5"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "QrI_n3HQuk-LXcGD_u3yz",
+        "type": "assign",
+        "value": "hello",
+        "to": "undef"
+      },
+      {
+        "id": "MidGYy761QsSfrnfIhYTw",
+        "type": "return"
+      },
+      {
+        "id": "indx7bOYBOfBzQHuUb5uw",
+        "type": "assign",
+        "value": "4",
+        "to": "x"
+      }
+    ],
+    "exported": false,
+    "annotations": [],
+    "decorator": false
+  },
+  {
+    "id": "d9yDX79zAbQmEbX9kGIGn",
+    "type": "defineFunction",
+    "name": "Sum",
+    "description": "",
+    "parameters": [
+      {
+        "name": "a",
+        "description": "",
+        "optional": false,
+        "type": "tel",
+        "valueDescription": "number"
+      },
+      {
+        "name": "b",
+        "description": "",
+        "optional": false,
+        "type": "tel",
+        "valueDescription": "number"
+      }
+    ],
+    "body": [
+      {
+        "id": "GxpMh7_Yz2KF2l-BXn7sd",
+        "type": "return",
+        "value": "a + b"
+      }
+    ],
+    "exported": false,
+    "annotations": [],
+    "outputDescription": "number",
+    "decorator": false
+  }
+]
