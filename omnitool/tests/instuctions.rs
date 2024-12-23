@@ -1,4 +1,5 @@
 use omnitool::{analyze_instructions, AnalysisProblem, FunctionDeclaration, Step};
+use tel::Description;
 
 #[test]
 fn test_analyzes_1() {
@@ -6,7 +7,12 @@ fn test_analyzes_1() {
     let declarations: Vec<FunctionDeclaration> =
         serde_json::from_str(include_str!("declarations1.json")).unwrap();
 
-    let result = analyze_instructions(&instructions, declarations, vec![], None);
+    let result = analyze_instructions(
+        &instructions,
+        declarations,
+        vec!["QrI_n3HQuk-LXcGD_u3yz".to_owned()],
+        None,
+    );
 
     println!("{:?}", result);
     assert_eq!(result.len(), 12);
@@ -22,6 +28,17 @@ fn test_analyzes_1() {
                 }
             );
             continue;
+        } else if step.id == "QrI_n3HQuk-LXcGD_u3yz" {
+            let storage = step.after.unwrap();
+            assert_eq!(
+                storage.get("path").unwrap().clone(),
+                Description::new_base_type("string")
+            );
+            assert_eq!(
+                storage.get("trimmed").unwrap().clone(),
+                Description::new_base_type("string")
+            );
+            assert_eq!(storage.get("undef").unwrap().clone(), Description::Null)
         }
         assert!(step.problems.is_empty());
     }

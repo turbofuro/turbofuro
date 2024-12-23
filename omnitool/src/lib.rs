@@ -19,8 +19,8 @@ use tel::{parse, parse_description, Description, SelectorDescription, TelError, 
 pub struct StepAnalysis {
     pub id: String,
     pub problems: Vec<AnalysisProblem>,
-    pub after: HashMap<String, Description>,
-    pub before: HashMap<String, Description>,
+    pub after: Option<HashMap<String, Description>>,
+    pub before: Option<HashMap<String, Description>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -663,11 +663,20 @@ fn analyze_step(
     previous: Option<&Analysis>,
 ) -> Vec<StepAnalysis> {
     let mut list = vec![];
+    let capture_storage = context
+        .steps_to_capture
+        .contains(&step.get_step_id().to_owned());
     let mut analysis = StepAnalysis {
         id: step.get_step_id().to_owned(),
         problems: vec![],
-        after: HashMap::new(),
-        before: HashMap::new(),
+        after: None,
+        before: {
+            if capture_storage {
+                Some(context.storage.clone())
+            } else {
+                None
+            }
+        },
     };
 
     if step.is_disabled() {
@@ -1299,6 +1308,10 @@ fn analyze_step(
                 }
             }
         }
+    }
+
+    if capture_storage {
+        analysis.after = Some(context.storage.clone());
     }
 
     list.push(analysis);
