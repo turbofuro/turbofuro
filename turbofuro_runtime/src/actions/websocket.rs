@@ -33,8 +33,7 @@ pub async fn accept_ws<'a>(
 ) -> Result<(), ExecutionError> {
     let http_request_to_respond = context
         .resources
-        .http_requests_to_respond
-        .pop()
+        .pop_http_request_to_respond()
         .ok_or_else(HttpRequestToRespond::missing)?;
 
     let (response, receiver) = HttpResponse::new_ws();
@@ -69,12 +68,11 @@ pub async fn send_message<'a>(
         v => Message::Text(v.to_string().unwrap_or_default()),
     };
 
-    let websocket = context
+    let websocket = &mut context
         .resources
-        .websockets
-        .first_mut()
-        .ok_or_else(OpenWebSocket::missing)
-        .map(|r| r.0.clone())?;
+        .use_websocket(|_| true)
+        .ok_or_else(OpenWebSocket::missing)?
+        .1;
 
     let (command, receiver) = WebSocketCommand::new(message);
     websocket
@@ -101,10 +99,9 @@ pub async fn close_websocket<'a>(
 ) -> Result<(), ExecutionError> {
     let websocket = context
         .resources
-        .websockets
-        .first_mut()
-        .ok_or_else(OpenWebSocket::missing)
-        .map(|r| r.0.clone())?;
+        .pop_websocket()
+        .ok_or_else(OpenWebSocket::missing)?
+        .1;
 
     let (command, receiver) = WebSocketCommand::new(Message::Close(None));
     websocket

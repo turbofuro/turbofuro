@@ -277,7 +277,7 @@ pub async fn build_request_object(
 
                 let (sender, mut receiver) =
                     tokio::sync::mpsc::channel::<MultipartManagerCommand>(4);
-                resources.pending_form_data.push(PendingFormData(sender));
+                resources.add_pending_form_data(PendingFormData::new(sender));
                 tokio::spawn(async move {
                     while let Some(command) = receiver.recv().await {
                         match command {

@@ -7,6 +7,39 @@ use url::Url;
 
 pub type ObjectDescription = HashMap<String, Description>;
 
+pub trait DescribedStorage {
+    fn get(&self, key: &str) -> Option<&Description>;
+}
+
+impl DescribedStorage for ObjectDescription {
+    fn get(&self, key: &str) -> Option<&Description> {
+        self.get(key)
+    }
+}
+
+pub trait DescribedEnvironment {
+    fn get(&self, key: &str) -> Option<&Description>;
+}
+
+impl DescribedEnvironment for ObjectDescription {
+    fn get(&self, key: &str) -> Option<&Description> {
+        self.get(key)
+    }
+}
+/// Layered storage for evaluating expressions with multiple storages
+/// without having to duplicate the storages
+#[derive(Debug)]
+pub struct LayeredDescribedStorage<'a, 'b, T: DescribedStorage> {
+    pub top: &'a T,
+    pub down: &'b T,
+}
+
+impl DescribedStorage for LayeredDescribedStorage<'_, '_, ObjectDescription> {
+    fn get(&self, key: &str) -> Option<&Description> {
+        self.top.get(key).or_else(|| self.down.get(key))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "code", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum SelectorDescription {
@@ -85,7 +118,15 @@ impl Description {
     }
 
     pub fn is_compatible(&self, other: &Description) -> bool {
-        if (self == other) || (other == &Description::Any) {
+        if (self == other)
+            || (other == &Description::Any
+                || matches!(
+                    other,
+                    Description::BaseType {
+                        field_type
+                    } if field_type == "any"
+                ))
+        {
             return true;
         }
 
@@ -99,42 +140,46 @@ impl Description {
             Description::Null => match other {
                 Description::Null => true,
                 Description::BaseType { field_type } => field_type.starts_with("null"), // TODO: Emit warning if it doesn't exact match
-                Description::Union { of } => of.iter().any(|d| d.is_compatible(self)),
+                Description::Union { of } => of.iter().any(|d| self.is_compatible(d)),
                 _ => false,
             },
             Description::StringValue { value } => match other {
                 Description::StringValue { value: other } => value == other,
                 Description::BaseType { field_type } => field_type.starts_with("string"), // TODO: Emit warning if it doesn't exact match
-                Description::Union { of } => of.iter().any(|d| d.is_compatible(self)),
+                Description::Union { of } => of.iter().any(|d| self.is_compatible(d)),
                 _ => false,
             },
             Description::NumberValue { value } => match other {
                 Description::NumberValue { value: other } => value == other,
                 Description::BaseType { field_type } => field_type.starts_with("number"), // TODO: Emit warning if it doesn't exact match
-                Description::Union { of } => of.iter().any(|d| d.is_compatible(self)),
+                Description::Union { of } => of.iter().any(|d| self.is_compatible(d)),
                 _ => false,
             },
             Description::BooleanValue { value } => match other {
                 Description::BooleanValue { value: other } => value == other,
                 Description::BaseType { field_type } => field_type.starts_with("boolean"), // TODO: Emit warning if it doesn't exact match
-                Description::Union { of } => of.iter().any(|d| d.is_compatible(self)),
+                Description::Union { of } => of.iter().any(|d| self.is_compatible(d)),
                 _ => false,
             },
             Description::Object { value } => match other {
                 Description::Object { value: other } => {
-                    for (key, value) in value {
-                        // If the other object doesn't have the key, it is compatible
-                        if !other.contains_key(key) {
-                            continue;
-                        }
-                        if !value.is_compatible(&other[key]) {
-                            return false;
+                    for (key, other_item) in other {
+                        if let Some(item) = value.get(key) {
+                            // Check if the item is compatible
+                            if !item.is_compatible(other_item) {
+                                return false;
+                            }
+                        } else {
+                            // The key doesn't exist and the item is required
+                            if !Description::Null.is_compatible(other_item) {
+                                return false;
+                            }
                         }
                     }
                     true
                 }
                 Description::BaseType { field_type } => field_type.starts_with("object"), // TODO: Emit warning if it doesn't exact match
-                Description::Union { of } => of.iter().any(|d| d.is_compatible(self)),
+                Description::Union { of } => of.iter().any(|d| self.is_compatible(d)),
                 _ => false,
             },
             Description::ExactArray { value } => match other {
@@ -147,7 +192,7 @@ impl Description {
                     true
                 }
                 Description::BaseType { field_type } => field_type.starts_with("array"), // TODO: Emit warning if it doesn't exact match
-                Description::Union { of } => of.iter().any(|d| d.is_compatible(self)),
+                Description::Union { of } => of.iter().any(|d| self.is_compatible(d)),
                 _ => false,
             },
             Description::Array { item_type, .. } => match other {
@@ -156,7 +201,7 @@ impl Description {
                     ..
                 } => item_type.is_compatible(other_item_type),
                 Description::BaseType { field_type } => field_type.starts_with("array"), // TODO: Emit warning if it doesn't exact match
-                Description::Union { of } => of.iter().any(|d| d.is_compatible(self)),
+                Description::Union { of } => of.iter().any(|d| self.is_compatible(d)),
                 _ => false,
             },
             Description::BaseType { field_type } => match other {
@@ -1229,10 +1274,10 @@ pub fn parse_value_by_description(
     }
 }
 
-pub fn predict_description(
+pub fn predict_description<S: DescribedStorage, E: DescribedEnvironment>(
     expr: Spanned<Expr>,
-    storage: &HashMap<String, Description>,
-    environment: &HashMap<String, Description>,
+    storage: &S,
+    environment: &E,
 ) -> Description {
     match expr.0 {
         Expr::Null => Description::Null,
@@ -1471,10 +1516,10 @@ pub fn predict_description(
     }
 }
 
-pub fn evaluate_selector_description(
+pub fn evaluate_selector_description<S: DescribedStorage, E: DescribedEnvironment>(
     expr: Spanned<Expr>,
-    storage: &HashMap<String, Description>,
-    environment: &HashMap<String, Description>,
+    storage: &S,
+    environment: &E,
 ) -> Vec<SelectorDescription> {
     match expr.0 {
         Expr::Null => vec![SelectorDescription::Static {
@@ -1576,6 +1621,7 @@ enum ContextStorage<'a> {
     Object(&'a mut HashMap<String, Description>),
     Array(&'a mut Vec<Description>),
     SimpleArray(&'a mut Box<Description>),
+    Any,
 }
 
 pub fn store_description(
@@ -1599,6 +1645,9 @@ pub fn store_description(
                     ContextStorage::Array(_) | ContextStorage::SimpleArray(_) => {
                         unreachable!()
                     }
+                    ContextStorage::Any => {
+                        return Ok(());
+                    }
                 },
                 SelectorPart::Attribute(attr) => match traversed {
                     ContextStorage::Object(obj) => {
@@ -1612,6 +1661,7 @@ pub fn store_description(
                             attribute: attr.to_string(),
                         });
                     }
+                    ContextStorage::Any => return Ok(()),
                 },
                 SelectorPart::Slice(slice) => match traversed {
                     ContextStorage::Object(obj) => {
@@ -1634,6 +1684,7 @@ pub fn store_description(
                         *item_type = Box::new(merge(value, *item_type.clone()));
                         return Ok(());
                     }
+                    ContextStorage::Any => return Ok(()),
                 },
                 SelectorPart::Null => return Ok(()),
             },
@@ -1647,6 +1698,10 @@ pub fn store_description(
                             }
                             Description::ExactArray { value } => {
                                 traversed = ContextStorage::Array(value);
+                            }
+                            Description::Any => {
+                                // TODO: Emit warning
+                                traversed = ContextStorage::Any;
                             }
                             Description::Array {
                                 item_type,
@@ -1673,6 +1728,9 @@ pub fn store_description(
                     ContextStorage::Array(_) | ContextStorage::SimpleArray(_) => {
                         unreachable!()
                     }
+                    ContextStorage::Any => {
+                        traversed = ContextStorage::Any;
+                    }
                 },
                 SelectorPart::Attribute(attr) => match traversed {
                     ContextStorage::Object(obj) => match obj.get_mut(attr) {
@@ -1682,6 +1740,10 @@ pub fn store_description(
                             }
                             Description::ExactArray { value } => {
                                 traversed = ContextStorage::Array(value);
+                            }
+                            Description::Any => {
+                                // TODO: Emit warning
+                                traversed = ContextStorage::Any;
                             }
                             Description::Array {
                                 item_type,
@@ -1713,6 +1775,9 @@ pub fn store_description(
                             message: format!("array has no attribute {}", attr),
                         })
                     }
+                    ContextStorage::Any => {
+                        traversed = ContextStorage::Any;
+                    }
                 },
                 SelectorPart::Slice(slice) => match traversed {
                     ContextStorage::Object(obj) => {
@@ -1730,6 +1795,10 @@ pub fn store_description(
                                     length: _,
                                 } => {
                                     traversed = ContextStorage::SimpleArray(item_type);
+                                }
+                                Description::Any => {
+                                    // TODO: Emit warning
+                                    traversed = ContextStorage::Any;
                                 }
                                 sv => {
                                     return Err(TelError::InvalidSelector {
@@ -1771,6 +1840,10 @@ pub fn store_description(
                                     } else {
                                         traversed = ContextStorage::SimpleArray(item_type);
                                     }
+                                }
+                                Description::Any => {
+                                    // TODO: Emit warning
+                                    traversed = ContextStorage::Any;
                                 }
                                 sv => {
                                     return Err(TelError::InvalidSelector {
@@ -1822,6 +1895,9 @@ pub fn store_description(
                                 })
                             }
                         }
+                    }
+                    ContextStorage::Any => {
+                        traversed = ContextStorage::Any;
                     }
                 },
                 SelectorPart::Null => return Ok(()),

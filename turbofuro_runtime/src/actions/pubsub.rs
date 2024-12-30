@@ -9,7 +9,7 @@ use crate::{
         eval_opt_string_param, eval_optional_param_with_default, eval_string_param,
         get_optional_handler_from_parameters,
     },
-    resources::{Cancellation, CancellationSubject},
+    resources::{generate_resource_id, Cancellation, CancellationSubject, Resource},
 };
 use tel::{ObjectBody, StorageValue, NULL};
 use tracing::{debug, error, instrument};
@@ -147,7 +147,8 @@ pub async fn subscribe<'a>(
         }
     });
 
-    context.resources.cancellations.push(Cancellation {
+    context.resources.add_cancellation(Cancellation {
+        id: generate_resource_id(),
         sender: cancel_sender,
         name: cancellation_name(&channel),
         subject: CancellationSubject::PubSubSubscription,
@@ -167,30 +168,20 @@ pub async fn unsubscribe<'a>(
     if let Some(channel) = channel {
         let name = cancellation_name(&channel);
 
-        let index =
-            context.resources.cancellations.iter().position(|c| {
-                CancellationSubject::PubSubSubscription == c.subject && c.name == name
-            });
+        let cancellation = context
+            .resources
+            .pop_cancellation_where(|c| {
+                matches!(c.subject, CancellationSubject::PubSubSubscription) && c.name == name
+            })
+            .ok_or_else(Cancellation::missing)?;
 
-        if let Some(i) = index {
-            let cancellation = context.resources.cancellations.remove(i);
-            cancellation.sender.send(()).unwrap();
-        } else {
-            return Err(ExecutionError::MissingResource {
-                resource_type: "cancellation".into(),
-            });
-        }
+        cancellation.sender.send(()).unwrap();
     } else {
         // Unsubscribe all
-        let mut index = 0;
-        while index < context.resources.cancellations.len() {
-            let cancellation = context.resources.cancellations.remove(index);
-            if cancellation.subject == CancellationSubject::PubSubSubscription {
-                cancellation.sender.send(()).unwrap();
-            } else {
-                context.resources.cancellations.push(cancellation);
-                index += 1;
-            }
+        while let Some(cancellation) = context.resources.pop_cancellation_where(|c| {
+            matches!(c.subject, CancellationSubject::PubSubSubscription)
+        }) {
+            cancellation.sender.send(()).unwrap();
         }
     }
 

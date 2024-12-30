@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use crate::{
     actor::ActorCommand,
     evaluations::{eval_opt_string_param, eval_string_param, get_optional_handler_from_parameters},
-    resources::{Cancellation, CancellationSubject},
+    resources::{generate_resource_id, Cancellation, CancellationSubject},
 };
 use deadpool_redis::{Config, Runtime};
 use futures_util::StreamExt;
@@ -64,11 +64,10 @@ pub async fn get_connection<'a>(
         setup_pubsub_coordinator(&connection_string, context.global.clone()).await?;
 
     // Put to the registry
-    context
-        .global
-        .registry
-        .redis_pools
-        .insert(name, RedisPool(pool, coordinator_handle));
+    context.global.registry.redis_pools.insert(
+        name,
+        RedisPool(generate_resource_id(), pool, coordinator_handle),
+    );
 
     Ok(())
 }
@@ -101,7 +100,7 @@ pub async fn low_level_command<'a>(
             .redis_pools
             .get(&name)
             .ok_or_else(RedisPool::missing)
-            .map(|r| r.value().0.clone())?
+            .map(|r| r.value().1.clone())?
     };
 
     let mut connection = redis_pool
@@ -157,14 +156,14 @@ pub async fn subscribe<'a>(
             .redis_pools
             .get(&name)
             .ok_or_else(RedisPool::missing)
-            .map(|r| r.value().1.clone())?
+            .map(|r| r.value().2.clone())?
     };
 
     let cancellation = redis_subscriber
         .subscribe(channel, context.actor_id.clone(), handler)
         .await?;
 
-    context.resources.cancellations.push(cancellation);
+    context.resources.add_cancellation(cancellation);
 
     Ok(())
 }
@@ -185,17 +184,18 @@ pub async fn unsubscribe<'a>(
             .redis_pools
             .get(&name)
             .ok_or_else(RedisPool::missing)
-            .map(|r| r.value().1.clone())?
+            .map(|r| r.value().2.clone())?
     };
 
     redis_subscriber
         .unsubscribe(channel.clone(), context.actor_id.clone())
         .await?;
 
-    context
-        .resources
-        .cancellations
-        .retain(|c| c.name != cancellation_name(&channel));
+    while let Some(cancellation) = context.resources.pop_cancellation_where(|c| {
+        matches!(c.subject, CancellationSubject::RedisPubSubSubscription) && c.name == name
+    }) {
+        drop(cancellation);
+    }
 
     Ok(())
 }
@@ -333,6 +333,7 @@ impl RedisPubSubCoordinatorHandle {
         });
 
         Ok(Cancellation {
+            id: generate_resource_id(),
             sender,
             name: cancellation_name(&channel),
             subject: CancellationSubject::RedisPubSubSubscription,

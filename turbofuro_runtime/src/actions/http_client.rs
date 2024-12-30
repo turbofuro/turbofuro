@@ -20,7 +20,8 @@ use crate::{
     executor::{ExecutionContext, Parameter},
     http_utils::decode_text_with_encoding,
     resources::{
-        FormDataDraft, HttpClient, HttpRequestToRespond, PendingHttpResponseBody, Resource,
+        generate_resource_id, FormDataDraft, HttpClient, HttpRequestToRespond,
+        PendingHttpResponseBody, Resource,
     },
 };
 
@@ -326,7 +327,7 @@ async fn bare_http_request<'a>(
             .http_clients
             .get(&name)
             .ok_or_else(HttpClient::missing)
-            .map(|r| r.value().clone().0)?,
+            .map(|r| r.value().clone().1)?,
         None => CLIENT.clone(),
     };
 
@@ -452,7 +453,7 @@ pub async fn build_client<'a>(
         .global
         .registry
         .http_clients
-        .insert(name, HttpClient(client));
+        .insert(name, HttpClient(generate_resource_id(), client));
 
     Ok(())
 }
@@ -509,7 +510,7 @@ pub async fn send_http_request_with_stream<'a>(
         eval_opt_boolean_param("throwOnHttpError", parameters, context)?.unwrap_or(true);
 
     // Pick a stream and set it as body
-    let stream = context.resources.get_nearest_stream()?;
+    let stream = context.resources.get_stream()?;
     request_builder = request_builder.body(Body::wrap_stream(stream));
 
     let response = bare_http_request(context, parameters, request_builder).await?;
@@ -552,11 +553,10 @@ pub async fn send_http_request_with_form_data<'a>(
     // Get form data from resources
     let form_data = context
         .resources
-        .form_data
-        .pop()
+        .pop_form_data()
         .ok_or_else(FormDataDraft::missing)?;
 
-    request_builder = request_builder.multipart(form_data.0);
+    request_builder = request_builder.multipart(form_data.1);
 
     let response = bare_http_request(context, parameters, request_builder).await?;
     let metadata = get_metadata_object_from_response(&response);
@@ -604,8 +604,7 @@ pub async fn stream_http_request<'a>(
     // Put pending response
     context
         .resources
-        .pending_response_body
-        .push(PendingHttpResponseBody::new(response));
+        .add_pending_response_body(PendingHttpResponseBody::new(response));
 
     if throw_on_http_error && is_errored {
         return Err(ExecutionError::HttpResponseError {
@@ -636,7 +635,7 @@ pub async fn stream_http_request_with_stream<'a>(
         eval_opt_boolean_param("throwOnHttpError", parameters, context)?.unwrap_or(true);
 
     // Pick a stream and set it as body
-    let stream = context.resources.get_nearest_stream()?;
+    let stream = context.resources.get_stream()?;
     request_builder = request_builder.body(Body::wrap_stream(stream));
 
     let response = bare_http_request(context, parameters, request_builder).await?;
@@ -646,8 +645,7 @@ pub async fn stream_http_request_with_stream<'a>(
     // Put pending response
     context
         .resources
-        .pending_response_body
-        .push(PendingHttpResponseBody::new(response));
+        .add_pending_response_body(PendingHttpResponseBody::new(response));
 
     if throw_on_http_error && is_errored {
         return Err(ExecutionError::HttpResponseError {
@@ -681,11 +679,10 @@ pub async fn stream_http_request_with_form_data<'a>(
     // Get form data from resources
     let form_data = context
         .resources
-        .form_data
-        .pop()
+        .pop_form_data()
         .ok_or_else(FormDataDraft::missing)?;
 
-    request_builder = request_builder.multipart(form_data.0);
+    request_builder = request_builder.multipart(form_data.1);
 
     let response = bare_http_request(context, parameters, request_builder).await?;
     let metadata = get_metadata_object_from_response(&response);
@@ -694,8 +691,7 @@ pub async fn stream_http_request_with_form_data<'a>(
     // Put pending response
     context
         .resources
-        .pending_response_body
-        .push(PendingHttpResponseBody::new(response));
+        .add_pending_response_body(PendingHttpResponseBody::new(response));
 
     if throw_on_http_error && is_errored {
         return Err(ExecutionError::HttpResponseError {

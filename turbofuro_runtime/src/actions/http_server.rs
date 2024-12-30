@@ -20,7 +20,9 @@ use crate::{
         get_handlers_from_parameters,
     },
     executor::{ExecutionContext, Parameter},
-    resources::{HttpRequestToRespond, HttpResponse, OpenSseStream, Resource},
+    resources::{
+        generate_resource_id, HttpRequestToRespond, HttpResponse, OpenSseStream, Resource,
+    },
 };
 
 #[instrument(level = "debug", skip_all)]
@@ -157,8 +159,7 @@ pub async fn respond_with<'a>(
 
     let http_request_to_respond = context
         .resources
-        .http_requests_to_respond
-        .pop()
+        .pop_http_request_to_respond()
         .ok_or_else(HttpRequestToRespond::missing)?;
 
     // TODO: Make this more verbose and handle other types by specialized functions
@@ -333,7 +334,7 @@ pub async fn respond_with_stream<'a>(
     let mut response_builder = Response::builder().status(status as u16);
     // TODO: Make this more verbose and handle other types by specialized functions
     let response = {
-        let stream = context.resources.get_nearest_stream()?;
+        let stream = context.resources.get_stream()?;
         let body = Body::from_stream(stream);
 
         response_builder = fill_headers_response(response_builder, headers_param, cookies_param)?;
@@ -348,8 +349,7 @@ pub async fn respond_with_stream<'a>(
 
     let http_request_to_respond = context
         .resources
-        .http_requests_to_respond
-        .pop()
+        .pop_http_request_to_respond()
         .ok_or_else(HttpRequestToRespond::missing)?;
 
     let (response, receiver) = HttpResponse::new(response);
@@ -394,8 +394,7 @@ pub async fn respond_with_sse_stream<'a>(
 
     let http_request_to_respond = context
         .resources
-        .http_requests_to_respond
-        .pop()
+        .pop_http_request_to_respond()
         .ok_or_else(HttpRequestToRespond::missing)?;
 
     let (disconnect_sender, disconnect_receiver) = oneshot::channel::<StorageValue>();
@@ -440,8 +439,7 @@ pub async fn respond_with_sse_stream<'a>(
 
     context
         .resources
-        .sse_streams
-        .push(OpenSseStream(event_sender));
+        .add_sse_stream(OpenSseStream(generate_resource_id(), event_sender));
 
     receiver.await.map_err(|e| ExecutionError::StateInvalid {
         message: "Failed to receive confirmation on HTTP response".to_owned(),
@@ -471,12 +469,11 @@ pub async fn send_sse<'a>(
 
     let sse_stream = context
         .resources
-        .sse_streams
-        .last_mut()
+        .use_sse_stream(|_| true)
         .ok_or_else(OpenSseStream::missing)?;
 
     sse_stream
-        .0
+        .1
         .send(Ok(event))
         .await
         .map_err(|e| ExecutionError::StateInvalid {
@@ -497,8 +494,7 @@ pub async fn close_sse_stream<'a>(
 ) -> Result<(), ExecutionError> {
     let sse_stream = context
         .resources
-        .sse_streams
-        .pop()
+        .pop_sse_stream()
         .ok_or_else(OpenSseStream::missing)?;
 
     drop(sse_stream);

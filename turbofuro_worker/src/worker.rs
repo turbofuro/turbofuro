@@ -36,8 +36,8 @@ use turbofuro_runtime::errors::ExecutionError;
 use turbofuro_runtime::executor::{CompiledModule, Environment, Global};
 use turbofuro_runtime::http_utils::{build_metadata_from_parts, build_request_object};
 use turbofuro_runtime::resources::{
-    ActorLink, ActorResources, HttpRequestToRespond, HttpResponse, OpenWebSocket,
-    PendingHttpRequestBody, Resource, Route, WebSocketCommand,
+    generate_resource_id, ActorLink, ActorResources, HttpRequestToRespond, HttpResponse,
+    OpenWebSocket, PendingHttpRequestBody, Resource, Route, WebSocketCommand,
 };
 use turbofuro_runtime::{handle_dangling_error, spawn_kv_cleaner, ObjectBody, StorageValue};
 
@@ -56,13 +56,14 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
 
     // Let's run on connection handler
     {
-        let mut scoped_resources = ActorResources::default();
-        scoped_resources
-            .websockets
-            .push(OpenWebSocket(ws_command_sender.clone()));
+        let mut actor_resources = ActorResources::default();
+        actor_resources.add_websocket(OpenWebSocket(
+            generate_resource_id(),
+            ws_command_sender.clone(),
+        ));
 
         actor_link
-            .send(ActorCommand::TakeResources(scoped_resources))
+            .send(ActorCommand::TakeResources(actor_resources))
             .await?;
 
         actor_link
@@ -198,11 +199,10 @@ async fn handle_request(
 
     let (http_response_sender, http_response_receiver) = oneshot::channel::<HttpResponse>();
     let mut resources = ActorResources::default();
-    resources
-        .http_requests_to_respond
-        .push(HttpRequestToRespond {
-            response_sender: http_response_sender,
-        });
+    resources.add_http_request_to_respond(HttpRequestToRespond {
+        id: generate_resource_id(),
+        response_sender: http_response_sender,
+    });
 
     // Build initial storage
     let mut initial_storage = ObjectBody::new();
@@ -214,9 +214,7 @@ async fn handle_request(
         let (mut parts, body) = request.into_parts();
         let (request_object, _) = build_metadata_from_parts(&mut parts).await;
         initial_storage.insert("request".to_string(), StorageValue::Object(request_object));
-        resources
-            .pending_request_body
-            .push(PendingHttpRequestBody(body));
+        resources.add_pending_request_body(PendingHttpRequestBody(generate_resource_id(), body));
     }
 
     let handlers = route.handlers.clone();

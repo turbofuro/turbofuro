@@ -6,7 +6,7 @@ use crate::{
         get_optional_handler_from_parameters,
     },
     executor::{ExecutionContext, Global, Parameter},
-    resources::{Cancellation, CancellationSubject, Resource},
+    resources::{generate_resource_id, Cancellation, CancellationSubject, Resource},
 };
 use chrono::Local;
 use croner::Cron;
@@ -108,7 +108,8 @@ pub async fn set_alarm<'a>(
         }
     });
 
-    context.resources.cancellations.push(Cancellation {
+    context.resources.add_cancellation(Cancellation {
+        id: generate_resource_id(),
         name: cancellation_name(alarm_id),
         sender,
         subject: CancellationSubject::Alarm,
@@ -218,7 +219,8 @@ pub async fn set_interval<'a>(
         }
     });
 
-    context.resources.cancellations.push(Cancellation {
+    context.resources.add_cancellation(Cancellation {
+        id: generate_resource_id(),
         name: cancellation_name(alarm_id),
         sender,
         subject: CancellationSubject::Alarm,
@@ -233,18 +235,19 @@ pub async fn cancel_alarm<'a>(
     _parameters: &[Parameter],
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let index = context
+    let cancellation = context
         .resources
-        .cancellations
-        .iter()
-        .position(|c| matches!(c.subject, CancellationSubject::Alarm));
+        .pop_cancellation_where(|c| matches!(c.subject, CancellationSubject::Alarm))
+        .ok_or_else(Cancellation::missing)?;
 
-    if let Some(i) = index {
-        let cancellation = context.resources.cancellations.remove(i);
-        cancellation.sender.send(()).unwrap();
-    } else {
-        return Err(Cancellation::missing());
-    }
+    cancellation
+        .sender
+        .send(())
+        .map_err(|_| ExecutionError::StateInvalid {
+            message: "Could not send cancel alarm".to_owned(),
+            subject: "alarm".to_owned(),
+            inner: "Send error".to_owned(),
+        })?;
 
     Ok(())
 }
@@ -374,7 +377,8 @@ pub async fn setup_cronjob<'a>(
         }
     });
 
-    context.resources.cancellations.push(Cancellation {
+    context.resources.add_cancellation(Cancellation {
+        id: generate_resource_id(),
         name: cancellation_name(alarm_id),
         sender,
         subject: CancellationSubject::Cronjob,

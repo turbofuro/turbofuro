@@ -5,7 +5,7 @@ use crate::{
         eval_opt_u64_param, eval_optional_param_with_default, get_handler_from_parameters,
     },
     executor::{ExecutionContext, Global, Parameter},
-    resources::{Cancellation, CancellationSubject, Resource},
+    resources::{generate_resource_id, Cancellation, CancellationSubject, Resource},
 };
 use std::{
     collections::HashMap,
@@ -61,7 +61,8 @@ pub async fn run_task_continuously<'a>(
         }
     });
 
-    context.resources.cancellations.push(Cancellation {
+    context.resources.add_cancellation(Cancellation {
+        id: generate_resource_id(),
         name: cancellation_name(task_id),
         sender,
         subject: CancellationSubject::Task,
@@ -123,18 +124,12 @@ pub async fn cancel_task<'a>(
     _parameters: &[Parameter],
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let index = context
+    let cancellation = context
         .resources
-        .cancellations
-        .iter()
-        .position(|c| matches!(c.subject, CancellationSubject::Task));
+        .pop_cancellation_where(|c| matches!(c.subject, CancellationSubject::Task))
+        .ok_or_else(Cancellation::missing)?;
 
-    if let Some(i) = index {
-        let cancellation = context.resources.cancellations.remove(i);
-        cancellation.sender.send(()).unwrap();
-    } else {
-        return Err(Cancellation::missing());
-    }
+    cancellation.sender.send(()).unwrap();
 
     Ok(())
 }

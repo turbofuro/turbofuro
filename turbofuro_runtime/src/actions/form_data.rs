@@ -9,7 +9,7 @@ use crate::{
     errors::ExecutionError,
     evaluations::{eval_opt_string_param, eval_opt_u64_param, eval_string_param},
     executor::{ExecutionContext, Parameter},
-    resources::{FormDataDraft, Resource},
+    resources::{generate_resource_id, FormDataDraft, Resource},
 };
 
 #[instrument(level = "trace", skip_all)]
@@ -20,7 +20,9 @@ pub fn create_form_data<'a>(
     _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let form: Form = Form::new();
-    context.resources.form_data.push(FormDataDraft(form));
+    context
+        .resources
+        .add_form_data(FormDataDraft(generate_resource_id(), form));
     Ok(())
 }
 
@@ -55,11 +57,10 @@ pub async fn add_stream_part_to_form_data<'a>(
     // Get form data from resources
     let mut form_data = context
         .resources
-        .form_data
-        .pop()
+        .pop_form_data()
         .ok_or_else(FormDataDraft::missing)?;
 
-    let stream = context.resources.get_nearest_stream()?;
+    let stream = context.resources.get_stream()?;
 
     let mut part: Part = {
         if let Some(size) = size_param {
@@ -82,10 +83,10 @@ pub async fn add_stream_part_to_form_data<'a>(
             })?;
     }
 
-    form_data.0 = form_data.0.part(name, part);
+    form_data.1 = form_data.1.part(name, part);
 
     // Store the form data back to resources
-    context.resources.form_data.push(form_data);
+    context.resources.add_form_data(form_data);
 
     Ok(())
 }
@@ -105,8 +106,7 @@ pub async fn add_text_part_to_form_data<'a>(
     // Get form data from resources
     let mut form_data = context
         .resources
-        .form_data
-        .pop()
+        .pop_form_data()
         .ok_or_else(FormDataDraft::missing)?;
 
     let mut part: Part = Part::text(value);
@@ -124,10 +124,10 @@ pub async fn add_text_part_to_form_data<'a>(
             })?;
     }
 
-    form_data.0 = form_data.0.part(name, part);
+    form_data.1 = form_data.1.part(name, part);
 
     // Store the form data back to resources
-    context.resources.form_data.push(form_data);
+    context.resources.add_form_data(form_data);
 
     Ok(())
 }

@@ -7,7 +7,7 @@ use crate::{
     errors::ExecutionError,
     evaluations::{eval_opt_string_param, eval_string_param},
     executor::{ExecutionContext, Parameter},
-    resources::{Resource, WebDriverClient, WebDriverElement},
+    resources::{generate_resource_id, Resource, WebDriverClient, WebDriverElement},
 };
 
 use super::store_value;
@@ -72,7 +72,9 @@ pub async fn get_client<'a>(
 
     debug!("Created WebDriver client");
 
-    context.resources.webdriver_clients.push(WebDriverClient(c));
+    context
+        .resources
+        .add_webdriver_client(WebDriverClient(generate_resource_id(), c));
 
     Ok(())
 }
@@ -85,16 +87,13 @@ pub async fn execute<'a>(
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let script = eval_string_param("script", parameters, context)?;
-    // let params = eval_a("script", parameters, context)?;
 
-    // Retrieve the connection pool
     let client = context
         .resources
-        .webdriver_clients
-        .last_mut()
+        .use_webdriver_client(|_| true)
         .ok_or_else(WebDriverClient::missing)?;
 
-    let c = &mut client.0;
+    let c = &mut client.1;
     let json = c
         .execute(&script, vec![])
         .await
@@ -123,14 +122,12 @@ pub async fn goto<'a>(
 ) -> Result<(), ExecutionError> {
     let url = eval_string_param("url", parameters, context)?;
 
-    // Retrieve the connection pool
     let client = context
         .resources
-        .webdriver_clients
-        .last_mut()
+        .use_webdriver_client(|_| true)
         .ok_or_else(WebDriverClient::missing)?;
 
-    let c = &mut client.0;
+    let c = &mut client.1;
     c.goto(&url)
         .await
         .map_err(|e| ExecutionError::WebDriverError {
@@ -150,13 +147,9 @@ pub async fn screenshot<'a>(
 ) -> Result<(), ExecutionError> {
     let element = &mut context
         .resources
-        .webdriver_elements
-        .last_mut()
-        .ok_or_else(|| ExecutionError::WebDriverError {
-            message: "No element found".to_owned(),
-            stage: "get_element".into(),
-        })?
-        .0;
+        .use_webdriver_element(|_| true)
+        .ok_or_else(WebDriverElement::missing)?
+        .1;
 
     let screenshot = element
         .screenshot()
@@ -185,13 +178,9 @@ pub async fn click<'a>(
 ) -> Result<(), ExecutionError> {
     let element = &mut context
         .resources
-        .webdriver_elements
-        .last_mut()
-        .ok_or_else(|| ExecutionError::WebDriverError {
-            message: "No element found".to_owned(),
-            stage: "get_element".into(),
-        })?
-        .0;
+        .use_webdriver_element(|_| true)
+        .ok_or_else(WebDriverElement::missing)?
+        .1;
 
     element
         .click()
@@ -213,13 +202,9 @@ pub async fn get_text<'a>(
 ) -> Result<(), ExecutionError> {
     let element = &mut context
         .resources
-        .webdriver_elements
-        .last_mut()
-        .ok_or_else(|| ExecutionError::WebDriverError {
-            message: "No element found".to_owned(),
-            stage: "get_element".into(),
-        })?
-        .0;
+        .use_webdriver_element(|_| true)
+        .ok_or_else(WebDriverElement::missing)?
+        .1;
 
     let text = element
         .text()
@@ -242,13 +227,9 @@ pub async fn get_html<'a>(
 ) -> Result<(), ExecutionError> {
     let element = &mut context
         .resources
-        .webdriver_elements
-        .last_mut()
-        .ok_or_else(|| ExecutionError::WebDriverError {
-            message: "No element found".to_owned(),
-            stage: "get_element".into(),
-        })?
-        .0;
+        .use_webdriver_element(|_| true)
+        .ok_or_else(WebDriverElement::missing)?
+        .1;
 
     let html = element
         .html(true)
@@ -272,13 +253,9 @@ pub async fn get_attribute<'a>(
     let name = eval_string_param("name", parameters, context)?;
     let element = &mut context
         .resources
-        .webdriver_elements
-        .last_mut()
-        .ok_or_else(|| ExecutionError::WebDriverError {
-            message: "No element found".to_owned(),
-            stage: "get_element".into(),
-        })?
-        .0;
+        .use_webdriver_element(|_| true)
+        .ok_or_else(WebDriverElement::missing)?
+        .1;
 
     let attr = element
         .attr(name.as_str())
@@ -308,13 +285,9 @@ pub async fn get_property<'a>(
     let name = eval_string_param("name", parameters, context)?;
     let element = &mut context
         .resources
-        .webdriver_elements
-        .last_mut()
-        .ok_or_else(|| ExecutionError::WebDriverError {
-            message: "No element found".to_owned(),
-            stage: "get_element".into(),
-        })?
-        .0;
+        .use_webdriver_element(|_| true)
+        .ok_or_else(WebDriverElement::missing)?
+        .1;
 
     let prop = element
         .prop(name.as_str())
@@ -344,13 +317,9 @@ pub async fn send_keys<'a>(
     let input = eval_string_param("input", parameters, context)?;
     let element = &mut context
         .resources
-        .webdriver_elements
-        .last_mut()
-        .ok_or_else(|| ExecutionError::WebDriverError {
-            message: "No element found".to_owned(),
-            stage: "get_element".into(),
-        })?
-        .0;
+        .use_webdriver_element(|_| true)
+        .ok_or_else(WebDriverElement::missing)?
+        .1;
 
     element
         .send_keys(&input)
@@ -423,13 +392,11 @@ pub async fn get_element<'a>(
     let xpath = eval_opt_string_param("xpath", parameters, context)?;
     let css = eval_opt_string_param("css", parameters, context)?;
 
-    // Retrieve the connection pool
     let client = context
         .resources
-        .webdriver_clients
-        .last_mut()
+        .use_webdriver_client(|_| true)
         .ok_or_else(WebDriverClient::missing)?;
-    let c = &mut client.0;
+    let c = &mut client.1;
 
     let element =
         match (xpath, css) {
@@ -463,8 +430,7 @@ pub async fn get_element<'a>(
 
     context
         .resources
-        .webdriver_elements
-        .push(WebDriverElement(element));
+        .add_webdriver_element(WebDriverElement(generate_resource_id(), element));
 
     Ok(())
 }
@@ -479,13 +445,11 @@ pub async fn get_elements<'a>(
     let xpath = eval_opt_string_param("xpath", parameters, context)?;
     let css = eval_opt_string_param("css", parameters, context)?;
 
-    // Retrieve the connection pool
     let client = context
         .resources
-        .webdriver_clients
-        .last_mut()
+        .use_webdriver_client(|_| true)
         .ok_or_else(WebDriverClient::missing)?;
-    let c = &mut client.0;
+    let c = &mut client.1;
 
     let elements =
         match (xpath, css) {
@@ -515,10 +479,11 @@ pub async fn get_elements<'a>(
             }
         };
 
-    context
-        .resources
-        .webdriver_elements
-        .append(&mut elements.into_iter().map(WebDriverElement).collect());
+    for element in elements {
+        context
+            .resources
+            .add_webdriver_element(WebDriverElement(generate_resource_id(), element));
+    }
 
     Ok(())
 }
@@ -529,7 +494,8 @@ pub async fn drop_element<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let removed = &mut context.resources.webdriver_elements.pop();
+    let removed = context.resources.pop_webdriver_element();
+
     store_value(store_as, context, step_id, removed.is_some().into()).await?;
 
     Ok(())
@@ -543,15 +509,12 @@ pub async fn select_option<'a>(
     _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let label = eval_string_param("label", parameters, context)?;
+
     let element = &mut context
         .resources
-        .webdriver_elements
-        .last_mut()
-        .ok_or_else(|| ExecutionError::WebDriverError {
-            message: "No element found".to_owned(),
-            stage: "get_element".into(),
-        })?
-        .0;
+        .use_webdriver_element(|_| true)
+        .ok_or_else(WebDriverElement::missing)?
+        .1;
 
     element
         .select_by_label(&label)
@@ -571,7 +534,8 @@ pub async fn drop_client<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    let removed = context.resources.webdriver_clients.pop();
+    let removed = context.resources.pop_webdriver_client();
+
     store_value(store_as, context, step_id, removed.is_some().into()).await?;
 
     Ok(())

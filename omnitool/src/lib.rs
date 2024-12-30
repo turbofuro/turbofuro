@@ -13,7 +13,17 @@ use std::{
     fmt::{self, Display},
 };
 
-use tel::{parse, parse_description, Description, SelectorDescription, TelError, TelParseError};
+use tel::{
+    parse, parse_description, DescribedEnvironment, DescribedStorage, Description,
+    LayeredDescribedStorage, ObjectBody, ObjectDescription, Selector, SelectorDescription,
+    StorageValue, TelError, TelParseError,
+};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StepProbe {
+    pub id: String,
+    pub output: Description,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StepAnalysis {
@@ -34,6 +44,16 @@ pub enum ResourceOperation {
 pub struct ResourceEvent {
     resource: String,
     operation: ResourceOperation,
+}
+
+fn resource_matches(tested: &str, by: &str) -> bool {
+    if by == "streamable" {
+        return tested == "pending_http_request"
+            || tested == "pending_http_response"
+            || tested == "pending_form_data_field"
+            || tested == "file_handle";
+    }
+    by == tested
 }
 
 #[derive(Debug, Clone)]
@@ -76,26 +96,31 @@ impl ResourceEvent {
             _ => None,
         }
     }
+}
 
-    fn to_annotation(&self) -> FunctionAnnotation {
-        match self.operation {
-            ResourceOperation::Provision => FunctionAnnotation::Provision {
-                resource: self.resource.clone(),
-            },
-            ResourceOperation::Consumption => FunctionAnnotation::Consumption {
-                resource: self.resource.clone(),
-            },
-            ResourceOperation::Usage => FunctionAnnotation::Requirement {
-                resource: self.resource.clone(),
-            },
+#[derive(Debug, Clone)]
+pub struct FakeEnvironment {
+    value: Description,
+}
+
+impl Default for FakeEnvironment {
+    fn default() -> Self {
+        Self {
+            value: Description::new_base_type("string"),
         }
+    }
+}
+
+impl DescribedEnvironment for FakeEnvironment {
+    fn get(&self, _key: &str) -> Option<&Description> {
+        Some(&self.value)
     }
 }
 
 #[derive(Debug, Clone)]
 struct Context {
     storage: HashMap<String, Description>,
-    environment: HashMap<String, Description>,
+    environment: FakeEnvironment,
     references: HashMap<String, Option<String>>,
     inside_loop: bool,
     resources: Vec<PredicatedResource>,
@@ -110,7 +135,7 @@ impl Context {
     pub fn find_resource(&mut self, resource: &str) -> Option<PredicatedResource> {
         self.resources
             .iter()
-            .find(|r| r.resource == resource)
+            .find(|r| resource_matches(r.resource.as_str(), resource))
             .cloned()
     }
 
@@ -118,8 +143,7 @@ impl Context {
         let to_remove = self
             .resources
             .iter()
-            .rev()
-            .position(|r| r.resource == resource && r.consumable);
+            .rposition(|r| resource_matches(&r.resource, resource) && r.consumable);
 
         if let Some(i) = to_remove {
             let item = self.resources.remove(i);
@@ -134,10 +158,10 @@ impl Context {
     }
 }
 
-pub fn parse_and_predict_description(
+pub fn parse_and_predict_description<T: DescribedStorage, E: DescribedEnvironment>(
     expression: String,
-    storage: &HashMap<String, Description>,
-    environment: &HashMap<String, Description>,
+    storage: &T,
+    environment: &E,
 ) -> Description {
     let result = parse(&expression);
     if !result.errors.is_empty() {
@@ -852,11 +876,7 @@ fn analyze_step(
 
                 // Update storage with output description
                 if let Some(output_description) = function.output_description {
-                    let description = parse_and_predict_description(
-                        output_description,
-                        &context.storage,
-                        &context.environment,
-                    );
+                    let description = parse_and_evaluate_description_notation(&output_description);
 
                     let (description, mut problems) =
                         description_to_problems(description, Some("outputDescription".to_owned()));
@@ -899,7 +919,7 @@ fn analyze_step(
 
             let mut function_context = Context {
                 storage: HashMap::new(),
-                environment: HashMap::new(),
+                environment: FakeEnvironment::default(),
                 inside_loop: false,
                 resources,
                 functions: context.functions.clone(),
@@ -947,68 +967,8 @@ fn analyze_step(
                 list.append(&mut analyze_step(&mut function_context, step, previous));
             }
 
-            // Gather all resource events, compute annotations
-            // warn if some if missing or unnecessary
-            let mut computed_annotations = vec![];
-            // Used to exclude internal resources - ones that the function is opening and closing
-            let mut created_resources = vec![];
-            for event in &mut context.resource_events {
-                match event.operation {
-                    ResourceOperation::Provision => {
-                        created_resources.push(event);
-                    }
-                    ResourceOperation::Consumption => {
-                        let position = created_resources
-                            .iter()
-                            .position(|r| *r.resource == event.resource);
-                        if let Some(position) = position {
-                            created_resources.remove(position);
-                        } else {
-                            computed_annotations.push(event.to_annotation());
-                        }
-                    }
-                    ResourceOperation::Usage => {
-                        let created = created_resources
-                            .iter()
-                            .find(|r| *r.resource == event.resource);
-                        if created.is_none() {
-                            // Add annotation
-                            computed_annotations.push(event.to_annotation());
-                        }
-                    }
-                }
-            }
-            let mut provision = created_resources
-                .into_iter()
-                .map(|e| e.to_annotation())
-                .collect::<Vec<FunctionAnnotation>>();
-            computed_annotations.append(&mut provision);
-
-            // Compare computed annotations
-
-            // Find missing annotations
-            for computed in computed_annotations.iter() {
-                let found = annotations.iter().any(|a| *a == *computed);
-                if !found {
-                    analysis.problems.push(AnalysisProblem::Warning {
-                        code: "MISSING_ANNOTATION".to_owned(),
-                        message: format!("Missing annotation {:?}", computed),
-                        field: None,
-                    });
-                }
-            }
-
-            // Find unnecessary annotations
-            for annotation in annotations {
-                let found = computed_annotations.iter().any(|a| *a == *annotation);
-                if !found {
-                    analysis.problems.push(AnalysisProblem::Warning {
-                        code: "ADDITIONAL_ANNOTATION".to_owned(),
-                        message: format!("Additional annotation {:?}", annotation),
-                        field: None,
-                    });
-                }
-            }
+            // TODO: Compute annotations
+            // For every sub-context let's observe the resources
         }
         Step::DefineNativeFunction {
             parameters,
@@ -1287,12 +1247,19 @@ fn analyze_step(
 
             if let Some(map) = map {
                 if let Some(value) = value {
-                    let _item_description = value.get_part();
-                    // TODO: Use LayeredStorage add "value" to predict storage with the item description
+                    // Prepare context storage for the evaluation
+                    let item_description = value.get_part();
+                    let mut top: ObjectDescription = HashMap::new();
+                    top.insert("value".to_owned(), item_description);
+                    let storage = LayeredDescribedStorage {
+                        top: &top,
+                        down: &context.storage,
+                    };
 
+                    // Evaluate
                     let item_description = parse_and_predict_description(
                         map.to_string(),
-                        &context.storage,
+                        &storage,
                         &context.environment,
                     );
                     let value = Description::Array {
@@ -1361,7 +1328,7 @@ pub fn analyze_instructions(
     for step in steps {
         let mut context = Context {
             storage: HashMap::new(),
-            environment: HashMap::new(),
+            environment: FakeEnvironment::default(),
             inside_loop: false,
             resources: vec![],
             functions: declarations.clone(),
@@ -1384,7 +1351,7 @@ mod test_analyzer {
     fn test_context() -> Context {
         Context {
             storage: HashMap::new(),
-            environment: HashMap::new(),
+            environment: FakeEnvironment::default(),
             inside_loop: false,
             resources: vec![],
             functions: vec![],
@@ -1436,29 +1403,670 @@ mod test_analyzer {
  */
 #[wasm_bindgen(typescript_custom_section)]
 const TYPESCRIPT: &'static str = r#"
+export type Step = any;
+
+export type FunctionDeclaration = any;
+
+export type AnalysisProblem = {
+  type: 'error' | 'warning';
+  code: string;
+  message: string;
+  field?: string;
+};
+
 export type StepAnalysis = {
-  stepId: string;
-  fields: FieldAnalysis[];
+  id: string;
   problems: AnalysisProblem[];
-  after: Record<string, Description>;
-  before: Record<string, Description>;
+  after?: Record<string, Description>;
+  before?: Record<string, Description>;
 }
 
-export function analyze(steps: Steps[], declarations: FunctionDeclaration[]): StepAnalysis[];
+export function analyze(steps: Step[], declarations: FunctionDeclaration[], stepsToCapture: string[]): StepAnalysis[];
+
+///
+/// TEL beings here
+///
+
+export interface TelParseError {
+  from: number;
+  to: number;
+  severity: string;
+  message: string;
+  actions: TelParseAction[];
+}
+
+export interface TelParseAction {
+  name: string;
+  code: string;
+}
+
+export type TelError =
+  | {
+      code: 'PARSE_ERROR';
+      errors: TelParseError[];
+    }
+  | {
+      code: 'CONVERSION_ERROR';
+      message: string;
+      from: string;
+      to: string;
+    }
+  | {
+      code: 'NOT_INDEXABLE';
+      message: string;
+      subject: string;
+    }
+  | {
+      code: 'NO_ATTRIBUTE';
+      message: string;
+      subject: string;
+      attribute: string;
+    }
+  | {
+      code: 'INVALID_SELECTOR';
+      message: string;
+    }
+  | {
+      code: 'UNSUPPORTED_OPERATION';
+      operation: string;
+      message: string;
+    }
+  | {
+      code: 'FUNCTION_NOT_FOUND';
+      message: string;
+    }
+  | {
+      code: 'INDEX_OUT_OF_BOUNDS';
+      index: number;
+      max: number;
+    }
+  | {
+      code: 'INVALID_INDEX';
+      subject: string;
+      message: string;
+    };
+
+export type Description =
+  | {
+      type: 'null';
+    }
+  | {
+      type: 'stringValue';
+      value: string;
+    }
+  | {
+      type: 'numberValue';
+      value: number;
+    }
+  | {
+      type: 'booleanValue';
+      value: boolean;
+    }
+  | {
+      type: 'object';
+      value: Record<string, Description>;
+    }
+  | {
+      type: 'exactArray';
+      value: Description[];
+    }
+  | {
+      type: 'array';
+      length?: number;
+      itemType: Description;
+    }
+  | {
+      type: 'baseType';
+      fieldType: string;
+    }
+  | {
+      type: 'union';
+      of: Description[];
+    }
+  | {
+      type: 'error';
+      error: TelError;
+    }
+  | {
+      type: 'any';
+    };
+
+export interface BinaryOp {
+  binaryOp: {
+    lhs: SpannedExpr;
+    op:
+      | 'add'
+      | 'subtract'
+      | 'multiply'
+      | 'divide'
+      | 'modulo'
+      | 'eq'
+      | 'neq'
+      | 'gt'
+      | 'gte'
+      | 'lt'
+      | 'lte'
+      | 'and'
+      | 'or';
+    rhs: SpannedExpr;
+  };
+}
+
+export interface UnaryOp {
+  unaryOp: {
+    op: 'plus' | 'minus' | 'negation';
+    expr: SpannedExpr;
+  };
+}
+
+export interface MethodCall {
+  methodCall: {
+    callee: SpannedExpr;
+    name: string;
+    arguments: SpannedExpr[];
+  };
+}
+
+export interface Attribute {
+  attribute: {
+    value: SpannedExpr;
+    attribute: string;
+  };
+}
+
+export interface Slice {
+  slice: [SpannedExpr, SpannedExpr];
+}
+
+export interface Identifier {
+  identifier: string;
+}
+
+export interface Environment {
+  environment: string;
+}
+
+export interface Number {
+  number: number;
+}
+
+export interface String {
+  string: string;
+}
+
+export interface Boolean {
+  boolean: boolean;
+}
+
+export interface Array {
+  array: SpannedExpr[];
+}
+
+export interface Object {
+  object: { [key: string]: SpannedExpr };
+}
+
+export interface If {
+  if: {
+    condition: SpannedExpr;
+    then: SpannedExpr;
+    otherwise: SpannedExpr;
+  };
+}
+
+export type Expr =
+  | {
+      if: {
+        condition: SpannedExpr;
+        then: SpannedExpr;
+        otherwise: SpannedExpr;
+      };
+    }
+  | { number: number }
+  | { string: string }
+  | {
+      multilineString: {
+        value: string;
+        tag: string;
+      };
+    }
+  | { boolean: boolean }
+  | { array: SpannedExpr[] }
+  | { object: { [key: string]: SpannedExpr } }
+  | { identifier: string }
+  | { environment: string }
+  | { attribute: [value: SpannedExpr, attribute: string] }
+  | { slice: [SpannedExpr, SpannedExpr] }
+  | { unaryOp: [op: 'plus' | 'minus' | 'negation', expr: SpannedExpr] }
+  | {
+      methodCall: {
+        callee: SpannedExpr;
+        name: string;
+        arguments: SpannedExpr[];
+      };
+    }
+  | {
+      binaryOp: {
+        lhs: SpannedExpr;
+        op:
+          | 'add'
+          | 'subtract'
+          | 'multiply'
+          | 'divide'
+          | 'modulo'
+          | 'eq'
+          | 'neq'
+          | 'gt'
+          | 'gte'
+          | 'lt'
+          | 'lte'
+          | 'and'
+          | 'or';
+        rhs: SpannedExpr;
+      };
+    }
+  | 'invalid'
+  | 'null';
+
+export type Range = { start: number; end: number };
+
+export type SpannedExpr = [Expr, Range];
+
+///
+/// Description notation start
+/// 
+export type DExpr =
+  | { number: number }
+  | { string: string }
+  | { boolean: boolean }
+  | { array: DSpannedExpr[] }
+  | { object: { [key: string]: DSpannedExpr } }
+  | { identifier: string }
+  | { attribute: [value: DSpannedExpr, attribute: string] }
+  | {
+      methodCall: {
+        callee: DSpannedExpr;
+        name: string;
+        arguments: DSpannedExpr[];
+      };
+    }
+  | {
+      binaryOp: {
+        lhs: DSpannedExpr;
+        op:
+          | 'and'
+          | 'or';
+        rhs: DSpannedExpr;
+      };
+    }
+  | {
+      arrayOf: DSpannedExpr;
+    }
+  | 'invalid'
+  | 'null';
+
+export type DRange = { start: number; end: number };
+
+export type DSpannedExpr = [DExpr, DRange];
+
+///
+/// Description notation end
+/// 
+
+export type ParseResult = {
+  expr?: SpannedExpr;
+  errors: TelParseError[];
+};
+
+export type DescriptionParseResult = {
+  expr?: DSpannedExpr;
+  errors: TelParseError[];
+};
+
+/**
+ * @param input - TEL expression / selector
+ */
+export function parse(input: string): ParseResult;
+
+/**
+ * @param input - Description notation
+ * @returns Description object
+ */
+export function parseDescription(input: string): DescriptionParseResult;
+
+/**
+ * @param description - Description
+ * @returns Description notation
+ */
+export function getNotation(description: Description): string;
+
+export type EvaluationResult =
+  | {
+      type: 'success';
+      value: any;
+    }
+  | {
+      type: 'error';
+      error: TelError;
+    };
+
+/**
+ * @param expression - TEL expression
+ * @param storage - Storage object
+ * @param environment - Environment object
+ * @returns Result object
+ */
+export function evaluateValue(
+  expression: string,
+  storage: any,
+  environment: any,
+): EvaluationResult;
+
+export type DescriptionEvaluationResult = {
+  value: Description;
+};
+
+/**
+ * @param value - Storage value
+ */
+export function describe(value: any): Description;
+
+/**
+ * @param expression - TEL selector expression
+ * @param storage - Storage description object
+ * @param environment - Environment description object
+ */
+export function predictDescription(
+  expression: string,
+  storage: Record<string, Description>,
+  environment: Record<string, Description>,
+): DescriptionEvaluationResult;
+
+
+/**
+ * @param expression - Description notation
+ */
+export function evaluateDescription(
+  expression: string,
+): DescriptionEvaluationResult;
+
+export type DescriptionStoreBranch =
+  | {
+      type: 'ok';
+      storage: Record<string, Description>;
+    }
+  | {
+      type: 'error';
+      error: TelError;
+    };
+
+export type DescriptionStoreResult = {
+  branches: DescriptionStoreBranch[];
+};
+
+/**
+ * @param expression - TEL selector expression
+ * @param storage - Storage description object
+ * @param environment - Environment description object
+ * @returns - Result object with possible branches
+ */
+export function predictStore(
+  expression: string,
+  storage: Record<string, Description>,
+  environment: Record<string, Description>,
+  value: Description,
+): DescriptionStoreResult;
+
+/**
+ * @param selector - selector
+ * @param storage - Storage description object
+ * @returns - New described storage object
+ */
+export function storeDescription(
+  selector: any[],
+  storage: Record<string, Description>,
+  value: Description,
+): Record<string, Description>;
+
+/**
+ * @param selector - selector
+ * @param storage - Storage object
+ * @param value - value that is being added
+ * @returns - New storage object
+ */
+export function storeValue(selector: any[], storage: Record<string, any>, value: any): Record<string, any>;
 "#;
 
-#[wasm_bindgen(skip_typescript, js_name = analyze)]
-pub fn analyze(steps: JsValue, declarations: JsValue) -> JsValue {
-    let steps: Vec<Step> =
-        serde_wasm_bindgen::from_value(steps).expect("Could not deserialize steps");
-    let declarations: Vec<FunctionDeclaration> =
-        serde_wasm_bindgen::from_value(declarations).expect("Could not deserialize declarations");
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "camelCase")]
+pub enum EvaluationResult {
+    Success { value: StorageValue },
+    Error { error: TelError },
+}
 
-    let result = analyze_instructions(&steps, declarations, vec![], None);
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "camelCase")]
+pub struct DescriptionEvaluationResult {
+    pub value: Description,
+}
 
-    result
-        .serialize(&SERIALIZER)
-        .expect("Could not serialize analysis")
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "camelCase")]
+pub struct DescriptionNotationEvaluationResult {
+    pub value: Description,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "camelCase")]
+pub enum DescriptionStoreBranch {
+    Ok { storage: ObjectDescription },
+    Error { error: TelError },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DescriptionStoreResult {
+    pub branches: Vec<DescriptionStoreBranch>,
+}
+
+#[wasm_bindgen(skip_typescript, js_name = parse)]
+pub fn export_parse(input: &str) -> JsValue {
+    let result = tel::parse(input);
+    serialize(&result).expect("Could not serialize ParseResult")
+}
+
+#[wasm_bindgen(skip_typescript, js_name = parseDescription)]
+pub fn export_parse_description(input: &str) -> JsValue {
+    let result = tel::parse_description(input);
+    serialize(&result).expect("Could not serialize ParseResult")
+}
+
+#[wasm_bindgen(skip_typescript, js_name = getNotation)]
+pub fn get_notation(description: JsValue) -> JsValue {
+    let description: Description =
+        serde_wasm_bindgen::from_value(description).expect("Could not deserialize Description");
+
+    let result = description.to_notation();
+    serialize(&result).expect("Could not serialize String")
+}
+
+#[wasm_bindgen(skip_typescript, js_name = evaluateDescription)]
+pub fn evaluate_description(input: &str) -> JsValue {
+    let parse_result = tel::parse_description(input);
+    let result: DescriptionEvaluationResult = match parse_result.expr {
+        Some(expr) => {
+            let output = tel::evaluate_description_notation(expr);
+            match output {
+                Ok(value) => DescriptionEvaluationResult { value },
+                Err(error) => DescriptionEvaluationResult {
+                    value: Description::Error { error },
+                },
+            }
+        }
+        None => DescriptionEvaluationResult {
+            value: Description::Error {
+                error: TelError::ParseError {
+                    errors: parse_result.errors,
+                },
+            },
+        },
+    };
+
+    serialize(&result).expect("Could not serialize DescriptionEvaluationResult")
+}
+
+#[wasm_bindgen(skip_typescript, js_name = describe)]
+pub fn describe(storage_value: JsValue) -> JsValue {
+    let storage_value: StorageValue =
+        serde_wasm_bindgen::from_value(storage_value).expect("Could not deserialize StorageValue");
+
+    let result: Description = tel::describe(storage_value);
+    serialize(&result).expect("Could not serialize Description")
+}
+
+#[wasm_bindgen(skip_typescript, js_name = predictDescription)]
+pub fn predict_description(input: &str, storage: JsValue, environment: JsValue) -> JsValue {
+    let storage: ObjectDescription =
+        serde_wasm_bindgen::from_value(storage).expect("Could not deserialize described storage");
+    let environment: ObjectDescription = serde_wasm_bindgen::from_value(environment)
+        .expect("Could not deserialize described environment");
+
+    let parse_result = tel::parse(input);
+    let result: DescriptionEvaluationResult = match parse_result.expr {
+        Some(expr) => {
+            let output = tel::predict_description(expr, &storage, &environment);
+            DescriptionEvaluationResult { value: output }
+        }
+        None => DescriptionEvaluationResult {
+            value: Description::Error {
+                error: TelError::ParseError {
+                    errors: parse_result.errors,
+                },
+            },
+        },
+    };
+
+    serialize(&result).expect("Could not serialize DescriptionEvaluationResult")
+}
+
+#[wasm_bindgen(skip_typescript, js_name = predictStore)]
+pub fn predict_store(
+    input: &str,
+    storage: JsValue,
+    environment: JsValue,
+    value: JsValue,
+) -> JsValue {
+    let storage: ObjectDescription =
+        serde_wasm_bindgen::from_value(storage).expect("Could not deserialize described storage");
+    let environment: ObjectDescription = serde_wasm_bindgen::from_value(environment)
+        .expect("Could not deserialize described environment");
+    let value: Description =
+        serde_wasm_bindgen::from_value(value).expect("Could not deserialize described value");
+
+    let parse_result = tel::parse(input);
+    let result: DescriptionStoreResult = match parse_result.expr {
+        Some(expr) => {
+            let selector = tel::evaluate_selector_description(expr, &storage, &environment);
+            let mut branches: Vec<DescriptionStoreBranch> = vec![];
+            for selector in selector.into_iter() {
+                match selector {
+                    SelectorDescription::Static { selector } => {
+                        let mut storage = storage.clone();
+                        match tel::store_description(&selector, &mut storage, value.clone()) {
+                            Ok(()) => branches.push(DescriptionStoreBranch::Ok { storage }),
+                            Err(error) => branches.push(DescriptionStoreBranch::Error { error }),
+                        }
+                    }
+                    SelectorDescription::Error { error } => {
+                        branches.push(DescriptionStoreBranch::Error { error })
+                    }
+                    SelectorDescription::Unknown => {}
+                }
+            }
+            DescriptionStoreResult { branches }
+        }
+        None => DescriptionStoreResult {
+            branches: vec![DescriptionStoreBranch::Error {
+                error: TelError::ParseError {
+                    errors: parse_result.errors,
+                },
+            }],
+        },
+    };
+
+    serialize(&result).expect("Could not serialize DescriptionStoreResult")
+}
+
+#[wasm_bindgen(skip_typescript, js_name = evaluateValue)]
+pub fn evaluate_value(input: &str, storage: JsValue, environment: JsValue) -> JsValue {
+    let storage: ObjectBody =
+        serde_wasm_bindgen::from_value(storage).expect("Could not deserialize storage");
+    let environment: ObjectBody =
+        serde_wasm_bindgen::from_value(environment).expect("Could not deserialize environment");
+
+    let parse_result = tel::parse(input);
+
+    if !parse_result.errors.is_empty() {
+        return serialize(&EvaluationResult::Error {
+            error: TelError::ParseError {
+                errors: parse_result.errors,
+            },
+        })
+        .expect("Could not serialize EvaluationResult");
+    }
+
+    let result: EvaluationResult = match parse_result.expr {
+        Some(expr) => {
+            let output = tel::evaluate_value(expr, &storage, &environment);
+            match output {
+                Ok(value) => EvaluationResult::Success { value },
+                Err(error) => EvaluationResult::Error { error },
+            }
+        }
+        None => EvaluationResult::Error {
+            error: TelError::ParseError { errors: vec![] },
+        },
+    };
+
+    serialize(&result).expect("Could not serialize EvaluationResult")
+}
+
+#[wasm_bindgen(skip_typescript, js_name = storeValue)]
+pub fn store_value(selector: JsValue, storage: JsValue, value: JsValue) -> JsValue {
+    let selector: Selector =
+        serde_wasm_bindgen::from_value(selector).expect("Could not deserialize selector");
+    let mut storage: ObjectBody =
+        serde_wasm_bindgen::from_value(storage).expect("Could not deserialize storage");
+    let value: StorageValue =
+        serde_wasm_bindgen::from_value(value).expect("Could not deserialize value");
+
+    match tel::store_value(&selector, &mut storage, value) {
+        Ok(()) => serialize(&storage).expect("Could not serialize new storage"),
+        Err(error) => serialize(&error).expect("Could not serialize error"),
+    }
+}
+
+#[wasm_bindgen(skip_typescript, js_name = storeDescription)]
+pub fn store_description(selector: JsValue, storage: JsValue, value: JsValue) -> JsValue {
+    let selector: Selector =
+        serde_wasm_bindgen::from_value(selector).expect("Could not deserialize selector");
+    let mut storage: ObjectDescription =
+        serde_wasm_bindgen::from_value(storage).expect("Could not deserialize storage");
+    let value: Description =
+        serde_wasm_bindgen::from_value(value).expect("Could not deserialize described value");
+
+    match tel::store_description(&selector, &mut storage, value) {
+        Ok(()) => serialize(&storage).expect("Could not serialize new storage"),
+        Err(error) => serialize(&error).expect("Could not serialize error"),
+    }
+}
+
+fn serialize<T: SerdeSerialize>(value: &T) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    value.serialize(&SERIALIZER)
 }
 
 #[wasm_bindgen(start, skip_typescript)]

@@ -5,7 +5,7 @@ use num::ToPrimitive;
 use serde::Serializer;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::path::Path;
 use std::{collections::HashMap, vec};
 
@@ -13,18 +13,43 @@ mod description;
 mod description_notation;
 mod operators;
 
-pub use description::describe;
-pub use description::evaluate_selector_description;
-pub use description::parse_value_by_description;
-pub use description::predict_description;
-pub use description::store_description;
-pub use description::Description;
-pub use description::ObjectDescription;
-pub use description::SelectorDescription;
+pub use description::*;
 pub use description_notation::evaluate_description_notation;
 pub use description_notation::parse_description;
 
 pub type ObjectBody = HashMap<String, StorageValue>;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum StorageValue {
+    String(String),
+    #[serde(serialize_with = "serialize_number")]
+    Number(f64),
+    Boolean(bool),
+    Array(Vec<StorageValue>),
+    Object(ObjectBody),
+    Null(Option<()>),
+}
+
+pub trait Storage: Debug {
+    fn get(&self, key: &str) -> Option<&StorageValue>;
+}
+
+impl Storage for ObjectBody {
+    fn get(&self, key: &str) -> Option<&StorageValue> {
+        self.get(key)
+    }
+}
+
+pub trait Environment: Debug {
+    fn get(&self, key: &str) -> Option<&StorageValue>;
+}
+
+impl Environment for ObjectBody {
+    fn get(&self, key: &str) -> Option<&StorageValue> {
+        self.get(key)
+    }
+}
 
 /// Layered storage for evaluating expressions with multiple storages
 /// without having to duplicate the storages
@@ -38,28 +63,6 @@ impl Storage for LayeredStorage<'_, '_, ObjectBody> {
     fn get(&self, key: &str) -> Option<&StorageValue> {
         self.top.get(key).or_else(|| self.down.get(key))
     }
-}
-
-pub trait Storage {
-    fn get(&self, key: &str) -> Option<&StorageValue>;
-}
-
-impl Storage for ObjectBody {
-    fn get(&self, key: &str) -> Option<&StorageValue> {
-        self.get(key)
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum StorageValue {
-    String(String),
-    #[serde(serialize_with = "serialize_number")]
-    Number(f64),
-    Boolean(bool),
-    Array(Vec<StorageValue>),
-    Object(ObjectBody),
-    Null(Option<()>),
 }
 
 /// Custom serializer for StorageValue::Number
@@ -1172,10 +1175,10 @@ pub fn parse(input: &str) -> ParseResult {
     }
 }
 
-pub fn evaluate_value<T: Storage>(
+pub fn evaluate_value<T: Storage, E: Environment>(
     expr: Spanned<Expr>,
     storage: &T,
-    environment: &HashMap<String, StorageValue>,
+    environment: &E,
 ) -> Result<StorageValue, TelError> {
     let out = match expr.0 {
         Expr::Null => StorageValue::Null(None),
@@ -1402,9 +1405,6 @@ pub fn evaluate_value<T: Storage>(
                             if let Some(to) = to {
                                 let to = evaluate_value(to, storage, environment)?;
                                 let to = to.to_string()?;
-
-                                println!("Replacing {} with {}", from, to);
-
                                 StorageValue::String(s.replace(from.as_str(), to.as_str()))
                             } else {
                                 StorageValue::String(s.replace(from.as_str(), ""))

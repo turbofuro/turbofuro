@@ -377,6 +377,12 @@ impl From<ExecutionError> for ErrorRepresentation {
                     "stage": stage
                 })),
             },
+            ExecutionError::LuaError { message } => ErrorRepresentation {
+                code: "LUA_ERROR".to_owned(),
+                message,
+                details: None,
+                metadata: None,
+            },
         }
     }
 }
@@ -485,6 +491,9 @@ pub enum ExecutionError {
     WebDriverError {
         message: String,
         stage: String,
+    },
+    LuaError {
+        message: String,
     },
 }
 

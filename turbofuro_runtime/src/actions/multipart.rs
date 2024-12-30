@@ -6,8 +6,8 @@ use crate::{
     errors::ExecutionError,
     executor::{ExecutionContext, Parameter},
     resources::{
-        MultipartManagerCommand, MultipartManagerFieldEvent, PendingFormData, PendingFormDataField,
-        Resource,
+        generate_resource_id, MultipartManagerCommand, MultipartManagerFieldEvent, PendingFormData,
+        PendingFormDataField, Resource,
     },
 };
 
@@ -20,21 +20,14 @@ pub async fn get_field<'a>(
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
-    // Remove al the pending form data fields
-    context
-        .resources
-        .pending_form_data_fields
-        .retain(|f| f.0.is_empty());
-
     let form_data = context
         .resources
-        .pending_form_data
-        .last()
+        .use_pending_form_data(|_| true)
         .ok_or_else(PendingFormData::missing)?;
 
     let (sender, receiver) = oneshot::channel::<MultipartManagerFieldEvent>();
     form_data
-        .0
+        .1
         .send(MultipartManagerCommand::GetNext { sender })
         .await
         .unwrap();
@@ -60,8 +53,10 @@ pub async fn get_field<'a>(
         } => {
             context
                 .resources
-                .pending_form_data_fields
-                .push(PendingFormDataField(receiver));
+                .add_pending_form_data_field(PendingFormDataField(
+                    generate_resource_id(),
+                    receiver,
+                ));
 
             let mut storage = ObjectBody::new();
             if let Some(name) = name {

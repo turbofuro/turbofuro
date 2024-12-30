@@ -14,7 +14,6 @@ fn test_analyzes_1() {
         None,
     );
 
-    println!("{:?}", result);
     assert_eq!(result.len(), 12);
     for step in result {
         if step.id == "indx7bOYBOfBzQHuUb5uw" {
@@ -52,7 +51,6 @@ fn test_analyzes_2() {
 
     let result = analyze_instructions(&instructions, declarations, vec![], None);
 
-    println!("{:?}", result);
     assert_eq!(result.len(), 6);
     for step in result {
         if step.id == "kuiDpVb_mJOr1QFaQ44Mw" {
@@ -82,5 +80,19 @@ fn test_analyzes_2() {
         } else {
             assert!(step.problems.is_empty());
         }
+    }
+}
+
+#[test]
+fn test_analyzes_3() {
+    let instructions: Vec<Step> = serde_json::from_str(include_str!("instructions3.json")).unwrap();
+    let declarations: Vec<FunctionDeclaration> =
+        serde_json::from_str(include_str!("declarations3.json")).unwrap();
+
+    let result = analyze_instructions(&instructions, declarations, vec![], None);
+
+    assert_eq!(result.len(), 8);
+    for step in result {
+        assert!(step.problems.is_empty());
     }
 }

@@ -19,7 +19,7 @@ use crate::{
         eval_param, eval_string_param, get_optional_handler_from_parameters,
     },
     executor::{ExecutionContext, Parameter},
-    resources::{Cancellation, CancellationSubject, FileHandle, Resource},
+    resources::{generate_resource_id, Cancellation, CancellationSubject, FileHandle, Resource},
 };
 
 use super::store_value;
@@ -92,7 +92,10 @@ pub async fn open_file<'a>(
     metadata_object.insert("isDir".into(), metadata.is_dir().into());
     metadata_object.insert("isFile".into(), metadata.is_file().into());
 
-    context.resources.files.push(FileHandle { file });
+    context.resources.add_file(FileHandle {
+        id: generate_resource_id(),
+        file,
+    });
 
     store_value(
         store_as,
@@ -150,11 +153,10 @@ pub async fn write_stream<'a>(
 ) -> Result<(), ExecutionError> {
     let mut file_handle = context
         .resources
-        .files
-        .pop()
+        .pop_file()
         .ok_or_else(FileHandle::missing)?;
 
-    let mut stream = context.resources.get_nearest_stream()?;
+    let mut stream = context.resources.get_stream()?;
 
     while let Some(chunk) = stream.next().await {
         let chunk = chunk?;
@@ -416,12 +418,12 @@ pub async fn setup_watcher<'a>(
 
     // Canceller
     let (sender, receiver) = tokio::sync::oneshot::channel::<()>();
-    let cancellation = Cancellation {
+    context.resources.add_cancellation(Cancellation {
+        id: generate_resource_id(),
         sender,
         name: cancellation_name(watcher_id),
         subject: CancellationSubject::Watcher,
-    };
-    context.resources.cancellations.push(cancellation);
+    });
 
     // Spawn task to wait for cancellation
     tokio::spawn(async move {
@@ -448,18 +450,12 @@ pub async fn cancel_watcher<'a>(
     _parameters: &[Parameter],
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let index = context
+    let cancellation = context
         .resources
-        .cancellations
-        .iter()
-        .position(|c| matches!(c.subject, CancellationSubject::Watcher));
+        .pop_cancellation_where(|c| matches!(c.subject, CancellationSubject::Watcher))
+        .ok_or_else(Cancellation::missing)?;
 
-    if let Some(i) = index {
-        let cancellation = context.resources.cancellations.remove(i);
-        cancellation.sender.send(()).unwrap();
-    } else {
-        return Err(Cancellation::missing());
-    }
+    cancellation.sender.send(()).unwrap();
 
     Ok(())
 }

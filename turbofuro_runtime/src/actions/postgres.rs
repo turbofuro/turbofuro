@@ -13,7 +13,7 @@ use crate::{
     errors::ExecutionError,
     evaluations::{eval_opt_string_param, eval_optional_param_with_default, eval_string_param},
     executor::{ExecutionContext, Parameter},
-    resources::{PostgresPool, Resource},
+    resources::{generate_resource_id, PostgresPool, Resource},
 };
 
 use super::store_value;
@@ -76,7 +76,7 @@ pub async fn get_connection<'a>(
         .global
         .registry
         .postgres_pools
-        .insert(name, PostgresPool(pool));
+        .insert(name, PostgresPool(generate_resource_id(), pool));
 
     Ok(())
 }
@@ -335,7 +335,7 @@ pub async fn query_one<'a>(
             .postgres_pools
             .get(&name)
             .ok_or_else(PostgresPool::missing)
-            .map(|r| r.value().0.clone())?
+            .map(|r| r.value().1.clone())?
     };
 
     let client = postgres_pool
@@ -399,7 +399,7 @@ pub async fn query<'a>(
             .postgres_pools
             .get(&name)
             .ok_or_else(PostgresPool::missing)
-            .map(|r| r.value().0.clone())?
+            .map(|r| r.value().1.clone())?
     };
 
     let client = postgres_pool
@@ -466,7 +466,7 @@ pub async fn execute<'a>(
             .postgres_pools
             .get(&name)
             .ok_or_else(PostgresPool::missing)
-            .map(|r| r.value().0.clone())?
+            .map(|r| r.value().1.clone())?
     };
 
     let client = postgres_pool

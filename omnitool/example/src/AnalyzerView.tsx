@@ -470,7 +470,7 @@ export default function AnalyzerView() {
     }
 
     try {
-      const parsed = omnitool.analyze(instructions, declarations);
+      const parsed = omnitool.analyze(instructions, declarations, []);
       setResult({
         type: "success",
         value: parsed,

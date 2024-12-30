@@ -48,3 +48,13 @@ object
 { a: { b: string } }
 { a: { b: null } }
 { a: { b: string | null } }
+{ a: 4 }
+{ b: string | null }
+"system://images"
+string | null
+{ icon: "system://images" }
+{ icon: string | null }
+{ icon: "system://images", label: string, value: null }
+{ description: string | null, icon: string | null, label: string, theme: string | null, value: any }
+{ icon: "system://images", label: string, value: null }[]
+{ description: string | null, icon: string | null, label: string, theme: string | null, value: any }[] 

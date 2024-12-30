@@ -2,7 +2,6 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
-use std::mem;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -66,6 +65,7 @@ use crate::errors::ExecutionError;
 use crate::evaluations::eval;
 use crate::evaluations::eval_description;
 use crate::evaluations::eval_selector;
+use crate::resources::Resource;
 use crate::resources::{ActorResources, ResourceRegistry};
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -980,6 +980,51 @@ impl<'a> ExecutionContext<'a> {
 
         Ok(())
     }
+
+    pub async fn note_resource_provisioned(
+        &mut self,
+        id: u64,
+        resource: &str,
+        name: Option<String>,
+    ) -> Result<(), ExecutionError> {
+        self.report_verbose_event(ExecutionEvent::ResourceProvisioned {
+            id,
+            resource: resource.to_owned(),
+            name,
+        })
+        .await;
+        Ok(())
+    }
+
+    pub async fn note_resource_consumed(
+        &mut self,
+        id: u64,
+        resource: &str,
+        name: Option<String>,
+    ) -> Result<(), ExecutionError> {
+        self.report_verbose_event(ExecutionEvent::ResourceConsumed {
+            id,
+            resource: resource.to_owned(),
+            name,
+        })
+        .await;
+        Ok(())
+    }
+
+    pub async fn note_resource_used(
+        &mut self,
+        id: u64,
+        resource: &str,
+        name: Option<String>,
+    ) -> Result<(), ExecutionError> {
+        self.report_verbose_event(ExecutionEvent::ResourceUsed {
+            id,
+            resource: resource.to_owned(),
+            name,
+        })
+        .await;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1075,6 +1120,21 @@ pub enum ExecutionEvent {
     #[serde(rename_all = "camelCase")]
     LeaveFunction {
         function_id: String,
+    },
+    ResourceProvisioned {
+        id: u64,
+        resource: String,
+        name: Option<String>,
+    },
+    ResourceConsumed {
+        id: u64,
+        resource: String,
+        name: Option<String>,
+    },
+    ResourceUsed {
+        id: u64,
+        resource: String,
+        name: Option<String>,
     },
 }
 
@@ -1340,10 +1400,16 @@ async fn execute_native<'a>(
                 }
 
                 let mut elements = vec![];
-                mem::swap(&mut elements, &mut context.resources.webdriver_elements);
+                while let Some(element) = context.resources.pop_webdriver_element() {
+                    elements.push(element);
+                }
                 for element in elements {
-                    context.resources.webdriver_elements.push(element);
+                    let id = element.get_id();
+                    context.resources.add_webdriver_element(element);
                     execute_steps(body, context).await?;
+                    context
+                        .resources
+                        .pop_webdriver_element_where(|e| e.get_id() == id);
                 }
             };
         }

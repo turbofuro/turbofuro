@@ -1,0 +1,113 @@
+[
+  {
+    "id": "-iIqJKJzlp_aYhaEmp1wo",
+    "type": "defineFunction",
+    "name": "When module is started",
+    "description": "Handles module start",
+    "parameters": [],
+    "body": [
+      {
+        "id": "K8YurOCpO2mR7gnfLBUO-",
+        "type": "call",
+        "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/setup_route",
+        "parameters": [
+          {
+            "type": "functionRef",
+            "name": "onHttpRequest",
+            "id": "oLWOKiPtzZ4l7QEXSQ_uG"
+          },
+          {
+            "type": "tel",
+            "name": "path",
+            "expression": "\"/public/*path\""
+          }
+        ]
+      }
+    ],
+    "exported": false,
+    "annotations": [
+      {
+        "type": "module_starter"
+      }
+    ],
+    "decorator": false
+  },
+  {
+    "id": "oLWOKiPtzZ4l7QEXSQ_uG",
+    "type": "defineFunction",
+    "name": "Handle request",
+    "description": "Handles incoming HTTP request with automatic body parsing.\n\nThe request body is parsed based on HTTP `Content-Type` header. The parser can handle JSON payloads, URL-encoded forms, plain text, bytes and multipart form data. Note that due to buffer size limits multipart payloads are not parsed immediately, instead a pending form data resource is provided.\n\nThe function receives a resource to HTTP request that expects a response.",
+    "parameters": [
+      {
+        "name": "request",
+        "description": "Request metadata",
+        "optional": false,
+        "type": "tel",
+        "valueDescription": "{     cookies: array,     headers: object.record,     method: \"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"OPTIONS\" | \"HEAD\",     params: object.record,     query: object.record,     path: string,     version: string,     body: any }"
+      }
+    ],
+    "body": [
+      {
+        "id": "qlZ_S_zRXBMqO7Q3OL9c5",
+        "type": "call",
+        "callee": "import/05624c52-d54f-412c-93e8-6f342e8e9bb3/open",
+        "parameters": [
+          {
+            "type": "tel",
+            "name": "path",
+            "expression": "$WORKDIR + \"/public/\" + (request.params.path || \"\")"
+          }
+        ],
+        "storeAs": "result"
+      },
+      {
+        "id": "4ISCeyC79HjTQahREYHi7",
+        "type": "if",
+        "condition": "result.isDir",
+        "then": [
+          {
+            "id": "jdU2I8qjcAjBZ64eyppYL",
+            "type": "assign",
+            "value": "200",
+            "to": "status"
+          },
+          {
+            "id": "wx3iM9xsGdRS8paTZj93m",
+            "type": "call",
+            "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+            "parameters": [
+              {
+                "type": "tel",
+                "name": "status",
+                "expression": "status"
+              },
+              {
+                "type": "tel",
+                "name": "headers",
+                "expression": "{\n  \"x-found\": \"directory\"\n}"
+              }
+            ]
+          }
+        ],
+        "branches": [],
+        "else": [
+          {
+            "id": "mOj0lh3kB5IwfgcUCVI_l",
+            "type": "call",
+            "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/wrnzlF1foFTVci5Iw2Fha",
+            "parameters": []
+          }
+        ]
+      }
+    ],
+    "exported": false,
+    "annotations": [
+      {
+        "type": "consumption",
+        "resource": "http_request",
+        "strict": true
+      }
+    ],
+    "decorator": false
+  }
+]

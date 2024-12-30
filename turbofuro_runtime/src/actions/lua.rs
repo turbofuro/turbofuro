@@ -49,7 +49,9 @@ pub async fn run_function(
             store_value(store_as, context, step_id, output).await?;
         }
         Err(err) => {
-            eprintln!("{}", err);
+            return Err(ExecutionError::LuaError {
+                message: err.to_string(),
+            });
         }
     }
 

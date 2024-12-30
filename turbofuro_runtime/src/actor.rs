@@ -295,16 +295,9 @@ pub fn activate_actor(mut actor: Actor) -> ActorLink {
                     alarm_id,
                 } => {
                     // Remove alarm in place from actor resources (not cloneable)
-                    let mut alarm = None;
-                    for (i, a) in actor.resources.cancellations.iter().enumerate() {
-                        if a.name == cancellation_name(alarm_id) {
-                            alarm = Some(i);
-                            break;
-                        }
-                    }
-                    if let Some(i) = alarm {
-                        actor.resources.cancellations.remove(i);
-                    }
+                    let _cancellation = actor
+                        .resources
+                        .pop_cancellation_where(|c| c.name == cancellation_name(alarm_id));
 
                     match actor
                         .execute_handler(&handler, storage, references, None)
@@ -369,15 +362,7 @@ pub fn activate_actor(mut actor: Actor) -> ActorLink {
                     actor.terminate();
                 }
                 ActorCommand::TakeResources(mut resources) => {
-                    actor
-                        .resources
-                        .http_requests_to_respond
-                        .append(&mut resources.http_requests_to_respond);
-                    actor.resources.websockets.append(&mut resources.websockets);
-                    actor
-                        .resources
-                        .cancellations
-                        .append(&mut resources.cancellations);
+                    actor.resources.append(&mut resources);
                 }
                 ActorCommand::EnableDebugger { handle } => {
                     actor.debugger = Some(handle);
@@ -475,7 +460,7 @@ impl Actor {
         );
 
         // Clean up local resources
-        while let Some(cancellation) = self.resources.cancellations.pop() {
+        while let Some(cancellation) = self.resources.pop_cancellation() {
             match cancellation.sender.send(()) {
                 Ok(_) => {}
                 Err(_) => {

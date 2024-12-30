@@ -6,6 +6,7 @@ use tracing::{debug, instrument, warn};
 use url::Url;
 
 use crate::evaluations::{eval_opt_string_param, eval_string_param};
+use crate::resources::generate_resource_id;
 use crate::{
     errors::ExecutionError,
     evaluations::eval_optional_param_with_default,
@@ -124,7 +125,7 @@ pub async fn get_connection<'a>(
         .global
         .registry
         .libsql
-        .insert(name, LibSql(connection));
+        .insert(name, LibSql(generate_resource_id(), connection));
 
     Ok(())
 }
@@ -162,7 +163,7 @@ pub async fn query<'a>(
             .libsql
             .get(&name)
             .ok_or_else(LibSql::missing)
-            .map(|r| r.value().0.clone())?
+            .map(|r| r.value().1.clone())?
     };
 
     let mut rows = connection.query(&statement, params_from_iter(p)).await?;
@@ -224,7 +225,7 @@ pub async fn query_one<'a>(
             .libsql
             .get(&name)
             .ok_or_else(LibSql::missing)
-            .map(|r| r.value().0.clone())?
+            .map(|r| r.value().1.clone())?
     };
 
     let mut rows = connection.query(&statement, params_from_iter(p)).await?;
@@ -303,7 +304,7 @@ pub async fn execute<'a>(
             .libsql
             .get(&name)
             .ok_or_else(LibSql::missing)
-            .map(|r| r.value().0.clone())?
+            .map(|r| r.value().1.clone())?
     };
 
     let rows_affected = connection.execute(&statement, params_from_iter(p)).await?;

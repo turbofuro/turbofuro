@@ -1,0 +1,754 @@
+[
+  {
+    "id": "open",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/folder.svg",
+      "name": "Open file",
+      "theme": "green",
+      "description": "Opens a file and returns a file handle.",
+      "shortDescription": "Opens a file and returns a file handle."
+    },
+    "parameters": [
+      {
+        "name": "path",
+        "type": "tel",
+        "optional": false,
+        "description": "Path to the file to be opened",
+        "valueDescription": "string"
+      },
+      {
+        "name": "mode",
+        "type": "tel",
+        "optional": true,
+        "description": "File open mode, \"r\" by default, \"w\" to overwrite, \"a\" to append, \"x\" to create",
+        "valueDescription": "\"r\" | \"w\" | \"a\" | \"x\""
+      }
+    ],
+    "annotations": [
+      {
+        "type": "exported"
+      },
+      {
+        "type": "provision",
+        "strict": true,
+        "resource": "file_handle"
+      }
+    ],
+    "moduleVersionId": "313fc77a-1017-4ef6-a66d-55ba004de05c"
+  },
+  {
+    "id": "4Ow34UNs-K7Ds3Q2Nr7gG",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/folder.svg",
+      "name": "Write stream",
+      "theme": "green",
+      "description": "Writes a readable stream to a opened file",
+      "shortDescription": "Writes a readable stream to a opened file"
+    },
+    "parameters": [],
+    "annotations": [
+      {
+        "type": "exported"
+      },
+      {
+        "type": "requirement",
+        "strict": true,
+        "resource": "file_handle"
+      },
+      {
+        "type": "consumption",
+        "strict": true,
+        "resource": "streamable"
+      }
+    ],
+    "moduleVersionId": "313fc77a-1017-4ef6-a66d-55ba004de05c"
+  },
+  {
+    "id": "read_to_string",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/folder.svg",
+      "name": "Read file to string",
+      "theme": "green",
+      "description": "Opens a file and reads it to a string.",
+      "shortDescription": "Opens a file and reads it to a string."
+    },
+    "parameters": [
+      {
+        "name": "path",
+        "type": "tel",
+        "optional": false,
+        "description": "Path to the file to be opened",
+        "valueDescription": "string"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "exported"
+      }
+    ],
+    "moduleVersionId": "313fc77a-1017-4ef6-a66d-55ba004de05c"
+  },
+  {
+    "id": "write_string",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/folder.svg",
+      "name": "Write string to file",
+      "theme": "green",
+      "description": "Writes a string to a file.",
+      "shortDescription": "Writes a string to a file."
+    },
+    "parameters": [
+      {
+        "name": "path",
+        "type": "tel",
+        "optional": false,
+        "description": "Path to the file to be opened",
+        "valueDescription": "string"
+      },
+      {
+        "name": "content",
+        "type": "tel",
+        "optional": true,
+        "description": "Selector where to save the contents",
+        "valueDescription": "string"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "exported"
+      }
+    ],
+    "moduleVersionId": "313fc77a-1017-4ef6-a66d-55ba004de05c"
+  },
+  {
+    "id": "M3UMFEIjOPI_z8osowi6i",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/folder.svg",
+      "name": "Setup watcher",
+      "theme": "green",
+      "description": "Writes a string to a file.",
+      "shortDescription": "Writes a string to a file."
+    },
+    "parameters": [
+      {
+        "name": "path",
+        "type": "tel",
+        "optional": false,
+        "description": "Path to watch",
+        "valueDescription": "string"
+      },
+      {
+        "name": "onMessage",
+        "type": "functionRef",
+        "optional": false,
+        "description": "Called when an event is received",
+        "handlerTemplate": {
+          "name": "Handle file system event",
+          "parameters": [
+            {
+              "name": "event",
+              "type": "tel",
+              "optional": false,
+              "description": "File system event",
+              "valueDescription": "{   kind: \"file\" | \"folder\" | \"name\" | \"metadata\" | \"data\" | \"other\" | \"any\",   path: string,   type: \"create\" | \"modify\" | \"remove\" | \"access\" | \"other\" }"
+            }
+          ],
+          "annotations": [],
+          "description": "Handles file system event received from a watcher"
+        }
+      },
+      {
+        "name": "recursive",
+        "type": "tel",
+        "optional": true,
+        "description": "Indicates whether only the provided directory or its sub-directories as well should be watched",
+        "valueDescription": "boolean"
+      },
+      {
+        "name": "debounceTime",
+        "type": "tel",
+        "optional": true,
+        "description": "Debounce time in milliseconds for event reconcilation. 500ms by default.",
+        "valueDescription": "number"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "exported"
+      },
+      {
+        "type": "provision",
+        "strict": true,
+        "resource": "cancellation"
+      }
+    ],
+    "moduleVersionId": "313fc77a-1017-4ef6-a66d-55ba004de05c"
+  },
+  {
+    "id": "SwKxjr2WlOMKCEriYKZPj",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/folder.svg",
+      "name": "Cancel watcher",
+      "theme": "green",
+      "description": "Writes a string to a file.",
+      "shortDescription": "Writes a string to a file."
+    },
+    "parameters": [],
+    "annotations": [
+      {
+        "type": "exported"
+      },
+      {
+        "type": "consumption",
+        "strict": true,
+        "resource": "cancellation"
+      }
+    ],
+    "moduleVersionId": "313fc77a-1017-4ef6-a66d-55ba004de05c"
+  },
+  {
+    "id": "DMm_keadj1Xe42OOSFy6_",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/folder.svg",
+      "name": "Read directory",
+      "theme": "green",
+      "description": "Reads directory\n\nReturns an array of directory entries like:\n```\n[\n  {\n    isDir: false,\n    isFile: true,\n    isSymlink: false,\n    name: \"data.json\",\n    path: \"./data.json\"\n  }\n]\n```",
+      "shortDescription": "Reads directory\n\nReturns an array of directory entries like:\n```\n[\n  {\n    isDir: false,\n    isFile: true,\n    isSymlink: false,\n    name: \"data.json\",\n    path: \"./data.json\"\n  }\n]\n```"
+    },
+    "parameters": [
+      {
+        "name": "path",
+        "type": "tel",
+        "optional": false,
+        "description": "Path to parent directory",
+        "valueDescription": "string"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "exported"
+      }
+    ],
+    "moduleVersionId": "313fc77a-1017-4ef6-a66d-55ba004de05c"
+  },
+  {
+    "id": "zubWmWQ7PgMaRqmgRc466",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/mustache.png",
+      "name": "Render template",
+      "theme": "gray",
+      "description": "Renders a template into a string.\n\n\nA typical Mustache template:\n```\nHello {{name}}\nYou have just won {{value}} dollars!\n{{#in_ca}}\nWell, {{taxed_value}} dollars, after taxes.\n{{/in_ca}}\n```\n\nGiven the following storage value:\n```javascript\n{\n  \"name\": \"Chris\",\n  \"value\": 10000,\n  \"taxed_value\": 10000 - (10000 * 0.4),\n  \"in_ca\": true\n}\n```\nWill produce the following:\n```\nHello Chris\nYou have just won 10000 dollars!\nWell, 6000.0 dollars, after taxes.\n```\n\nSee [manual](https://mustache.github.io/mustache.5.html) for details how to use all templating features.",
+      "shortDescription": "Renders a template into a string.\n\n\nA typical Mustache template:\n```\nHello {{name}}\nYou have just won {{value}} dollars!\n{{#in_ca}}\nWell, {{taxed_value}} dollars, after taxes.\n{{/in_ca}}\n```\n\nGiven the following storage value:\n```javascript\n{\n  \"name\": \"Chris\",\n  \"value\": 10000,\n  \"taxed_value\": 10000 - (10000 * 0.4),\n  \"in_ca\": true\n}\n```\nWill produce the following:\n```\nHello Chris\nYou have just won 10000 dollars!\nWell, 6000.0 dollars, after taxes.\n```\n\nSee [manual](https://mustache.github.io/mustache.5.html) for details how to use all templating features."
+    },
+    "parameters": [
+      {
+        "name": "template",
+        "type": "tel",
+        "optional": false,
+        "description": "Mustache template as a string",
+        "valueDescription": "string"
+      },
+      {
+        "name": "data",
+        "type": "tel",
+        "optional": false,
+        "description": "Data for the template",
+        "valueDescription": "any"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "exported"
+      }
+    ],
+    "moduleVersionId": "394de375-68cc-48a9-9560-f3281b02167b"
+  },
+  {
+    "id": "run_command",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/terminal-window.svg",
+      "name": "Run command",
+      "theme": "gray",
+      "description": "Runs a command returning the status, standard output and standard error.",
+      "shortDescription": "Runs a command returning the status, standard output and standard error."
+    },
+    "parameters": [
+      {
+        "name": "program",
+        "type": "tel",
+        "optional": false,
+        "description": "Program to run",
+        "valueDescription": "string"
+      },
+      {
+        "name": "args",
+        "type": "tel",
+        "optional": true,
+        "description": "Arguments to pass to the program",
+        "valueDescription": "array"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "exported"
+      }
+    ],
+    "moduleVersionId": "3121fc0d-2b39-41e7-8986-fd412b4afe30"
+  },
+  {
+    "id": "read_environment_variable",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/terminal-window.svg",
+      "name": "Read system environment variable",
+      "theme": "gray",
+      "description": "Reads environment variable from the shell.",
+      "shortDescription": "Reads environment variable from the shell."
+    },
+    "parameters": [
+      {
+        "name": "key",
+        "type": "tel",
+        "optional": false,
+        "description": "Name of the environment variable to read",
+        "valueDescription": "string"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "exported"
+      }
+    ],
+    "moduleVersionId": "3121fc0d-2b39-41e7-8986-fd412b4afe30"
+  },
+  {
+    "id": "set_environment_variable",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/terminal-window.svg",
+      "name": "Set system environment variable",
+      "theme": "gray",
+      "description": "Sets environment variable for the current process.\n\nNote that this change will not be persistent if the worker or system is restarted.",
+      "shortDescription": "Sets environment variable for the current process.\n\nNote that this change will not be persistent if the worker or system is restarted."
+    },
+    "parameters": [
+      {
+        "name": "key",
+        "type": "tel",
+        "optional": false,
+        "description": "Name of the environment variable to read",
+        "valueDescription": "string"
+      },
+      {
+        "name": "value",
+        "type": "tel",
+        "optional": false,
+        "description": "Value to set for the environment variable",
+        "valueDescription": "string"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "exported"
+      }
+    ],
+    "moduleVersionId": "3121fc0d-2b39-41e7-8986-fd412b4afe30"
+  },
+  {
+    "id": "LdXozRRv0UIPIqFhHuHmO",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/globe.svg",
+      "name": "Setup streaming route",
+      "theme": "gray",
+      "description": "Sets up a route for the HTTP server that is not automatically parsing the body, instead a proper resource is created.",
+      "shortDescription": "Sets up a route for the HTTP server that is not automatically parsing the body, instead a proper resource is created."
+    },
+    "parameters": [
+      {
+        "name": "method",
+        "type": "tel",
+        "optional": true,
+        "description": "HTTP method to use",
+        "valueDescription": "\"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"HEAD\" | \"OPTIONS\" | \"TRACE\""
+      },
+      {
+        "name": "path",
+        "type": "tel",
+        "optional": true,
+        "description": "Path to match",
+        "valueDescription": "string"
+      },
+      {
+        "name": "onHttpRequest",
+        "type": "functionRef",
+        "optional": false,
+        "description": "Function to be called when the route is matched",
+        "handlerTemplate": {
+          "name": "Handle streaming request",
+          "parameters": [
+            {
+              "name": "request",
+              "type": "tel",
+              "optional": false,
+              "description": "Request metadata",
+              "valueDescription": "{     cookies: array,     headers: object.record,     method: \"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"OPTIONS\" | \"HEAD\",     params: object.record,     query: object.record,     path: string,     version: string }"
+            }
+          ],
+          "annotations": [
+            {
+              "type": "consumption",
+              "strict": true,
+              "resource": "pending_http_request"
+            },
+            {
+              "type": "consumption",
+              "strict": true,
+              "resource": "http_request"
+            }
+          ],
+          "description": "Handles incoming HTTP request without parsing the request body.\n\nThe function receives a streamable resource for pending HTTP request body and a resource to HTTP request that expects a response."
+        }
+      },
+      {
+        "name": "onMessage",
+        "type": "functionRef",
+        "optional": true,
+        "description": "Function to be called when the actor receives a new message"
+      },
+      {
+        "name": "onRequest",
+        "type": "functionRef",
+        "optional": true,
+        "description": "Function to be called when the actor receives a new request"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "exported"
+      },
+      {
+        "type": "actor_creator"
+      }
+    ],
+    "moduleVersionId": "365dad20-2b3c-425c-9ce1-399aedd93752"
+  },
+  {
+    "id": "setup_route",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/globe.svg",
+      "name": "Setup route",
+      "theme": "gray",
+      "description": "Sets up a route for the HTTP server. The route will automatically parse headers, path and body. Note that there is a payload size limit.",
+      "shortDescription": "Sets up a route for the HTTP server. The route will automatically parse headers, path and body. Note that there is a payload size limit."
+    },
+    "parameters": [
+      {
+        "name": "method",
+        "type": "tel",
+        "optional": true,
+        "description": "HTTP method to use",
+        "valueDescription": "\"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"HEAD\" | \"OPTIONS\" | \"TRACE\""
+      },
+      {
+        "name": "path",
+        "type": "tel",
+        "optional": true,
+        "description": "Path to match",
+        "valueDescription": "string"
+      },
+      {
+        "name": "onHttpRequest",
+        "type": "functionRef",
+        "optional": false,
+        "description": "Function to be called when the route is matched",
+        "handlerTemplate": {
+          "name": "Handle request",
+          "parameters": [
+            {
+              "name": "request",
+              "type": "tel",
+              "optional": false,
+              "description": "Request metadata",
+              "valueDescription": "{     cookies: array,     headers: object.record,     method: \"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"OPTIONS\" | \"HEAD\",     params: object.record,     query: object.record,     path: string,     version: string,     body: any }"
+            }
+          ],
+          "annotations": [
+            {
+              "type": "consumption",
+              "strict": true,
+              "resource": "http_request"
+            }
+          ],
+          "description": "Handles incoming HTTP request with automatic body parsing.\n\nThe request body is parsed based on HTTP `Content-Type` header. The parser can handle JSON payloads, URL-encoded forms, plain text, bytes and multipart form data. Note that due to buffer size limits multipart payloads are not parsed immediately, instead a pending form data resource is provided.\n\nThe function receives a resource to HTTP request that expects a response."
+        }
+      },
+      {
+        "name": "onMessage",
+        "type": "functionRef",
+        "optional": true,
+        "description": "Function to be called when the actor receives a new message"
+      },
+      {
+        "name": "onRequest",
+        "type": "functionRef",
+        "optional": true,
+        "description": "Function to be called when the actor receives a new request"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "exported"
+      },
+      {
+        "type": "actor_creator"
+      }
+    ],
+    "moduleVersionId": "365dad20-2b3c-425c-9ce1-399aedd93752"
+  },
+  {
+    "id": "respond_with",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/globe.svg",
+      "name": "Respond with",
+      "theme": "gray",
+      "description": "Responds to the HTTP request with a given body and status.",
+      "shortDescription": "Responds to the HTTP request with a given body and status."
+    },
+    "parameters": [
+      {
+        "name": "body",
+        "type": "tel",
+        "optional": true,
+        "description": "Response body"
+      },
+      {
+        "name": "headers",
+        "type": "tel",
+        "optional": true,
+        "description": "Headers map",
+        "valueDescription": "object.record"
+      },
+      {
+        "name": "status",
+        "type": "tel",
+        "optional": true,
+        "description": "HTTP Status to be set, 200 by default",
+        "valueDescription": "number"
+      },
+      {
+        "name": "cookies",
+        "type": "tel",
+        "optional": true,
+        "description": "Cookie(s) to set",
+        "valueDescription": "object | array"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "consumption",
+        "strict": true,
+        "resource": "http_request"
+      }
+    ],
+    "moduleVersionId": "365dad20-2b3c-425c-9ce1-399aedd93752"
+  },
+  {
+    "id": "wrnzlF1foFTVci5Iw2Fha",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/globe.svg",
+      "name": "Respond with stream",
+      "theme": "gray",
+      "description": "Responds to the HTTP request with a stream. \n\nThis function is useful for serving large files or proxying, as it does not load the entire payload into the memory.",
+      "shortDescription": "Responds to the HTTP request with a stream. \n\nThis function is useful for serving large files or proxying, as it does not load the entire payload into the memory."
+    },
+    "parameters": [
+      {
+        "name": "headers",
+        "type": "tel",
+        "optional": true,
+        "description": "Headers map",
+        "valueDescription": "object.record"
+      },
+      {
+        "name": "status",
+        "type": "tel",
+        "optional": true,
+        "description": "HTTP Status to use in the response",
+        "valueDescription": "number"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "consumption",
+        "strict": true,
+        "resource": "streamable"
+      },
+      {
+        "type": "consumption",
+        "strict": true,
+        "resource": "http_request"
+      }
+    ],
+    "moduleVersionId": "365dad20-2b3c-425c-9ce1-399aedd93752"
+  },
+  {
+    "id": "FDlVEeiPOfnu2KzCCby75",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/globe.svg",
+      "name": "Respond with server-sent event stream",
+      "theme": "gray",
+      "description": "Responds to the HTTP request with a server-sent event stream. \n\n[MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events)",
+      "shortDescription": "Responds to the HTTP request with a server-sent event stream. \n\n[MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events)"
+    },
+    "parameters": [
+      {
+        "name": "keepAlive",
+        "type": "tel",
+        "optional": true,
+        "description": "Time between each keep alive event, 60s by default",
+        "valueDescription": "number"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "consumption",
+        "strict": true,
+        "resource": "http_request"
+      }
+    ],
+    "moduleVersionId": "365dad20-2b3c-425c-9ce1-399aedd93752"
+  },
+  {
+    "id": "vX-Az7c_cSNMg8SB8_EKd",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/globe.svg",
+      "name": "Send server-sent event",
+      "theme": "gray",
+      "description": "Sends a server-sent event to an opened stream",
+      "shortDescription": "Sends a server-sent event to an opened stream"
+    },
+    "parameters": [
+      {
+        "name": "event",
+        "type": "tel",
+        "optional": false,
+        "description": "Event to send, objects and array are automatically converted to JSON",
+        "valueDescription": "any"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "requirement",
+        "strict": true,
+        "resource": "sse"
+      }
+    ],
+    "moduleVersionId": "365dad20-2b3c-425c-9ce1-399aedd93752"
+  },
+  {
+    "id": "TpJwtAkogwQfw1Qq-d2kx",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/globe.svg",
+      "name": "Close server-sent stream",
+      "theme": "gray",
+      "description": "Sends a server-sent event to an opened stream",
+      "shortDescription": "Sends a server-sent event to an opened stream"
+    },
+    "parameters": [],
+    "annotations": [
+      {
+        "type": "consumption",
+        "strict": true,
+        "resource": "sse"
+      }
+    ],
+    "moduleVersionId": "365dad20-2b3c-425c-9ce1-399aedd93752"
+  },
+  {
+    "id": "izRnH6W03yyXA_YL9avkT",
+    "tag": "fd1",
+    "meta": {
+      "icon": "https://assets.turboflow.dev/globe.svg",
+      "name": "Get multipart field",
+      "theme": "gray",
+      "description": "Gets multipart field without reading the input.\n\nThe part content is provided via a streamable resource.\n\nThis function does however store a metadata like:\n```\n{\n  filename: \"awesome.png\",\n  headers: {\n    \"content-disposition\": \"form-data; name=\"file\"; filename=\"awesome.png\"\",\n    \"content-type\": \"image/png\"\n  },\n  index: 0,\n  name: \"file\",\n  type: \"file\"\n}\n```",
+      "shortDescription": "Gets multipart field without reading the input.\n\nThe part content is provided via a streamable resource.\n\nThis function does however store a metadata like:\n```\n{\n  filename: \"awesome.png\",\n  headers: {\n    \"content-disposition\": \"form-data; name=\"file\"; filename=\"awesome.png\"\",\n    \"content-type\": \"image/png\"\n  },\n  index: 0,\n  name: \"file\",\n  type: \"file\"\n}\n```"
+    },
+    "parameters": [],
+    "annotations": [
+      {
+        "type": "provision",
+        "strict": true,
+        "resource": "pending_form_data_field"
+      },
+      {
+        "type": "requirement",
+        "strict": true,
+        "resource": "pending_form_data"
+      }
+    ],
+    "moduleVersionId": "365dad20-2b3c-425c-9ce1-399aedd93752"
+  },
+  {
+    "tag": "fd1",
+    "id": "-iIqJKJzlp_aYhaEmp1wo",
+    "meta": {
+      "name": "When module is started",
+      "description": "Handles module start",
+      "shortDescription": "Handles module start",
+      "icon": "system://folder",
+      "theme": "orange"
+    },
+    "parameters": [],
+    "annotations": [
+      {
+        "type": "module_starter"
+      }
+    ],
+    "decorator": false
+  },
+  {
+    "tag": "fd1",
+    "id": "oLWOKiPtzZ4l7QEXSQ_uG",
+    "meta": {
+      "name": "Handle request",
+      "description": "Handles incoming HTTP request with automatic body parsing.\n\nThe request body is parsed based on HTTP `Content-Type` header. The parser can handle JSON payloads, URL-encoded forms, plain text, bytes and multipart form data. Note that due to buffer size limits multipart payloads are not parsed immediately, instead a pending form data resource is provided.\n\nThe function receives a resource to HTTP request that expects a response.",
+      "shortDescription": "Handles incoming HTTP request with automatic body parsing.\n\nThe request body is parsed based on HTTP `Content-Type` header. The parser can handle JSON payloads, URL-encoded forms, plain text, bytes and multipart form data. Note that due to buffer size limits multipart payloads are not parsed immediately, instead a pending form data resource is provided.\n\nThe function receives a resource to HTTP request that expects a response.",
+      "icon": "system://folder",
+      "theme": "orange"
+    },
+    "parameters": [
+      {
+        "name": "request",
+        "description": "Request metadata",
+        "optional": false,
+        "type": "tel",
+        "valueDescription": "{     cookies: array,     headers: object.record,     method: \"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"OPTIONS\" | \"HEAD\",     params: object.record,     query: object.record,     path: string,     version: string,     body: any }"
+      }
+    ],
+    "annotations": [
+      {
+        "type": "consumption",
+        "resource": "http_request",
+        "strict": true
+      }
+    ],
+    "decorator": false
+  }
+]
