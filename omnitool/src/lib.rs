@@ -1225,15 +1225,13 @@ fn analyze_step(
         }
         Step::Transform {
             value,
-            filter_by: _,
-            order_by: _,
+            filter_by,
+            order_by,
             map,
             store_as,
             ..
         } => {
-            // For transform we need to check:
-            // - all fields are valid
-            // - predict new storage
+            // Before we start, let's check if the value is OK
             let value = parse_and_predict_description(
                 value.clone(),
                 &context.storage,
@@ -1242,9 +1240,72 @@ fn analyze_step(
             let (value, mut problems) = description_to_problems(value, Some("value".to_owned()));
             analysis.problems.append(&mut problems);
 
-            // TODO: Check filter_by
-            // TODO: Check order_by
+            // Check filterBy
+            if let Some(filter_by) = filter_by {
+                if let Some(ref value) = value {
+                    // Prepare context storage for the evaluation
+                    let item_description = value.get_part();
+                    let mut top: ObjectDescription = HashMap::new();
+                    top.insert("value".to_owned(), item_description);
+                    let storage = LayeredDescribedStorage {
+                        top: &top,
+                        down: &context.storage,
+                    };
 
+                    // Evaluate
+                    let item_description = parse_and_predict_description(
+                        filter_by.to_string(),
+                        &storage,
+                        &context.environment,
+                    );
+                    let (valid_filter, mut problems) =
+                        description_to_problems(item_description, Some("filterBy".to_owned()));
+                    analysis.problems.append(&mut problems);
+
+                    if let Some(filter_output) = valid_filter {
+                        let mut problems =
+                            check_not_always_boolean(&filter_output, Some("filterBy".to_owned()));
+                        analysis.problems.append(&mut problems);
+                    }
+                }
+            }
+
+            // Check orderBy
+            if let Some(order_by) = order_by {
+                if let Some(ref value) = value {
+                    // Prepare context storage for the evaluation
+                    let item_description = value.get_part();
+                    let mut top: ObjectDescription = HashMap::new();
+                    top.insert("a".to_owned(), item_description.clone());
+                    top.insert("b".to_owned(), item_description);
+                    let storage = LayeredDescribedStorage {
+                        top: &top,
+                        down: &context.storage,
+                    };
+
+                    // Evaluate
+                    let item_description = parse_and_predict_description(
+                        order_by.to_string(),
+                        &storage,
+                        &context.environment,
+                    );
+                    let (valid_order, mut problems) =
+                        description_to_problems(item_description, Some("orderBy".to_owned()));
+                    analysis.problems.append(&mut problems);
+
+                    if let Some(order_output) = valid_order {
+                        if !order_output.is_compatible(&Description::new_base_type("number")) {
+                            analysis.problems.push(AnalysisProblem::Error {
+                                code: "INVALID_FIELD".to_owned(),
+                                message: "Order by must return a number".to_owned(),
+                                field: Some("orderBy".to_owned()),
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Check map, which will affect the output
             if let Some(map) = map {
                 if let Some(value) = value {
                     // Prepare context storage for the evaluation
@@ -1266,6 +1327,22 @@ fn analyze_step(
                         item_type: Box::new(item_description),
                         length: None,
                     };
+                    let mut problems = store_in_storage(context, Some(store_as.clone()), value);
+                    analysis.problems.append(&mut problems);
+                } else {
+                    let mut problems =
+                        store_in_storage(context, Some(store_as.clone()), Description::Any);
+                    analysis.problems.append(&mut problems);
+                }
+            } else {
+                // Consider the output to be the same, except some items are missing or mixed
+                if let Some(ref value) = value {
+                    let item_description = value.get_part();
+                    let value = Description::Array {
+                        item_type: Box::new(item_description),
+                        length: None,
+                    };
+
                     let mut problems = store_in_storage(context, Some(store_as.clone()), value);
                     analysis.problems.append(&mut problems);
                 } else {
@@ -2063,6 +2140,22 @@ pub fn store_description(selector: JsValue, storage: JsValue, value: JsValue) ->
         Ok(()) => serialize(&storage).expect("Could not serialize new storage"),
         Err(error) => serialize(&error).expect("Could not serialize error"),
     }
+}
+
+#[wasm_bindgen(skip_typescript, js_name = analyze)]
+pub fn analyze(steps: JsValue, declarations: JsValue, steps_to_capture: JsValue) -> JsValue {
+    let steps: Vec<Step> =
+        serde_wasm_bindgen::from_value(steps).expect("Could not deserialize steps");
+    let declarations: Vec<FunctionDeclaration> =
+        serde_wasm_bindgen::from_value(declarations).expect("Could not deserialize declarations");
+    let steps_to_capture: Vec<String> = serde_wasm_bindgen::from_value(steps_to_capture)
+        .expect("Could not deserialize steps to capture");
+
+    let result = analyze_instructions(&steps, declarations, steps_to_capture, None);
+
+    result
+        .serialize(&SERIALIZER)
+        .expect("Could not serialize analysis")
 }
 
 fn serialize<T: SerdeSerialize>(value: &T) -> Result<JsValue, serde_wasm_bindgen::Error> {
