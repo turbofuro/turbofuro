@@ -39,14 +39,14 @@ pub enum ActorCommand {
         handler: String,
         storage: ObjectBody,
         references: HashMap<String, String>,
-        sender: Option<oneshot::Sender<Result<StorageValue, ExecutionError>>>, // TODO: Add action reply
+        sender: Option<oneshot::Sender<Result<StorageValue, ExecutionError>>>,
         execution_id: Option<String>,
     },
     RunFunctionRef {
         function_ref: String,
         storage: ObjectBody,
         references: HashMap<String, String>,
-        sender: Option<oneshot::Sender<Result<StorageValue, ExecutionError>>>, // TODO: Add action reply
+        sender: Option<oneshot::Sender<Result<StorageValue, ExecutionError>>>,
         execution_id: Option<String>,
     },
     RunAlarm {

@@ -27,7 +27,6 @@ pub enum DExpr {
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub enum DBinaryOpType {
-    And,
     Or,
 }
 
@@ -38,14 +37,12 @@ pub enum DBinaryOpType {
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 enum DOp {
-    And,
     Or,
 }
 
 impl std::fmt::Display for DOp {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            DOp::And => write!(f, "&"),
             DOp::Or => write!(f, "|"),
         }
     }
@@ -132,7 +129,7 @@ fn lexer() -> impl Parser<char, Vec<Spanned<DToken>>, Error = Simple<char>> {
     let identifier = text::ident().map(DToken::Identifier).labelled("identifier");
 
     // A parser for operators
-    let op = choice((just("&").to(DOp::And), just("|").to(DOp::Or))).map(DToken::Op);
+    let op = just("|").to(DOp::Or).map(DToken::Op);
 
     // A parser for control characters (delimiters, semicolons, etc.)
     let ctrl = one_of("()[]{};,?:.").map(DToken::Ctrl);
@@ -255,10 +252,7 @@ fn parser() -> impl Parser<DToken, Spanned<DExpr>, Error = Simple<DToken>> + Clo
             });
 
         // Logical
-        let op = choice((
-            just(DToken::Op(DOp::And)).to(DBinaryOpType::And),
-            just(DToken::Op(DOp::Or)).to(DBinaryOpType::Or),
-        ));
+        let op = choice((just(DToken::Op(DOp::Or)).to(DBinaryOpType::Or),));
 
         let logic = primary
             .clone()
@@ -442,7 +436,6 @@ pub fn evaluate_description_notation(expr: Spanned<DExpr>) -> Result<Description
             }
         }
         DExpr::BinaryOp { lhs, op, rhs } => match op {
-            DBinaryOpType::And => todo!(), // TODO: Implement and
             DBinaryOpType::Or => {
                 let l = evaluate_description_notation(*lhs)?;
                 let r = evaluate_description_notation(*rhs)?;

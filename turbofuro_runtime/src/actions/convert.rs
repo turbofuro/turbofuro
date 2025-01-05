@@ -137,7 +137,14 @@ pub async fn parse_url(
         .password()
         .map(|password| password.into())
         .unwrap_or(NULL);
-    let username: StorageValue = parsed.username().into(); // TODO: Why is username not an Option?
+    let username: StorageValue = {
+        let username = parsed.username();
+        if username.is_empty() {
+            NULL
+        } else {
+            username.into()
+        }
+    };
     let port: StorageValue = parsed
         .port()
         .map(|port| StorageValue::Number(port.into()))
@@ -376,14 +383,11 @@ mod test_convert {
                     ("origin".to_owned(), "https://example.com".into()),
                     ("host".to_owned(), "example.com".into()),
                     ("path".to_owned(), "/test".into()),
-                    (
-                        "query".to_owned(),
-                        "query=1".into() // TODO: Should this be a hashmap?
-                    ),
+                    ("query".to_owned(), "query=1".into()),
                     ("fragment".to_owned(), "fragment".into()),
                     ("scheme".to_owned(), "https".into()),
                     ("password".to_owned(), NULL),
-                    ("username".to_owned(), "".into()),
+                    ("username".to_owned(), NULL),
                     ("port".to_owned(), NULL),
                 ]
                 .into_iter()

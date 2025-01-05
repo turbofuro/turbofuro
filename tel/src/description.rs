@@ -104,7 +104,11 @@ impl Description {
             Description::StringValue { value: _ } => Description::new_base_type("string.char"),
             Description::BaseType { field_type } => {
                 if field_type.starts_with("array") {
-                    // TODO: Better array detection
+                    if field_type == "array.bytes" {
+                        return Description::new_base_type("number.bytes");
+                    }
+
+                    // TODO: Better array detection like above
                     Description::Any
                 } else if field_type.starts_with("string") {
                     Description::new_base_type("string.char")

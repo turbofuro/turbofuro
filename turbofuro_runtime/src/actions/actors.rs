@@ -1,17 +1,17 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use crate::{
     actor::{activate_actor, Actor, ActorCommand},
     errors::ExecutionError,
     evaluations::{
-        eval_opt_string_param, eval_optional_param_with_default, eval_param, eval_string_param,
-        get_handlers_from_parameters,
+        eval_opt_string_param, eval_opt_u64_param, eval_optional_param_with_default, eval_param,
+        eval_string_param, get_handlers_from_parameters,
     },
     executor::{ExecutionContext, Parameter},
     resources::{ActorLink, ActorResources, Resource},
 };
 use tel::{ObjectBody, StorageValue};
-use tokio::sync::oneshot;
+use tokio::{sync::oneshot, time::timeout};
 use tracing::{debug, instrument};
 
 use super::store_value;
@@ -119,6 +119,7 @@ pub async fn request<'a>(
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let id = eval_string_param("id", parameters, context)?;
+    let timeout_millis = eval_opt_u64_param("timeout", parameters, context)?.unwrap_or(180_000); // 3 minutes
 
     let messenger = {
         context
@@ -136,7 +137,6 @@ pub async fn request<'a>(
     storage.insert("message".to_owned(), message_param);
 
     // Let's wait for run to finish
-    // TODO: Add timeout
     let (sender, receiver) = oneshot::channel();
     messenger
         .send(ActorCommand::Run {
@@ -154,8 +154,24 @@ pub async fn request<'a>(
             ),
         })?;
 
-    let response = receiver.await.expect("Actor did not respond")?;
-    store_value(store_as, context, step_id, response).await?;
+    match timeout(Duration::from_millis(timeout_millis), receiver).await {
+        Ok(response) => match response {
+            Ok(response) => {
+                let response = response?;
+                store_value(store_as, context, step_id, response).await?;
+            }
+            Err(e) => {
+                return Err(ExecutionError::ActorCommandFailed {
+                    message: format!("Actor did not respond: {}", e),
+                })
+            }
+        },
+        Err(_) => {
+            return Err(ExecutionError::ActorCommandFailed {
+                message: "Timeout while waiting for actor response".to_owned(),
+            })
+        }
+    }
 
     Ok(())
 }

@@ -2,7 +2,10 @@ use std::{collections::HashMap, path::Path};
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{eval_opt_string_param, eval_optional_param_with_default, eval_string_param},
+    evaluations::{
+        eval_opt_string_param, eval_opt_u64_param, eval_optional_param_with_default,
+        eval_string_param,
+    },
     executor::{ExecutionContext, Parameter},
 };
 use tel::{describe, Description, StorageValue};
@@ -43,6 +46,8 @@ pub async fn run_wasi(
 ) -> Result<(), ExecutionError> {
     let path = eval_string_param("path", parameters, context)?;
     let input = eval_opt_string_param("input", parameters, context)?.unwrap_or("".to_owned());
+    let fuel = eval_opt_u64_param("fuel", parameters, context)?.unwrap_or(u64::MAX);
+    let max_async_yield = eval_opt_u64_param("maxAsyncYield", parameters, context)?;
 
     let env = eval_optional_param_with_default(
         "env",
@@ -113,9 +118,8 @@ pub async fn run_wasi(
         .build();
 
     let mut store = Store::new(&wasm.engine, wasi);
-    // TODO: Add ability to set fuel and async yield interval
-    store.set_fuel(u64::MAX)?;
-    store.fuel_async_yield_interval(Some(10000))?;
+    store.set_fuel(fuel)?;
+    store.fuel_async_yield_interval(max_async_yield)?;
 
     let mut linker = Linker::new(&wasm.engine);
     // Add WASI for Tokio magic

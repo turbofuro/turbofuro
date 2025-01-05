@@ -31,7 +31,7 @@
     },
     {
       "type": "defineNativeFunction",
-      "id": "send_command",
+      "id": "send",
       "name": "Send message to actor",
       "description": "Sends message to another actor. A message handler (if defined) will be executed in the context of the receiving actor. If message handler is not defined, message will be ignored.",
       "parameters": [
@@ -48,7 +48,7 @@
           "type": "tel"
         }
       ],
-      "nativeId": "actors/send_command",
+      "nativeId": "actors/send",
       "exported": true,
       "annotations": []
     },

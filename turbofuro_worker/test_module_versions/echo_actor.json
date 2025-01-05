@@ -40,7 +40,7 @@
         {
           "type": "call",
           "version": "1",
-          "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/send_command",
+          "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/send",
           "parameters": [
             {
               "type": "tel",

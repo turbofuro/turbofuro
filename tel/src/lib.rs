@@ -523,7 +523,7 @@ impl TelError {
             TelError::InvalidIndex { .. } => 9,
             TelError::InvalidArgument { .. } => 10,
             TelError::MissingArgument { .. } => 11,
-            TelError::Unknown { message } => 13,
+            TelError::Unknown { .. } => 13,
         }
     }
 }

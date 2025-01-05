@@ -1208,7 +1208,6 @@ async fn execute_native<'a>(
             os::set_environment_variable(context, parameters, step_id).await?
         }
         "actors/terminate" => actors::terminate(context, parameters, step_id).await?,
-        "actors/send_command" => actors::send(context, parameters, step_id).await?, // TODO: Remove this once the new actors/send is fully implemented
         "actors/send" => actors::send(context, parameters, step_id).await?,
         "actors/request" => actors::request(context, parameters, step_id, store_as).await?,
         "actors/get_actor_id" => {

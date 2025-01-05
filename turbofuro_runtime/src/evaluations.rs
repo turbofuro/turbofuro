@@ -342,7 +342,7 @@ pub fn eval_opt_string_param(
 ) -> Result<Option<String>, ExecutionError> {
     let value = eval_optional_param(name, parameters, context)?;
     match value {
-        Some(value) => as_string(value, name).map(|s| Some(s)),
+        Some(value) => as_string(value, name).map(Some),
         None => Ok(None),
     }
 }
@@ -363,7 +363,7 @@ pub fn eval_opt_integer_param(
 ) -> Result<Option<i64>, ExecutionError> {
     let value = eval_optional_param(name, parameters, context)?;
     match value {
-        Some(value) => as_integer(value, name).map(|i| Some(i)),
+        Some(value) => as_integer(value, name).map(Some),
         None => Ok(None),
     }
 }
@@ -384,7 +384,7 @@ pub fn eval_opt_boolean_param(
 ) -> Result<Option<bool>, ExecutionError> {
     let value = eval_optional_param(name, parameters, context)?;
     match value {
-        Some(value) => as_boolean(value, name).map(|i| Some(i)),
+        Some(value) => as_boolean(value, name).map(Some),
         None => Ok(None),
     }
 }

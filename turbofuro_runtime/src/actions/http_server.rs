@@ -332,7 +332,6 @@ pub async fn respond_with_stream<'a>(
     )?;
 
     let mut response_builder = Response::builder().status(status as u16);
-    // TODO: Make this more verbose and handle other types by specialized functions
     let response = {
         let stream = context.resources.get_stream()?;
         let body = Body::from_stream(stream);
