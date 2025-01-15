@@ -46,11 +46,15 @@ const WEBDRIVER_CLIENT_TYPE: &str = "webdriver_client";
 const WEBDRIVER_ELEMENT_TYPE: &str = "webdriver_element";
 
 pub trait Resource {
-    fn get_type() -> &'static str;
+    fn static_type() -> &'static str;
+
+    fn get_type(&self) -> &'static str {
+        Self::static_type()
+    }
 
     fn missing() -> ExecutionError {
         ExecutionError::MissingResource {
-            resource_type: Self::get_type().into(),
+            resource_type: Self::static_type().into(),
         }
     }
 
@@ -73,7 +77,7 @@ pub struct RedisPool(
 );
 
 impl Resource for RedisPool {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         REDIS_CONNECTION_RESOURCE_TYPE
     }
 
@@ -94,7 +98,7 @@ impl Debug for RedisPool {
 pub struct PostgresPool(pub ResourceId, pub deadpool_postgres::Pool);
 
 impl Resource for PostgresPool {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         POSTGRES_CONNECTION_RESOURCE_TYPE
     }
 
@@ -106,7 +110,7 @@ impl Resource for PostgresPool {
 pub struct LibSql(pub ResourceId, pub libsql::Connection);
 
 impl Resource for LibSql {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         LIBSQL_CONNECTION_TYPE
     }
 
@@ -125,7 +129,7 @@ impl Debug for LibSql {
 pub struct OpenWebSocket(pub ResourceId, pub mpsc::Sender<WebSocketCommand>);
 
 impl Resource for OpenWebSocket {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         WEBSOCKET_RESOURCE_TYPE
     }
 
@@ -141,7 +145,7 @@ pub struct OpenSseStream(
 );
 
 impl Resource for OpenSseStream {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         SSE_RESOURCE_TYPE
     }
 
@@ -175,7 +179,7 @@ impl ActorLink {
 }
 
 impl Resource for ActorLink {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         ACTOR_LINK_TYPE
     }
 
@@ -188,7 +192,7 @@ impl Resource for ActorLink {
 pub struct HttpClient(pub ResourceId, pub reqwest::Client);
 
 impl Resource for HttpClient {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         HTTP_CLIENT_RESOURCE_TYPE
     }
 
@@ -201,8 +205,8 @@ impl Resource for HttpClient {
 pub struct WebDriverClient(pub ResourceId, pub fantoccini::Client);
 
 impl Resource for WebDriverClient {
-    fn get_type() -> &'static str {
-        &WEBDRIVER_CLIENT_TYPE
+    fn static_type() -> &'static str {
+        WEBDRIVER_CLIENT_TYPE
     }
 
     fn get_id(&self) -> ResourceId {
@@ -214,8 +218,8 @@ impl Resource for WebDriverClient {
 pub struct WebDriverElement(pub ResourceId, pub fantoccini::elements::Element);
 
 impl Resource for WebDriverElement {
-    fn get_type() -> &'static str {
-        &WEBDRIVER_ELEMENT_TYPE
+    fn static_type() -> &'static str {
+        WEBDRIVER_ELEMENT_TYPE
     }
 
     fn get_id(&self) -> ResourceId {
@@ -368,7 +372,7 @@ pub struct HttpRequestToRespond {
 }
 
 impl Resource for HttpRequestToRespond {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         HTTP_REQUEST_RESOURCE_TYPE
     }
 
@@ -403,7 +407,7 @@ pub struct Cancellation {
 }
 
 impl Resource for Cancellation {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         CANCELLATION_TYPE
     }
 
@@ -419,7 +423,7 @@ pub struct FileHandle {
 }
 
 impl Resource for FileHandle {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         FILE_HANDLE_TYPE
     }
 
@@ -431,14 +435,8 @@ impl Resource for FileHandle {
 #[derive(Debug)]
 pub struct PendingHttpResponseBody(pub ResourceId, pub reqwest::Response);
 
-impl PendingHttpResponseBody {
-    pub fn new(response: reqwest::Response) -> Self {
-        Self(generate_resource_id(), response)
-    }
-}
-
 impl Resource for PendingHttpResponseBody {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         PENDING_HTTP_RESPONSE_TYPE
     }
 
@@ -457,7 +455,7 @@ impl PendingHttpRequestBody {
 }
 
 impl Resource for PendingHttpRequestBody {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         PENDING_HTTP_REQUEST_TYPE
     }
 
@@ -476,7 +474,7 @@ impl FormDataDraft {
 }
 
 impl Resource for FormDataDraft {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         FORM_DATA_DRAFT_TYPE
     }
 
@@ -515,7 +513,7 @@ impl PendingFormData {
 }
 
 impl Resource for PendingFormData {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         PENDING_FORM_DATA_TYPE
     }
 
@@ -531,7 +529,7 @@ pub struct PendingFormDataField(
 );
 
 impl Resource for PendingFormDataField {
-    fn get_type() -> &'static str {
+    fn static_type() -> &'static str {
         PENDING_FORM_DATA_FIELD_TYPE
     }
 
@@ -597,6 +595,12 @@ impl Stream for PendingHttpRequestStream {
 
 type HammerStream = Pin<Box<dyn Stream<Item = Result<Bytes, ExecutionError>> + Send + Sync>>;
 
+#[derive(Debug)]
+pub struct SteamMetadata {
+    pub id: ResourceId,
+    pub type_: &'static str,
+}
+
 impl ActorResources {
     pub fn append(&mut self, other: &mut ActorResources) {
         self.http_requests_to_respond
@@ -625,7 +629,11 @@ impl ActorResources {
         self.websockets.push(websocket);
     }
 
-    pub fn use_websocket<F>(&mut self, f: F) -> Option<&mut OpenWebSocket>
+    pub fn use_websocket(&mut self) -> Option<&mut OpenWebSocket> {
+        self.websockets.last_mut()
+    }
+
+    pub fn use_websocket_where<F>(&mut self, f: F) -> Option<&mut OpenWebSocket>
     where
         F: Fn(&OpenWebSocket) -> bool,
     {
@@ -653,7 +661,11 @@ impl ActorResources {
         self.sse_streams.push(sse_stream);
     }
 
-    pub fn use_sse_stream<F>(&mut self, f: F) -> Option<&mut OpenSseStream>
+    pub fn use_sse_stream(&mut self) -> Option<&mut OpenSseStream> {
+        self.sse_streams.last_mut()
+    }
+
+    pub fn use_sse_stream_where<F>(&mut self, f: F) -> Option<&mut OpenSseStream>
     where
         F: Fn(&OpenSseStream) -> bool,
     {
@@ -681,7 +693,14 @@ impl ActorResources {
         self.http_requests_to_respond.push(http_request_to_respond);
     }
 
-    pub fn use_http_request_to_respond<F>(&mut self, f: F) -> Option<&mut HttpRequestToRespond>
+    pub fn use_http_request_to_respond(&mut self) -> Option<&mut HttpRequestToRespond> {
+        self.http_requests_to_respond.last_mut()
+    }
+
+    pub fn use_http_request_to_respond_where<F>(
+        &mut self,
+        f: F,
+    ) -> Option<&mut HttpRequestToRespond>
     where
         F: Fn(&HttpRequestToRespond) -> bool,
     {
@@ -709,7 +728,11 @@ impl ActorResources {
         self.cancellations.push(cancellation);
     }
 
-    pub fn use_cancellation<F>(&mut self, f: F) -> Option<&mut Cancellation>
+    pub fn use_cancellation(&mut self) -> Option<&mut Cancellation> {
+        self.cancellations.last_mut()
+    }
+
+    pub fn use_cancellation_where<F>(&mut self, f: F) -> Option<&mut Cancellation>
     where
         F: Fn(&Cancellation) -> bool,
     {
@@ -734,11 +757,15 @@ impl ActorResources {
     }
 
     pub fn add_file(&mut self, file: FileHandle) {
-        self.add_streamable(FileHandle::get_type(), file.get_id());
+        self.add_streamable(FileHandle::static_type(), file.get_id());
         self.files.push(file);
     }
 
-    pub fn use_file<F>(&mut self, f: F) -> Option<&mut FileHandle>
+    pub fn use_file(&mut self) -> Option<&mut FileHandle> {
+        self.files.last_mut()
+    }
+
+    pub fn use_file_where<F>(&mut self, f: F) -> Option<&mut FileHandle>
     where
         F: Fn(&FileHandle) -> bool,
     {
@@ -766,13 +793,20 @@ impl ActorResources {
 
     pub fn add_pending_response_body(&mut self, pending_response_body: PendingHttpResponseBody) {
         self.add_streamable(
-            PendingHttpResponseBody::get_type(),
+            PendingHttpResponseBody::static_type(),
             pending_response_body.get_id(),
         );
         self.pending_response_body.push(pending_response_body);
     }
 
-    pub fn use_pending_response_body<F>(&mut self, f: F) -> Option<&mut PendingHttpResponseBody>
+    pub fn use_pending_response_body(&mut self) -> Option<&mut PendingHttpResponseBody> {
+        self.pending_response_body.last_mut()
+    }
+
+    pub fn use_pending_response_body_where<F>(
+        &mut self,
+        f: F,
+    ) -> Option<&mut PendingHttpResponseBody>
     where
         F: Fn(&PendingHttpResponseBody) -> bool,
     {
@@ -803,13 +837,17 @@ impl ActorResources {
 
     pub fn add_pending_request_body(&mut self, pending_request_body: PendingHttpRequestBody) {
         self.add_streamable(
-            PendingHttpRequestBody::get_type(),
+            PendingHttpRequestBody::static_type(),
             pending_request_body.get_id(),
         );
         self.pending_request_body.push(pending_request_body);
     }
 
-    pub fn use_pending_request_body<F>(&mut self, f: F) -> Option<&mut PendingHttpRequestBody>
+    pub fn use_pending_request_body(&mut self) -> Option<&mut PendingHttpRequestBody> {
+        self.pending_request_body.last_mut()
+    }
+
+    pub fn use_pending_request_body_where<F>(&mut self, f: F) -> Option<&mut PendingHttpRequestBody>
     where
         F: Fn(&PendingHttpRequestBody) -> bool,
     {
@@ -842,7 +880,11 @@ impl ActorResources {
         self.form_data.push(form_data);
     }
 
-    pub fn use_form_data<F>(&mut self, f: F) -> Option<&mut FormDataDraft>
+    pub fn use_form_data(&mut self) -> Option<&mut FormDataDraft> {
+        self.form_data.last_mut()
+    }
+
+    pub fn use_form_data_where<F>(&mut self, f: F) -> Option<&mut FormDataDraft>
     where
         F: Fn(&FormDataDraft) -> bool,
     {
@@ -870,7 +912,11 @@ impl ActorResources {
         self.pending_form_data.push(pending_form_data);
     }
 
-    pub fn use_pending_form_data<F>(&mut self, f: F) -> Option<&mut PendingFormData>
+    pub fn use_pending_form_data(&mut self) -> Option<&mut PendingFormData> {
+        self.pending_form_data.last_mut()
+    }
+
+    pub fn use_pending_form_data_where<F>(&mut self, f: F) -> Option<&mut PendingFormData>
     where
         F: Fn(&PendingFormData) -> bool,
     {
@@ -896,13 +942,20 @@ impl ActorResources {
 
     pub fn add_pending_form_data_field(&mut self, pending_form_data_field: PendingFormDataField) {
         self.add_streamable(
-            PendingFormDataField::get_type(),
+            PendingFormDataField::static_type(),
             pending_form_data_field.get_id(),
         );
         self.pending_form_data_fields.push(pending_form_data_field);
     }
 
-    pub fn use_pending_form_data_field<F>(&mut self, f: F) -> Option<&mut PendingFormDataField>
+    pub fn use_pending_form_data_field(&mut self) -> Option<&mut PendingFormDataField> {
+        self.pending_form_data_fields.last_mut()
+    }
+
+    pub fn use_pending_form_data_field_where<F>(
+        &mut self,
+        f: F,
+    ) -> Option<&mut PendingFormDataField>
     where
         F: Fn(&PendingFormDataField) -> bool,
     {
@@ -935,7 +988,11 @@ impl ActorResources {
         self.webdriver_clients.push(webdriver_client);
     }
 
-    pub fn use_webdriver_client<F>(&mut self, f: F) -> Option<&mut WebDriverClient>
+    pub fn use_webdriver_client(&mut self) -> Option<&mut WebDriverClient> {
+        self.webdriver_clients.last_mut()
+    }
+
+    pub fn use_webdriver_client_where<F>(&mut self, f: F) -> Option<&mut WebDriverClient>
     where
         F: Fn(&WebDriverClient) -> bool,
     {
@@ -963,7 +1020,11 @@ impl ActorResources {
         self.webdriver_elements.push(webdriver_element);
     }
 
-    pub fn use_webdriver_element<F>(&mut self, f: F) -> Option<&mut WebDriverElement>
+    pub fn use_webdriver_element(&mut self) -> Option<&mut WebDriverElement> {
+        self.webdriver_elements.last_mut()
+    }
+
+    pub fn use_webdriver_element_where<F>(&mut self, f: F) -> Option<&mut WebDriverElement>
     where
         F: Fn(&WebDriverElement) -> bool,
     {
@@ -998,7 +1059,7 @@ impl ActorResources {
         self.streams.push(StreamableResource { resource, id })
     }
 
-    pub fn get_stream(&mut self) -> Result<HammerStream, ExecutionError> {
+    pub fn get_stream(&mut self) -> Result<(HammerStream, SteamMetadata), ExecutionError> {
         let last = self
             .streams
             .pop()
@@ -1014,8 +1075,13 @@ impl ActorResources {
                         resource_type: "streamable".to_owned(),
                     })?;
 
+                let metadata = SteamMetadata {
+                    id: last.id,
+                    type_: PENDING_HTTP_REQUEST_TYPE,
+                };
+
                 let stream = PendingHttpRequestStream(resource.1.into_data_stream());
-                Ok(Box::pin(stream))
+                Ok((Box::pin(stream), metadata))
             }
             PENDING_HTTP_RESPONSE_TYPE => {
                 let resource = self
@@ -1024,12 +1090,23 @@ impl ActorResources {
                         resource_type: "streamable".to_owned(),
                     })?;
 
-                Ok(Box::pin(resource.1.bytes_stream().map_err(|e| {
-                    ExecutionError::IoError {
-                        message: e.to_string(),
-                        os_code: None,
-                    }
-                })))
+                let metadata = SteamMetadata {
+                    id: last.id,
+                    type_: PENDING_HTTP_RESPONSE_TYPE,
+                };
+
+                Ok((
+                    Box::pin(
+                        resource
+                            .1
+                            .bytes_stream()
+                            .map_err(|e| ExecutionError::IoError {
+                                message: e.to_string(),
+                                os_code: None,
+                            }),
+                    ),
+                    metadata,
+                ))
             }
             PENDING_FORM_DATA_FIELD_TYPE => {
                 let resource = self
@@ -1038,7 +1115,12 @@ impl ActorResources {
                         resource_type: "streamable".to_owned(),
                     })?;
 
-                Ok(Box::pin(ReceiverStream::new(resource.1)))
+                let metadata = SteamMetadata {
+                    id: last.id,
+                    type_: PENDING_FORM_DATA_FIELD_TYPE,
+                };
+
+                Ok((Box::pin(ReceiverStream::new(resource.1)), metadata))
             }
             FILE_HANDLE_TYPE => {
                 let resource = self.pop_file_where(|r| r.id == last.id).ok_or_else(|| {
@@ -1047,12 +1129,20 @@ impl ActorResources {
                     }
                 })?;
 
-                Ok(Box::pin(ReaderStream::new(resource.file).map_err(|e| {
-                    ExecutionError::IoError {
-                        message: e.to_string(),
-                        os_code: None,
-                    }
-                })))
+                let metadata = SteamMetadata {
+                    id: last.id,
+                    type_: FILE_HANDLE_TYPE,
+                };
+
+                Ok((
+                    Box::pin(ReaderStream::new(resource.file).map_err(|e| {
+                        ExecutionError::IoError {
+                            message: e.to_string(),
+                            os_code: None,
+                        }
+                    })),
+                    metadata,
+                ))
             }
             _ => {
                 unreachable!()

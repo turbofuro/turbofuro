@@ -161,6 +161,12 @@ pub async fn respond_with<'a>(
         .resources
         .pop_http_request_to_respond()
         .ok_or_else(HttpRequestToRespond::missing)?;
+    context
+        .note_resource_consumed(
+            http_request_to_respond.id,
+            HttpRequestToRespond::static_type(),
+        )
+        .await;
 
     // TODO: Make this more verbose and handle other types by specialized functions
     let mut response_builder = Response::builder().status(status as u16);
@@ -215,14 +221,14 @@ pub async fn respond_with<'a>(
         .send(response)
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to respond to HTTP request".to_owned(),
-            subject: HttpRequestToRespond::get_type().into(),
+            subject: HttpRequestToRespond::static_type().into(),
             inner: format!("{:?}", e),
         })?;
 
     receiver.await.map_err(|e| ExecutionError::StateInvalid {
         message: "Failed to receive confirmation on HTTP response".to_owned(),
         inner: e.to_string(),
-        subject: HttpRequestToRespond::get_type().into(),
+        subject: HttpRequestToRespond::static_type().into(),
     })?
 }
 
@@ -333,11 +339,14 @@ pub async fn respond_with_stream<'a>(
 
     let mut response_builder = Response::builder().status(status as u16);
     let response = {
-        let stream = context.resources.get_stream()?;
+        let (stream, metadata) = context.resources.get_stream()?;
+        context
+            .note_resource_used(metadata.id, metadata.type_)
+            .await;
+
         let body = Body::from_stream(stream);
 
         response_builder = fill_headers_response(response_builder, headers_param, cookies_param)?;
-
         response_builder
             .body(body)
             .map_err(|_| ExecutionError::ParameterInvalid {
@@ -350,6 +359,12 @@ pub async fn respond_with_stream<'a>(
         .resources
         .pop_http_request_to_respond()
         .ok_or_else(HttpRequestToRespond::missing)?;
+    context
+        .note_resource_consumed(
+            http_request_to_respond.id,
+            HttpRequestToRespond::static_type(),
+        )
+        .await;
 
     let (response, receiver) = HttpResponse::new(response);
     http_request_to_respond
@@ -357,14 +372,14 @@ pub async fn respond_with_stream<'a>(
         .send(response)
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to respond to HTTP request".to_owned(),
-            subject: HttpRequestToRespond::get_type().into(),
+            subject: HttpRequestToRespond::static_type().into(),
             inner: format!("{:?}", e),
         })?;
 
     receiver.await.map_err(|e| ExecutionError::StateInvalid {
         message: "Failed to receive confirmation on HTTP response".to_owned(),
         inner: e.to_string(),
-        subject: HttpRequestToRespond::get_type().into(),
+        subject: HttpRequestToRespond::static_type().into(),
     })?
 }
 
@@ -395,6 +410,12 @@ pub async fn respond_with_sse_stream<'a>(
         .resources
         .pop_http_request_to_respond()
         .ok_or_else(HttpRequestToRespond::missing)?;
+    context
+        .note_resource_consumed(
+            http_request_to_respond.id,
+            HttpRequestToRespond::static_type(),
+        )
+        .await;
 
     let (disconnect_sender, disconnect_receiver) = oneshot::channel::<StorageValue>();
     let actor_id = context.actor_id.clone();
@@ -432,18 +453,22 @@ pub async fn respond_with_sse_stream<'a>(
         .send(response)
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to respond to HTTP request".to_owned(),
-            subject: HttpRequestToRespond::get_type().into(),
+            subject: HttpRequestToRespond::static_type().into(),
             inner: format!("{:?}", e),
         })?;
 
+    let stream_id = generate_resource_id();
     context
         .resources
-        .add_sse_stream(OpenSseStream(generate_resource_id(), event_sender));
+        .add_sse_stream(OpenSseStream(stream_id, event_sender));
+    context
+        .note_resource_provisioned(stream_id, OpenSseStream::static_type())
+        .await;
 
     receiver.await.map_err(|e| ExecutionError::StateInvalid {
         message: "Failed to receive confirmation on HTTP response".to_owned(),
         inner: e.to_string(),
-        subject: HttpRequestToRespond::get_type().into(),
+        subject: HttpRequestToRespond::static_type().into(),
     })?
 }
 
@@ -468,7 +493,7 @@ pub async fn send_sse<'a>(
 
     let sse_stream = context
         .resources
-        .use_sse_stream(|_| true)
+        .use_sse_stream()
         .ok_or_else(OpenSseStream::missing)?;
 
     sse_stream
@@ -477,9 +502,14 @@ pub async fn send_sse<'a>(
         .await
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to send SSE event".to_owned(),
-            subject: OpenSseStream::get_type().into(),
+            subject: OpenSseStream::static_type().into(),
             inner: e.to_string(),
         })?;
+
+    let stream_id = sse_stream.0;
+    context
+        .note_resource_used(stream_id, OpenSseStream::static_type())
+        .await;
 
     Ok(())
 }
@@ -495,6 +525,9 @@ pub async fn close_sse_stream<'a>(
         .resources
         .pop_sse_stream()
         .ok_or_else(OpenSseStream::missing)?;
+    context
+        .note_resource_consumed(sse_stream.0, OpenSseStream::static_type())
+        .await;
 
     drop(sse_stream);
     Ok(())

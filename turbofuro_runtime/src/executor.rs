@@ -981,49 +981,58 @@ impl<'a> ExecutionContext<'a> {
         Ok(())
     }
 
-    pub async fn note_resource_provisioned(
-        &mut self,
-        id: u64,
-        resource: &str,
-        name: Option<String>,
-    ) -> Result<(), ExecutionError> {
+    pub async fn note_resource_provisioned(&mut self, id: u64, resource: &str) {
         self.report_verbose_event(ExecutionEvent::ResourceProvisioned {
             id,
             resource: resource.to_owned(),
-            name,
+            name: None,
         })
         .await;
-        Ok(())
     }
 
-    pub async fn note_resource_consumed(
-        &mut self,
-        id: u64,
-        resource: &str,
-        name: Option<String>,
-    ) -> Result<(), ExecutionError> {
+    pub async fn note_resource_consumed(&mut self, id: u64, resource: &str) {
         self.report_verbose_event(ExecutionEvent::ResourceConsumed {
             id,
             resource: resource.to_owned(),
-            name,
+            name: None,
         })
         .await;
-        Ok(())
     }
 
-    pub async fn note_resource_used(
-        &mut self,
-        id: u64,
-        resource: &str,
-        name: Option<String>,
-    ) -> Result<(), ExecutionError> {
+    pub async fn note_resource_used(&mut self, id: u64, resource: &str) {
         self.report_verbose_event(ExecutionEvent::ResourceUsed {
             id,
             resource: resource.to_owned(),
-            name,
+            name: None,
         })
         .await;
-        Ok(())
+    }
+
+    pub async fn note_named_resource_provisioned(&mut self, id: u64, resource: &str, name: String) {
+        self.report_verbose_event(ExecutionEvent::ResourceProvisioned {
+            id,
+            resource: resource.to_owned(),
+            name: Some(name),
+        })
+        .await;
+    }
+
+    pub async fn note_named_resource_consumed(&mut self, id: u64, resource: &str, name: String) {
+        self.report_verbose_event(ExecutionEvent::ResourceConsumed {
+            id,
+            resource: resource.to_owned(),
+            name: Some(name),
+        })
+        .await;
+    }
+
+    pub async fn note_named_resource_used(&mut self, id: u64, resource: &str, name: String) {
+        self.report_verbose_event(ExecutionEvent::ResourceUsed {
+            id,
+            resource: resource.to_owned(),
+            name: Some(name),
+        })
+        .await;
     }
 }
 

@@ -61,12 +61,16 @@ pub async fn run_task_continuously<'a>(
         }
     });
 
+    let cancellation_id = generate_resource_id();
     context.resources.add_cancellation(Cancellation {
-        id: generate_resource_id(),
+        id: cancellation_id,
         name: cancellation_name(task_id),
         sender,
         subject: CancellationSubject::Task,
     });
+    context
+        .note_resource_provisioned(cancellation_id, Cancellation::static_type())
+        .await;
 
     Ok(())
 }
@@ -128,8 +132,18 @@ pub async fn cancel_task<'a>(
         .resources
         .pop_cancellation_where(|c| matches!(c.subject, CancellationSubject::Task))
         .ok_or_else(Cancellation::missing)?;
+    context
+        .note_resource_consumed(cancellation.id, Cancellation::static_type())
+        .await;
 
-    cancellation.sender.send(()).unwrap();
+    cancellation
+        .sender
+        .send(())
+        .map_err(|_| ExecutionError::StateInvalid {
+            message: "Failed to send cancel signal to task".to_owned(),
+            subject: Cancellation::static_type().into(),
+            inner: "Send error".to_owned(),
+        })?;
 
     Ok(())
 }

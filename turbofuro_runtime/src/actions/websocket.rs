@@ -35,6 +35,12 @@ pub async fn accept_ws<'a>(
         .resources
         .pop_http_request_to_respond()
         .ok_or_else(HttpRequestToRespond::missing)?;
+    context
+        .note_resource_consumed(
+            http_request_to_respond.id,
+            http_request_to_respond.get_type(),
+        )
+        .await;
 
     let (response, receiver) = HttpResponse::new_ws();
     http_request_to_respond
@@ -42,14 +48,14 @@ pub async fn accept_ws<'a>(
         .send(response)
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to accept WebSocket by sending response to HTTP request".to_owned(),
-            subject: HttpRequestToRespond::get_type().into(),
+            subject: HttpRequestToRespond::static_type().into(),
             inner: format!("{:?}", e),
         })?;
 
     receiver.await.map_err(|e| ExecutionError::StateInvalid {
         message: "Failed to receive confirmation on WebSocket acceptance".to_owned(),
         inner: e.to_string(),
-        subject: HttpRequestToRespond::get_type().into(),
+        subject: HttpRequestToRespond::static_type().into(),
     })?
 }
 
@@ -68,26 +74,31 @@ pub async fn send_message<'a>(
         v => Message::Text(v.to_string().unwrap_or_default()),
     };
 
-    let websocket = &mut context
+    let websocket = context
         .resources
-        .use_websocket(|_| true)
-        .ok_or_else(OpenWebSocket::missing)?
-        .1;
+        .use_websocket()
+        .ok_or_else(OpenWebSocket::missing)?;
 
     let (command, receiver) = WebSocketCommand::new(message);
     websocket
+        .1
         .send(command)
         .await
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to send message to WebSocket".to_owned(),
-            subject: OpenWebSocket::get_type().to_owned(),
+            subject: OpenWebSocket::static_type().to_owned(),
             inner: e.to_string(),
         })?;
+
+    let resource_id = websocket.0;
+    context
+        .note_resource_used(resource_id, OpenWebSocket::static_type())
+        .await;
 
     receiver.await.map_err(|e| ExecutionError::StateInvalid {
         message: "Failed to receive confirmation on WebSocket message".to_owned(),
         inner: e.to_string(),
-        subject: OpenWebSocket::get_type().to_owned(),
+        subject: OpenWebSocket::static_type().to_owned(),
     })?
 }
 
@@ -100,22 +111,25 @@ pub async fn close_websocket<'a>(
     let websocket = context
         .resources
         .pop_websocket()
-        .ok_or_else(OpenWebSocket::missing)?
-        .1;
+        .ok_or_else(OpenWebSocket::missing)?;
+    context
+        .note_resource_consumed(websocket.0, websocket.get_type())
+        .await;
 
     let (command, receiver) = WebSocketCommand::new(Message::Close(None));
     websocket
+        .1
         .send(command)
         .await
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to send close frame to WebSocket".to_owned(),
-            subject: OpenWebSocket::get_type().to_owned(),
+            subject: OpenWebSocket::static_type().to_owned(),
             inner: e.to_string(),
         })?;
 
     receiver.await.map_err(|e| ExecutionError::StateInvalid {
         message: "Failed to receive confirmation on WebSocket closing message".to_owned(),
         inner: e.to_string(),
-        subject: OpenWebSocket::get_type().to_owned(),
+        subject: OpenWebSocket::static_type().to_owned(),
     })?
 }

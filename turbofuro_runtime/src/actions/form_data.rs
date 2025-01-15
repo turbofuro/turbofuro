@@ -60,7 +60,14 @@ pub async fn add_stream_part_to_form_data<'a>(
         .pop_form_data()
         .ok_or_else(FormDataDraft::missing)?;
 
-    let stream = context.resources.get_stream()?;
+    // The resource is put back later
+    // The use is noted later
+
+    let (stream, metadata) = context.resources.get_stream()?;
+
+    context
+        .note_resource_consumed(metadata.id, metadata.type_)
+        .await;
 
     let mut part: Part = {
         if let Some(size) = size_param {
@@ -84,6 +91,10 @@ pub async fn add_stream_part_to_form_data<'a>(
     }
 
     form_data.1 = form_data.1.part(name, part);
+
+    context
+        .note_resource_used(form_data.0, form_data.get_type())
+        .await;
 
     // Store the form data back to resources
     context.resources.add_form_data(form_data);
@@ -109,6 +120,9 @@ pub async fn add_text_part_to_form_data<'a>(
         .pop_form_data()
         .ok_or_else(FormDataDraft::missing)?;
 
+    // The resource is put back later
+    // The use is noted later
+
     let mut part: Part = Part::text(value);
 
     if let Some(filename) = filename {
@@ -125,6 +139,10 @@ pub async fn add_text_part_to_form_data<'a>(
     }
 
     form_data.1 = form_data.1.part(name, part);
+
+    context
+        .note_resource_used(form_data.0, form_data.get_type())
+        .await;
 
     // Store the form data back to resources
     context.resources.add_form_data(form_data);

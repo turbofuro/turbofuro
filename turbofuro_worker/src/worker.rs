@@ -89,7 +89,7 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
                         .responder
                         .send(Err(ExecutionError::StateInvalid {
                             message: "Failed to acknowledge send message to WebSocket".to_owned(),
-                            subject: OpenWebSocket::get_type().into(),
+                            subject: OpenWebSocket::static_type().into(),
                             inner: e.to_string(),
                         }))
                         .unwrap();

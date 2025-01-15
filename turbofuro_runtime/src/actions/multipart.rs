@@ -22,7 +22,7 @@ pub async fn get_field<'a>(
 ) -> Result<(), ExecutionError> {
     let form_data = context
         .resources
-        .use_pending_form_data(|_| true)
+        .use_pending_form_data()
         .ok_or_else(PendingFormData::missing)?;
 
     let (sender, receiver) = oneshot::channel::<MultipartManagerFieldEvent>();
@@ -30,9 +30,23 @@ pub async fn get_field<'a>(
         .1
         .send(MultipartManagerCommand::GetNext { sender })
         .await
-        .unwrap();
+        .map_err(|_| ExecutionError::StateInvalid {
+            message: "Failed to send get next field command to pending form data".to_owned(),
+            subject: PendingFormData::static_type().into(),
+            inner: "Send error".to_owned(),
+        })?;
+    let form_data_id = form_data.0;
 
-    let field = receiver.await.unwrap();
+    let field = receiver.await.map_err(|_| ExecutionError::StateInvalid {
+        message: "Failed to receive field from pending form data".to_owned(),
+        subject: PendingFormData::static_type().into(),
+        inner: "Receive error".to_owned(),
+    })?;
+
+    context
+        .note_resource_used(form_data_id, PendingFormData::static_type())
+        .await;
+
     let storage = match field {
         MultipartManagerFieldEvent::Error => {
             let mut storage = ObjectBody::new();
@@ -51,12 +65,16 @@ pub async fn get_field<'a>(
             index,
             headers,
         } => {
+            let field_id = generate_resource_id();
             context
                 .resources
                 .add_pending_form_data_field(PendingFormDataField(
                     generate_resource_id(),
                     receiver,
                 ));
+            context
+                .note_resource_provisioned(field_id, PendingFormDataField::static_type())
+                .await;
 
             let mut storage = ObjectBody::new();
             if let Some(name) = name {

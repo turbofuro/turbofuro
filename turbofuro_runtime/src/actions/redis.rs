@@ -64,10 +64,15 @@ pub async fn get_connection<'a>(
         setup_pubsub_coordinator(&connection_string, context.global.clone()).await?;
 
     // Put to the registry
-    context.global.registry.redis_pools.insert(
-        name,
-        RedisPool(generate_resource_id(), pool, coordinator_handle),
-    );
+    let pool_id = generate_resource_id();
+    context
+        .global
+        .registry
+        .redis_pools
+        .insert(name.clone(), RedisPool(pool_id, pool, coordinator_handle));
+    context
+        .note_named_resource_provisioned(pool_id, RedisPool::static_type(), name)
+        .await;
 
     Ok(())
 }
@@ -93,14 +98,14 @@ pub async fn low_level_command<'a>(
     }?;
 
     // Retrieve the connection pool
-    let redis_pool = {
+    let (pool_id, redis_pool) = {
         context
             .global
             .registry
             .redis_pools
             .get(&name)
             .ok_or_else(RedisPool::missing)
-            .map(|r| r.value().1.clone())?
+            .map(|r| (r.value().0, r.value().1.clone()))?
     };
 
     let mut connection = redis_pool
@@ -129,6 +134,10 @@ pub async fn low_level_command<'a>(
                 message: e.to_string(),
             })?;
 
+    context
+        .note_named_resource_used(pool_id, RedisPool::static_type(), name)
+        .await;
+
     store_value(store_as, context, step_id, result.into()).await?;
     Ok(())
 }
@@ -149,20 +158,25 @@ pub async fn subscribe<'a>(
     let handler = get_optional_handler_from_parameters("onMessage", parameters);
 
     // Retrieve the connection pool
-    let mut redis_subscriber = {
+    let (pool_id, mut redis_subscriber) = {
         context
             .global
             .registry
             .redis_pools
             .get(&name)
             .ok_or_else(RedisPool::missing)
-            .map(|r| r.value().2.clone())?
+            .map(|r| (r.value().0, r.value().2.clone()))?
     };
 
     let cancellation = redis_subscriber
         .subscribe(channel, context.actor_id.clone(), handler)
         .await?;
-
+    context
+        .note_named_resource_used(pool_id, RedisPool::static_type(), name)
+        .await;
+    context
+        .note_resource_provisioned(cancellation.id, Cancellation::static_type())
+        .await;
     context.resources.add_cancellation(cancellation);
 
     Ok(())
@@ -177,23 +191,30 @@ pub async fn unsubscribe<'a>(
     let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
     let channel = eval_string_param("channel", parameters, context)?;
 
-    let mut redis_subscriber = {
+    let (pool_id, mut redis_subscriber) = {
         context
             .global
             .registry
             .redis_pools
             .get(&name)
             .ok_or_else(RedisPool::missing)
-            .map(|r| r.value().2.clone())?
+            .map(|r| (r.value().0, r.value().2.clone()))?
     };
 
     redis_subscriber
         .unsubscribe(channel.clone(), context.actor_id.clone())
         .await?;
 
+    context
+        .note_named_resource_used(pool_id, RedisPool::static_type(), name.clone())
+        .await;
+
     while let Some(cancellation) = context.resources.pop_cancellation_where(|c| {
         matches!(c.subject, CancellationSubject::RedisPubSubSubscription) && c.name == name
     }) {
+        context
+            .note_resource_consumed(cancellation.id, Cancellation::static_type())
+            .await;
         drop(cancellation);
     }
 
@@ -579,13 +600,23 @@ async fn setup_pubsub_coordinator(
 pub async fn drop_connection<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
-    step_id: &str,
-    store_as: Option<&str>,
+    _step_id: &str,
+    _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
 
-    let removed = context.global.registry.redis_pools.remove(&name);
-    store_value(store_as, context, step_id, removed.is_some().into()).await?;
+    let (name, pool) = context
+        .global
+        .registry
+        .redis_pools
+        .remove(&name)
+        .ok_or_else(|| ExecutionError::RedisError {
+            message: "Redis pool not found".to_owned(),
+        })?;
+
+    context
+        .note_named_resource_consumed(pool.0, RedisPool::static_type(), name)
+        .await;
 
     Ok(())
 }

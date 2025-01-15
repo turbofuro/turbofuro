@@ -72,11 +72,15 @@ pub async fn get_connection<'a>(
     debug!("Created Postgres connection pool: {}", name);
 
     // Put to the registry
+    let pool_id = generate_resource_id();
     context
         .global
         .registry
         .postgres_pools
-        .insert(name, PostgresPool(generate_resource_id(), pool));
+        .insert(name.clone(), PostgresPool(pool_id, pool));
+    context
+        .note_named_resource_provisioned(pool_id, PostgresPool::static_type(), name)
+        .await;
 
     Ok(())
 }
@@ -328,15 +332,19 @@ pub async fn query_one<'a>(
         .collect::<Vec<_>>();
 
     // Retrieve the connection pool
-    let postgres_pool = {
+    let (pool_id, postgres_pool) = {
         context
             .global
             .registry
             .postgres_pools
             .get(&name)
             .ok_or_else(PostgresPool::missing)
-            .map(|r| r.value().1.clone())?
+            .map(|r| (r.value().0, r.value().1.clone()))?
     };
+
+    context
+        .note_named_resource_used(pool_id, PostgresPool::static_type(), name)
+        .await;
 
     let client = postgres_pool
         .get()
@@ -392,15 +400,19 @@ pub async fn query<'a>(
         .collect::<Vec<_>>();
 
     // Retrieve the connection pool
-    let postgres_pool = {
+    let (pool_id, postgres_pool) = {
         context
             .global
             .registry
             .postgres_pools
             .get(&name)
             .ok_or_else(PostgresPool::missing)
-            .map(|r| r.value().1.clone())?
+            .map(|r| (r.value().0, r.value().1.clone()))?
     };
+
+    context
+        .note_named_resource_used(pool_id, PostgresPool::static_type(), name)
+        .await;
 
     let client = postgres_pool
         .get()
@@ -459,15 +471,19 @@ pub async fn execute<'a>(
         .collect::<Vec<_>>();
 
     // Retrieve the connection pool
-    let postgres_pool = {
+    let (pool_id, postgres_pool) = {
         context
             .global
             .registry
             .postgres_pools
             .get(&name)
             .ok_or_else(PostgresPool::missing)
-            .map(|r| r.value().1.clone())?
+            .map(|r| (r.value().0, r.value().1.clone()))?
     };
+
+    context
+        .note_named_resource_used(pool_id, PostgresPool::static_type(), name)
+        .await;
 
     let client = postgres_pool
         .get()
@@ -499,13 +515,23 @@ pub async fn execute<'a>(
 pub async fn drop_connection<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
-    step_id: &str,
-    store_as: Option<&str>,
+    _step_id: &str,
+    _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
 
-    let removed = context.global.registry.postgres_pools.remove(&name);
-    store_value(store_as, context, step_id, removed.is_some().into()).await?;
+    let (name, pool) = context
+        .global
+        .registry
+        .postgres_pools
+        .remove(&name)
+        .ok_or_else(|| ExecutionError::PostgresError {
+            message: "Postgres pool not found".to_owned(),
+            stage: "drop".to_owned(),
+        })?;
+    context
+        .note_named_resource_consumed(pool.0, PostgresPool::static_type(), name)
+        .await;
 
     Ok(())
 }

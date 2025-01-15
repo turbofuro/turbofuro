@@ -108,12 +108,17 @@ pub async fn set_alarm<'a>(
         }
     });
 
+    let cancellation_id = generate_resource_id();
     context.resources.add_cancellation(Cancellation {
-        id: generate_resource_id(),
+        id: cancellation_id,
         name: cancellation_name(alarm_id),
         sender,
         subject: CancellationSubject::Alarm,
     });
+
+    context
+        .note_resource_provisioned(cancellation_id, Cancellation::static_type())
+        .await;
 
     Ok(())
 }
@@ -219,12 +224,17 @@ pub async fn set_interval<'a>(
         }
     });
 
+    let cancellation_id = generate_resource_id();
     context.resources.add_cancellation(Cancellation {
-        id: generate_resource_id(),
+        id: cancellation_id,
         name: cancellation_name(alarm_id),
         sender,
         subject: CancellationSubject::Alarm,
     });
+
+    context
+        .note_resource_provisioned(cancellation_id, Cancellation::static_type())
+        .await;
 
     Ok(())
 }
@@ -239,6 +249,10 @@ pub async fn cancel_alarm<'a>(
         .resources
         .pop_cancellation_where(|c| matches!(c.subject, CancellationSubject::Alarm))
         .ok_or_else(Cancellation::missing)?;
+
+    context
+        .note_resource_consumed(cancellation.id, Cancellation::static_type())
+        .await;
 
     cancellation
         .sender
@@ -377,12 +391,17 @@ pub async fn setup_cronjob<'a>(
         }
     });
 
+    let cancellation_id = generate_resource_id();
     context.resources.add_cancellation(Cancellation {
-        id: generate_resource_id(),
+        id: cancellation_id,
         name: cancellation_name(alarm_id),
         sender,
         subject: CancellationSubject::Cronjob,
     });
+
+    context
+        .note_resource_provisioned(cancellation_id, Cancellation::static_type())
+        .await;
 
     Ok(())
 }

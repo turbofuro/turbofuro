@@ -121,11 +121,16 @@ pub async fn get_connection<'a>(
     })?;
 
     // Put to the registry
+    let connection_id = generate_resource_id();
     context
         .global
         .registry
         .libsql
-        .insert(name, LibSql(generate_resource_id(), connection));
+        .insert(name.clone(), LibSql(connection_id, connection));
+
+    context
+        .note_named_resource_provisioned(connection_id, LibSql::static_type(), name)
+        .await;
 
     Ok(())
 }
@@ -156,15 +161,19 @@ pub async fn query<'a>(
     }?;
 
     // Retrieve the connection pool
-    let connection = {
+    let (connection_id, connection) = {
         context
             .global
             .registry
             .libsql
             .get(&name)
             .ok_or_else(LibSql::missing)
-            .map(|r| r.value().1.clone())?
+            .map(|r| (r.value().0, r.value().1.clone()))?
     };
+
+    context
+        .note_named_resource_used(connection_id, LibSql::static_type(), name)
+        .await;
 
     let mut rows = connection.query(&statement, params_from_iter(p)).await?;
 
@@ -218,15 +227,19 @@ pub async fn query_one<'a>(
     }?;
 
     // Retrieve the connection pool
-    let connection = {
+    let (connection_id, connection) = {
         context
             .global
             .registry
             .libsql
             .get(&name)
             .ok_or_else(LibSql::missing)
-            .map(|r| r.value().1.clone())?
+            .map(|r| (r.value().0, r.value().1.clone()))?
     };
+
+    context
+        .note_named_resource_used(connection_id, LibSql::static_type(), name)
+        .await;
 
     let mut rows = connection.query(&statement, params_from_iter(p)).await?;
 
@@ -297,15 +310,19 @@ pub async fn execute<'a>(
     }?;
 
     // Retrieve the connection pool
-    let connection = {
+    let (connection_id, connection) = {
         context
             .global
             .registry
             .libsql
             .get(&name)
             .ok_or_else(LibSql::missing)
-            .map(|r| r.value().1.clone())?
+            .map(|r| (r.value().0, r.value().1.clone()))?
     };
+
+    context
+        .note_named_resource_used(connection_id, LibSql::static_type(), name)
+        .await;
 
     let rows_affected = connection.execute(&statement, params_from_iter(p)).await?;
 
@@ -324,13 +341,24 @@ pub async fn execute<'a>(
 pub async fn drop_connection<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
-    step_id: &str,
-    store_as: Option<&str>,
+    _step_id: &str,
+    _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
 
-    let removed = context.global.registry.libsql.remove(&name);
-    store_value(store_as, context, step_id, removed.is_some().into()).await?;
+    let (name, connection) = context
+        .global
+        .registry
+        .libsql
+        .remove(&name)
+        .ok_or_else(|| ExecutionError::LibSqlError {
+            message: "LibSql connection not found".to_owned(),
+            stage: "drop".to_owned(),
+        })?;
+
+    context
+        .note_named_resource_consumed(connection.0, LibSql::static_type(), name)
+        .await;
 
     Ok(())
 }

@@ -316,7 +316,7 @@ async fn bare_http_request<'a>(
         .build()
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to build HTTP request".to_owned(),
-            subject: HttpRequestToRespond::get_type().into(),
+            subject: HttpRequestToRespond::static_type().into(),
             inner: e.to_string(),
         })?;
 
@@ -336,7 +336,7 @@ async fn bare_http_request<'a>(
         .await
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to execute HTTP request".to_owned(),
-            subject: HttpRequestToRespond::get_type().into(),
+            subject: HttpRequestToRespond::static_type().into(),
             inner: e.to_string(),
         }) {
         Ok(response) => response,
@@ -449,11 +449,15 @@ pub async fn build_client<'a>(
         inner: "client".into(),
     })?;
 
+    let client_id = generate_resource_id();
     context
         .global
         .registry
         .http_clients
-        .insert(name, HttpClient(generate_resource_id(), client));
+        .insert(name.clone(), HttpClient(client_id, client));
+    context
+        .note_named_resource_provisioned(client_id, HttpClient::static_type(), name)
+        .await;
 
     Ok(())
 }
@@ -510,8 +514,11 @@ pub async fn send_http_request_with_stream<'a>(
         eval_opt_boolean_param("throwOnHttpError", parameters, context)?.unwrap_or(true);
 
     // Pick a stream and set it as body
-    let stream = context.resources.get_stream()?;
+    let (stream, metadata) = context.resources.get_stream()?;
     request_builder = request_builder.body(Body::wrap_stream(stream));
+    context
+        .note_resource_consumed(metadata.id, metadata.type_)
+        .await;
 
     let response = bare_http_request(context, parameters, request_builder).await?;
     let metadata = get_metadata_object_from_response(&response);
@@ -555,6 +562,9 @@ pub async fn send_http_request_with_form_data<'a>(
         .resources
         .pop_form_data()
         .ok_or_else(FormDataDraft::missing)?;
+    context
+        .note_resource_used(form_data.0, form_data.get_type())
+        .await;
 
     request_builder = request_builder.multipart(form_data.1);
 
@@ -602,9 +612,13 @@ pub async fn stream_http_request<'a>(
     let is_errored = response.status().is_server_error() || response.status().is_client_error();
 
     // Put pending response
+    let response_id = generate_resource_id();
     context
         .resources
-        .add_pending_response_body(PendingHttpResponseBody::new(response));
+        .add_pending_response_body(PendingHttpResponseBody(response_id, response));
+    context
+        .note_resource_provisioned(response_id, PendingHttpResponseBody::static_type())
+        .await;
 
     if throw_on_http_error && is_errored {
         return Err(ExecutionError::HttpResponseError {
@@ -635,7 +649,11 @@ pub async fn stream_http_request_with_stream<'a>(
         eval_opt_boolean_param("throwOnHttpError", parameters, context)?.unwrap_or(true);
 
     // Pick a stream and set it as body
-    let stream = context.resources.get_stream()?;
+    let (stream, metadata) = context.resources.get_stream()?;
+    context
+        .note_resource_used(metadata.id, metadata.type_)
+        .await;
+
     request_builder = request_builder.body(Body::wrap_stream(stream));
 
     let response = bare_http_request(context, parameters, request_builder).await?;
@@ -643,9 +661,13 @@ pub async fn stream_http_request_with_stream<'a>(
     let is_errored = response.status().is_server_error() || response.status().is_client_error();
 
     // Put pending response
+    let response_id = generate_resource_id();
     context
         .resources
-        .add_pending_response_body(PendingHttpResponseBody::new(response));
+        .add_pending_response_body(PendingHttpResponseBody(response_id, response));
+    context
+        .note_resource_provisioned(response_id, PendingHttpResponseBody::static_type())
+        .await;
 
     if throw_on_http_error && is_errored {
         return Err(ExecutionError::HttpResponseError {
@@ -681,6 +703,9 @@ pub async fn stream_http_request_with_form_data<'a>(
         .resources
         .pop_form_data()
         .ok_or_else(FormDataDraft::missing)?;
+    context
+        .note_resource_consumed(form_data.0, form_data.get_type())
+        .await;
 
     request_builder = request_builder.multipart(form_data.1);
 
@@ -689,9 +714,13 @@ pub async fn stream_http_request_with_form_data<'a>(
     let is_errored = response.status().is_server_error() || response.status().is_client_error();
 
     // Put pending response
+    let response_id = generate_resource_id();
     context
         .resources
-        .add_pending_response_body(PendingHttpResponseBody::new(response));
+        .add_pending_response_body(PendingHttpResponseBody(response_id, response));
+    context
+        .note_resource_provisioned(response_id, PendingHttpResponseBody::static_type())
+        .await;
 
     if throw_on_http_error && is_errored {
         return Err(ExecutionError::HttpResponseError {

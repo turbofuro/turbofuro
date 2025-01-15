@@ -156,7 +156,11 @@ pub async fn write_stream<'a>(
         .pop_file()
         .ok_or_else(FileHandle::missing)?;
 
-    let mut stream = context.resources.get_stream()?;
+    let (mut stream, metadata) = context.resources.get_stream()?;
+
+    context
+        .note_resource_consumed(metadata.id, metadata.type_)
+        .await;
 
     while let Some(chunk) = stream.next().await {
         let chunk = chunk?;
@@ -418,12 +422,16 @@ pub async fn setup_watcher<'a>(
 
     // Canceller
     let (sender, receiver) = tokio::sync::oneshot::channel::<()>();
+    let cancellation_id = generate_resource_id();
     context.resources.add_cancellation(Cancellation {
-        id: generate_resource_id(),
+        id: cancellation_id,
         sender,
         name: cancellation_name(watcher_id),
         subject: CancellationSubject::Watcher,
     });
+    context
+        .note_resource_provisioned(cancellation_id, Cancellation::static_type())
+        .await;
 
     // Spawn task to wait for cancellation
     tokio::spawn(async move {
@@ -454,8 +462,18 @@ pub async fn cancel_watcher<'a>(
         .resources
         .pop_cancellation_where(|c| matches!(c.subject, CancellationSubject::Watcher))
         .ok_or_else(Cancellation::missing)?;
+    context
+        .note_resource_consumed(cancellation.id, Cancellation::static_type())
+        .await;
 
-    cancellation.sender.send(()).unwrap();
+    cancellation
+        .sender
+        .send(())
+        .map_err(|_| ExecutionError::StateInvalid {
+            message: "Failed to send cancel signal to watcher".to_owned(),
+            subject: Cancellation::static_type().into(),
+            inner: "Send error".to_owned(),
+        })?;
 
     Ok(())
 }

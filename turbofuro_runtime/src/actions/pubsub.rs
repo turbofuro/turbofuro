@@ -146,13 +146,18 @@ pub async fn subscribe<'a>(
             }
         }
     });
+    drop(pub_sub);
 
+    let cancellation_id = generate_resource_id();
     context.resources.add_cancellation(Cancellation {
-        id: generate_resource_id(),
+        id: cancellation_id,
         sender: cancel_sender,
         name: cancellation_name(&channel),
         subject: CancellationSubject::PubSubSubscription,
     });
+    context
+        .note_resource_provisioned(cancellation_id, Cancellation::static_type())
+        .await;
 
     Ok(())
 }
@@ -174,14 +179,35 @@ pub async fn unsubscribe<'a>(
                 matches!(c.subject, CancellationSubject::PubSubSubscription) && c.name == name
             })
             .ok_or_else(Cancellation::missing)?;
+        context
+            .note_resource_consumed(cancellation.id, Cancellation::static_type())
+            .await;
 
-        cancellation.sender.send(()).unwrap();
+        cancellation
+            .sender
+            .send(())
+            .map_err(|_| ExecutionError::StateInvalid {
+                message: "Failed to send cancel signal to PubSub subscription".to_owned(),
+                subject: Cancellation::static_type().into(),
+                inner: "Send error".to_owned(),
+            })?;
     } else {
         // Unsubscribe all
         while let Some(cancellation) = context.resources.pop_cancellation_where(|c| {
             matches!(c.subject, CancellationSubject::PubSubSubscription)
         }) {
-            cancellation.sender.send(()).unwrap();
+            context
+                .note_resource_consumed(cancellation.id, Cancellation::static_type())
+                .await;
+
+            cancellation
+                .sender
+                .send(())
+                .map_err(|_| ExecutionError::StateInvalid {
+                    message: "Failed to send cancel signal to PubSub subscription".to_owned(),
+                    subject: Cancellation::static_type().into(),
+                    inner: "Send error".to_owned(),
+                })?;
         }
     }
 
