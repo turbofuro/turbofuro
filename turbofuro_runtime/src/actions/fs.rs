@@ -384,7 +384,7 @@ pub async fn setup_watcher<'a>(
                             storage.insert("event".to_owned(), StorageValue::Object(event_object));
 
                             if let Some(ref function_ref) = function_ref {
-                                messenger
+                                let result = messenger
                                     .send(ActorCommand::RunFunctionRef {
                                         function_ref: function_ref.clone(),
                                         storage,
@@ -392,10 +392,14 @@ pub async fn setup_watcher<'a>(
                                         sender: None,
                                         execution_id: None,
                                     })
-                                    .await
-                                    .unwrap();
+                                    .await;
+
+                                if let Err(e) = result {
+                                    warn!("Could not run file watcher handler: {}", e);
+                                    break;
+                                }
                             } else {
-                                messenger
+                                let result = messenger
                                     .send(ActorCommand::Run {
                                         handler: "onMessage".to_owned(),
                                         storage,
@@ -403,8 +407,12 @@ pub async fn setup_watcher<'a>(
                                         sender: None,
                                         execution_id: None,
                                     })
-                                    .await
-                                    .unwrap();
+                                    .await;
+
+                                if let Err(e) = result {
+                                    warn!("Could not run file watcher handler: {}", e);
+                                    break;
+                                }
                             }
                         } else {
                             debug!("Alarm fired but actor {} was not found", actor_id)

@@ -704,12 +704,20 @@ fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
                     .exactly(4)
                     .collect::<String>()
                     .validate(|digits, span, emit| {
-                        char::from_u32(u32::from_str_radix(&digits, 16).unwrap()).unwrap_or_else(
-                            || {
-                                emit(Simple::custom(span, "invalid unicode character"));
+                        let char_code = u32::from_str_radix(&digits, 16);
+
+                        match char_code {
+                            Ok(code) => {
+                                char::from_u32(code).unwrap_or_else(|| {
+                                    emit(Simple::custom(span, "invalid unicode character"));
+                                    '\u{FFFD}' // unicode replacement character
+                                })
+                            }
+                            Err(_) => {
+                                emit(Simple::custom(span, "invalid hex digit"));
                                 '\u{FFFD}' // unicode replacement character
-                            },
-                        )
+                            }
+                        }
                     }),
             )),
     );

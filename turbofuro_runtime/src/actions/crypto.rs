@@ -112,7 +112,7 @@ pub async fn sha2(
         "sha512" => {
             let mut hasher = Sha512::new();
             hasher.update(data.as_bytes());
-            StorageValue::new_byte_array(&hasher.finalize().as_slice())
+            StorageValue::new_byte_array(hasher.finalize().as_slice())
         }
         "sha256" => {
             let mut hasher = Sha256::new();
@@ -141,6 +141,15 @@ pub async fn sha2(
     Ok(())
 }
 
+impl From<hmac::digest::InvalidLength> for ExecutionError {
+    fn from(_error: hmac::digest::InvalidLength) -> Self {
+        ExecutionError::ParameterInvalid {
+            name: "key".to_owned(),
+            message: "Invalid hash length".to_owned(),
+        }
+    }
+}
+
 #[instrument(level = "trace", skip_all)]
 pub async fn hmac(
     context: &mut ExecutionContext<'_>,
@@ -155,22 +164,22 @@ pub async fn hmac(
 
     let result = match hash.as_str() {
         "sha512" => {
-            let mut hmac = Hmac::<Sha512>::new_from_slice(&key).unwrap();
+            let mut hmac = Hmac::<Sha512>::new_from_slice(&key).map_err(ExecutionError::from)?;
             hmac.update(data.as_bytes());
             StorageValue::new_byte_array(hmac.finalize().into_bytes().as_slice())
         }
         "sha256" => {
-            let mut hmac = Hmac::<Sha256>::new_from_slice(&key).unwrap();
+            let mut hmac = Hmac::<Sha256>::new_from_slice(&key).map_err(ExecutionError::from)?;
             hmac.update(data.as_bytes());
             StorageValue::new_byte_array(hmac.finalize().into_bytes().as_slice())
         }
         "sha384" => {
-            let mut hmac = Hmac::<Sha384>::new_from_slice(&key).unwrap();
+            let mut hmac = Hmac::<Sha384>::new_from_slice(&key).map_err(ExecutionError::from)?;
             hmac.update(data.as_bytes());
             StorageValue::new_byte_array(hmac.finalize().into_bytes().as_slice())
         }
         "sha224" => {
-            let mut hmac = Hmac::<Sha224>::new_from_slice(&key).unwrap();
+            let mut hmac = Hmac::<Sha224>::new_from_slice(&key).map_err(ExecutionError::from)?;
             hmac.update(data.as_bytes());
             StorageValue::new_byte_array(hmac.finalize().into_bytes().as_slice())
         }
@@ -201,7 +210,7 @@ pub async fn hmac_verify(
 
     match hash.as_str() {
         "sha512" => {
-            let mut hmac = Hmac::<Sha512>::new_from_slice(&key).unwrap();
+            let mut hmac = Hmac::<Sha512>::new_from_slice(&key).map_err(ExecutionError::from)?;
             hmac.update(data.as_bytes());
             match hmac.verify_slice(&tag) {
                 Ok(_) => true,
@@ -214,7 +223,7 @@ pub async fn hmac_verify(
             }
         }
         "sha256" => {
-            let mut hmac = Hmac::<Sha256>::new_from_slice(&key).unwrap();
+            let mut hmac = Hmac::<Sha256>::new_from_slice(&key).map_err(ExecutionError::from)?;
             hmac.update(data.as_bytes());
             match hmac.verify_slice(&tag) {
                 Ok(_) => true,
@@ -227,7 +236,7 @@ pub async fn hmac_verify(
             }
         }
         "sha384" => {
-            let mut hmac = Hmac::<Sha384>::new_from_slice(&key).unwrap();
+            let mut hmac = Hmac::<Sha384>::new_from_slice(&key).map_err(ExecutionError::from)?;
             hmac.update(data.as_bytes());
             match hmac.verify_slice(&tag) {
                 Ok(_) => true,
@@ -240,7 +249,7 @@ pub async fn hmac_verify(
             }
         }
         "sha224" => {
-            let mut hmac = Hmac::<Sha224>::new_from_slice(&key).unwrap();
+            let mut hmac = Hmac::<Sha224>::new_from_slice(&key).map_err(ExecutionError::from)?;
             hmac.update(data.as_bytes());
             match hmac.verify_slice(&tag) {
                 Ok(_) => true,

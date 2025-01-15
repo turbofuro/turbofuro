@@ -12,41 +12,6 @@ use crate::{
 
 use super::store_value;
 
-// #[instrument(level = "trace", skip_all)]
-// pub async fn get_connection<'a>(
-//     context: &mut ExecutionContext<'a>,
-//     parameters: &Vec<Parameter>,
-//     _step_id: &str,
-// ) -> Result<(), ExecutionError> {
-//     let connection_string = eval_string_param("connectionString", parameters, context)?;
-//     let name = eval_opt_string_param("name", parameters, context)?.unwrap_or("default".to_owned());
-
-//     // Check if we already have a connection pool with this name
-//     let exists = { context.global.registry.webdriver_pools.contains_key(&name) };
-//     if exists {
-//         return Ok(());
-//     }
-
-//     let url = Url::parse(&connection_string).map_err(|e| ExecutionError::ParameterInvalid {
-//         name: "connectionString".into(),
-//         message: e.to_string(),
-//     })?;
-
-//     let manager = Manager::new("http://localhost:4444", ClientBuilder::native());
-//     let pool = Pool::builder(manager).max_size(5).build().unwrap();
-
-//     debug!("Created WebDriver connection pool: {}", name);
-
-//     // Put to the registry
-//     context
-//         .global
-//         .registry
-//         .webdriver_pools
-//         .insert(name, WebDriverPool(pool));
-
-//     Ok(())
-// }
-
 #[instrument(level = "trace", skip_all)]
 pub async fn get_client<'a>(
     context: &mut ExecutionContext<'a>,

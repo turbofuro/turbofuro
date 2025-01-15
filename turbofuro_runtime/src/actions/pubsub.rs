@@ -12,7 +12,7 @@ use crate::{
     resources::{generate_resource_id, Cancellation, CancellationSubject, Resource},
 };
 use tel::{ObjectBody, StorageValue, NULL};
-use tracing::{debug, error, instrument};
+use tracing::{debug, error, instrument, warn};
 
 use crate::{
     errors::ExecutionError,
@@ -68,7 +68,7 @@ async fn subscribe_and_schedule_runs(
                     storage.insert("context".to_owned(), context.clone());
 
                     if let Some(ref function_ref) = function_ref {
-                        messenger
+                        let result = messenger
                             .send(ActorCommand::RunFunctionRef {
                                 function_ref: function_ref.clone(),
                                 storage,
@@ -76,10 +76,14 @@ async fn subscribe_and_schedule_runs(
                                 sender: None,
                                 execution_id: None,
                             })
-                            .await
-                            .unwrap();
+                            .await;
+
+                        if let Err(e) = result {
+                            warn!("Could not run pubsub handler: {}", e);
+                            break;
+                        }
                     } else {
-                        messenger
+                        let result = messenger
                             .send(ActorCommand::Run {
                                 handler: "onMessage".to_owned(),
                                 storage,
@@ -87,8 +91,12 @@ async fn subscribe_and_schedule_runs(
                                 sender: None,
                                 execution_id: None,
                             })
-                            .await
-                            .unwrap();
+                            .await;
+
+                        if let Err(e) = result {
+                            warn!("Could not run pubsub handler: {}", e);
+                            break;
+                        }
                     }
                 } else {
                     debug!("Actor {} not found", actor_id);

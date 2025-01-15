@@ -75,7 +75,7 @@ pub async fn set_alarm<'a>(
                     storage.insert("message".to_owned(), data);
 
                     if let Some(function_ref) = function_ref {
-                        messenger
+                        let result = messenger
                             .send(ActorCommand::RunFunctionRef {
                                 function_ref,
                                 storage,
@@ -83,10 +83,13 @@ pub async fn set_alarm<'a>(
                                 sender: None,
                                 execution_id: None,
                             })
-                            .await
-                            .unwrap();
+                            .await;
+
+                        if let Err(e) = result {
+                            warn!("Could not run alarm handler: {}", e);
+                        }
                     } else {
-                        messenger
+                        let result = messenger
                             .send(ActorCommand::Run {
                                 handler: "onMessage".to_owned(),
                                 storage,
@@ -94,8 +97,11 @@ pub async fn set_alarm<'a>(
                                 sender: None,
                                 execution_id: None,
                             })
-                            .await
-                            .unwrap();
+                            .await;
+
+                        if let Err(e) = result {
+                            warn!("Could not run alarm handler: {}", e);
+                        }
                     }
                 } else {
                     debug!("Alarm fired but actor {} was not found", actor_id)
@@ -149,7 +155,7 @@ async fn run_interval_inner(
             storage.insert("message".to_owned(), data.clone());
 
             if let Some(function_ref) = function_ref.clone() {
-                messenger
+                let result = messenger
                     .send(ActorCommand::RunFunctionRef {
                         function_ref,
                         storage,
@@ -157,10 +163,14 @@ async fn run_interval_inner(
                         sender: None,
                         execution_id: None,
                     })
-                    .await
-                    .unwrap();
+                    .await;
+
+                if let Err(e) = result {
+                    warn!("Could not run interval alarm handler: {}", e);
+                    break;
+                }
             } else {
-                messenger
+                let result = messenger
                     .send(ActorCommand::Run {
                         handler: "onMessage".to_owned(),
                         storage,
@@ -168,8 +178,12 @@ async fn run_interval_inner(
                         sender: None,
                         execution_id: None,
                     })
-                    .await
-                    .unwrap();
+                    .await;
+
+                if let Err(e) = result {
+                    warn!("Could not run interval alarm handler: {}", e);
+                    break;
+                }
             }
         }
     }
@@ -306,7 +320,7 @@ async fn run_cronjob_inner(
                     storage.insert("message".to_owned(), data.clone());
 
                     if let Some(ref function_ref) = function_ref {
-                        messenger
+                        let result = messenger
                             .send(ActorCommand::RunFunctionRef {
                                 function_ref: function_ref.clone(),
                                 storage,
@@ -314,10 +328,14 @@ async fn run_cronjob_inner(
                                 sender: None,
                                 execution_id: None,
                             })
-                            .await
-                            .unwrap();
+                            .await;
+
+                        if let Err(e) = result {
+                            warn!("Could not run cronjob handler: {}", e);
+                            break;
+                        }
                     } else {
-                        messenger
+                        let result = messenger
                             .send(ActorCommand::Run {
                                 handler: "onMessage".to_owned(),
                                 storage,
@@ -325,8 +343,12 @@ async fn run_cronjob_inner(
                                 sender: None,
                                 execution_id: None,
                             })
-                            .await
-                            .unwrap();
+                            .await;
+
+                        if let Err(e) = result {
+                            warn!("Could not run cronjob handler: {}", e);
+                            break;
+                        }
                     }
                 }
             }

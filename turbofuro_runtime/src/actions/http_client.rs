@@ -358,7 +358,14 @@ async fn collect_body(
         .map(|charset| charset.as_str())
         .unwrap_or("utf-8");
 
-    let full = response.bytes().await.unwrap();
+    let full = response
+        .bytes()
+        .await
+        .map_err(|e| ExecutionError::StateInvalid {
+            message: "Could not collect body".to_owned(),
+            subject: "http_client".to_owned(),
+            inner: e.to_string(),
+        })?;
     let (text, replaced) = decode_text_with_encoding(encoding_name, &full);
     match replaced {
         true => {

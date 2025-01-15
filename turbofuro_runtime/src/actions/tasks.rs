@@ -16,7 +16,7 @@ use std::{
     time::Duration,
 };
 use tel::{ObjectBody, StorageValue};
-use tracing::{debug, instrument};
+use tracing::{debug, instrument, warn};
 
 static TASK_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -98,7 +98,7 @@ async fn run_task_continuously_inner(
             let mut storage = ObjectBody::new();
             storage.insert("data".to_owned(), data.clone());
 
-            messenger
+            let result = messenger
                 .send(ActorCommand::RunFunctionRef {
                     function_ref: function_ref.clone(),
                     storage,
@@ -106,8 +106,12 @@ async fn run_task_continuously_inner(
                     sender: Some(sender),
                     execution_id: None,
                 })
-                .await
-                .unwrap();
+                .await;
+
+            if let Err(e) = result {
+                warn!("Could not run task handler: {}", e);
+                break;
+            }
         }
 
         match receiver.await.unwrap() {

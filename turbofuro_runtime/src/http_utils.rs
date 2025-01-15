@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, vec};
+use std::{borrow::Cow, collections::HashMap, fmt::Display, vec};
 
 use axum::{
     body::{Body, Bytes},
@@ -79,9 +79,9 @@ pub enum DetectedContentType {
     Multipart { boundary: Option<String> },
 }
 
-impl ToString for DetectedContentType {
-    fn to_string(&self) -> String {
-        match self {
+impl Display for DetectedContentType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = match self {
             DetectedContentType::Json => "json".to_string(),
             DetectedContentType::Form => "form".to_string(),
             DetectedContentType::Text => "text".to_string(),
@@ -94,44 +94,51 @@ impl ToString for DetectedContentType {
                     boundary.clone().unwrap_or_else(|| "".to_owned())
                 )
             }
-        }
+        };
+
+        write!(f, "{}", string)
     }
 }
 
 pub async fn build_metadata_from_parts(parts: &mut Parts) -> (ObjectBody, DetectedContentType) {
-    let mut obj = HashMap::new();
+    let mut obj: HashMap<String, StorageValue> = HashMap::new();
     obj.insert("version".to_owned(), format!("{:?}", parts.version).into());
     let content_type: DetectedContentType;
     {
-        let path: Path<HashMap<String, String>> =
-            Path::from_request_parts(parts, &()).await.unwrap();
-        let query: Query<HashMap<String, String>> =
-            Query::from_request_parts(parts, &()).await.unwrap();
+        let path: Option<Path<HashMap<String, String>>> =
+            Path::from_request_parts(parts, &()).await.ok();
+        let query: Option<Query<HashMap<String, String>>> =
+            Query::from_request_parts(parts, &()).await.ok();
         let method: Method = Method::from_request_parts(parts, &()).await.unwrap();
 
         obj.insert(
             "method".to_string(),
             StorageValue::String(method.to_string()),
         );
-        obj.insert(
-            "query".to_string(),
-            StorageValue::Object(
-                query
-                    .0
-                    .into_iter()
-                    .map(|(k, v)| (k, StorageValue::String(v)))
-                    .collect(),
-            ),
-        );
-        obj.insert(
-            "params".to_string(),
-            StorageValue::Object(
-                path.0
-                    .into_iter()
-                    .map(|(k, v)| (k, StorageValue::String(v)))
-                    .collect(),
-            ),
-        );
+
+        if let Some(query) = path {
+            obj.insert(
+                "query".to_string(),
+                StorageValue::Object(
+                    query
+                        .0
+                        .into_iter()
+                        .map(|(k, v)| (k, StorageValue::String(v)))
+                        .collect(),
+                ),
+            );
+        }
+        if let Some(path) = query {
+            obj.insert(
+                "params".to_string(),
+                StorageValue::Object(
+                    path.0
+                        .into_iter()
+                        .map(|(k, v)| (k, StorageValue::String(v)))
+                        .collect(),
+                ),
+            );
+        }
         obj.insert(
             "path".to_string(),
             StorageValue::String(parts.uri.path().to_string()),

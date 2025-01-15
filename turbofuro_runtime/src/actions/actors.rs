@@ -182,8 +182,7 @@ pub async fn terminate<'a>(
     parameters: &Vec<Parameter>,
     _step_id: &str,
 ) -> Result<(), ExecutionError> {
-    let id = eval_opt_string_param("id", parameters, context)?
-        .unwrap_or(context.actor_id.clone().into());
+    let id = eval_opt_string_param("id", parameters, context)?.unwrap_or(context.actor_id.clone());
 
     let messenger = {
         context
@@ -195,7 +194,11 @@ pub async fn terminate<'a>(
             .map(|r| r.value().clone())?
     };
 
-    messenger.send(ActorCommand::Terminate).await.unwrap();
+    messenger
+        .send(ActorCommand::Terminate)
+        .await
+        .map_err(ExecutionError::from)?;
+
     Ok(())
 }
 

@@ -409,35 +409,37 @@ async fn setup_pubsub_coordinator(
             let mut stream = pubsub.on_message();
             tokio::select! {
                 msg = stream.next() => {
-                    if msg.is_none() {
-                        // This probably means our connection was closed
-                        match client.get_async_pubsub().await {
-                            Ok(connection) => {
-                                // Ok we got a new connection, let's re-assign it
-                                drop(stream);
-                                pubsub = connection;
+                    let msg = match msg {
+                        Some(msg) => msg,
+                        None => {
+                            // This probably means our connection was closed
+                            match client.get_async_pubsub().await {
+                                Ok(connection) => {
+                                    // Ok we got a new connection, let's re-assign it
+                                    drop(stream);
+                                    pubsub = connection;
 
-                                // Re-subscribe
-                                for (channel, i) in channels.iter() {
-                                    warn!("Re-subscribing to channel {:?} {:?}", channel, i);
-                                    match pubsub.subscribe(channel).await {
-                                        Ok(_) => {
-                                            debug!("Re-subscribed to channel {}", channel);
-                                        }
-                                        Err(err) => {
-                                            warn!("Failed to re-subscribe to channel: {}", err);
+                                    // Re-subscribe
+                                    for (channel, i) in channels.iter() {
+                                        warn!("Re-subscribing to channel {:?} {:?}", channel, i);
+                                        match pubsub.subscribe(channel).await {
+                                            Ok(_) => {
+                                                debug!("Re-subscribed to channel {}", channel);
+                                            }
+                                            Err(err) => {
+                                                warn!("Failed to re-subscribe to channel: {}", err);
+                                            }
                                         }
                                     }
+                                },
+                                Err(e) => {
+                                    warn!("Failed to reconnect to Redis PubSub: {}", e);
+                                    sleep(Duration::from_secs(5)).await; // Wait 5 seconds before retrying
                                 }
-                            },
-                            Err(e) => {
-                                 warn!("Failed to reconnect to Redis PubSub: {}", e);
-                                 sleep(Duration::from_secs(5)).await; // Wait 5 seconds before retrying
                             }
+                            continue;
                         }
-                        continue;
-                    }
-                    let msg = msg.unwrap();
+                    };
 
                     let channel_name : String =  msg.get_channel_name().into();
                     let message = msg.get_payload::<String>().unwrap().into();
