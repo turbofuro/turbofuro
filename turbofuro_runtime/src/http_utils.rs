@@ -116,7 +116,7 @@ pub async fn build_metadata_from_parts(parts: &mut Parts) -> (ObjectBody, Detect
             StorageValue::String(method.to_string()),
         );
 
-        if let Some(query) = path {
+        if let Some(query) = query {
             obj.insert(
                 "query".to_string(),
                 StorageValue::Object(
@@ -128,7 +128,7 @@ pub async fn build_metadata_from_parts(parts: &mut Parts) -> (ObjectBody, Detect
                 ),
             );
         }
-        if let Some(path) = query {
+        if let Some(path) = path {
             obj.insert(
                 "params".to_string(),
                 StorageValue::Object(

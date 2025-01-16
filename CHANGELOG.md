@@ -1,3 +1,14 @@
+## 0.1.27
+* Omnitool: toolkit for Turbofuro
+* Add streamable resource stack
+* Add fuel and maxAsyncYield parameters to wasm/run_wasi  
+* Add timeout parameter to actors/send
+* Remove support for actors/send_command
+* Add resource tracking
+* Dropping resources that doesn't exist will now fail with an error
+* Remove many dangerous unwraps
+* Update to Rust 1.84
+
 ## 0.1.26
 * Add support for decorators
 * Add support for disabled steps
