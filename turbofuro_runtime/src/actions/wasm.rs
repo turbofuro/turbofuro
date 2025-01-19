@@ -10,9 +10,12 @@ use crate::{
 };
 use tel::{describe, Description, StorageValue};
 use tracing::instrument;
-use wasi_common::pipe::{ReadPipe, WritePipe};
 use wasmtime::{Config, Engine, Linker, Module, Store};
-use wasmtime_wasi::{ambient_authority, tokio::WasiCtxBuilder};
+use wasmtime_wasi::preview1::{add_to_linker_async, WasiP1Ctx};
+use wasmtime_wasi::{
+    pipe::{MemoryInputPipe, MemoryOutputPipe},
+    DirPerms, FilePerms, WasiCtxBuilder,
+};
 
 use super::store_value;
 
@@ -20,6 +23,7 @@ use super::store_value;
 struct WasmInstance {
     engine: Engine,
     module: Module,
+    linker: Linker<WasiP1Ctx>,
 }
 
 impl WasmInstance {
@@ -33,7 +37,18 @@ impl WasmInstance {
         // This can take a while
         let module = Module::from_file(&engine, path)?;
 
-        Ok(Self { engine, module })
+        // A `Linker` is shared in the environment amongst all stores, and this
+        // linker is used to instantiate the `module` above. This example only
+        // adds WASI functions to the linker, notably the async versions built
+        // on tokio.
+        let mut linker = Linker::new(&engine);
+        add_to_linker_async(&mut linker, |cx| cx)?;
+
+        Ok(Self {
+            engine,
+            module,
+            linker,
+        })
     }
 }
 
@@ -71,12 +86,8 @@ pub async fn run_wasi(
         }),
     }?;
 
-    let args = eval_optional_param_with_default(
-        "args",
-        parameters,
-        &context,
-        StorageValue::Array(vec![]),
-    )?;
+    let args =
+        eval_optional_param_with_default("args", parameters, context, StorageValue::Array(vec![]))?;
     let args = match args {
         StorageValue::Array(a) => {
             let mut args = Vec::new();
@@ -92,47 +103,37 @@ pub async fn run_wasi(
         }),
     }?;
 
-    let wasm = WasmInstance::new(path)?;
-    let stdout = WritePipe::new_in_memory();
-    let stdin = ReadPipe::from(input);
+    let mut wasm = WasmInstance::new(path)?;
+    let stdin = MemoryInputPipe::new(input.into_bytes());
+    let stdout = MemoryOutputPipe::new(1_000_000); // Capture up to 1MB
+    let stderr = MemoryOutputPipe::new(1_000_000); // Capture up to 1MB
 
     let wasi = WasiCtxBuilder::new()
-        .preopened_dir(
-            wasmtime_wasi::Dir::open_ambient_dir(".", ambient_authority())?,
-            "/",
-        )
+        .preopened_dir(".", ".", DirPerms::all(), FilePerms::all())
         .map_err(|e| ExecutionError::WasmError {
             message: e.to_string(),
         })?
         .args(&args)
-        .map_err(|e| ExecutionError::WasmError {
-            message: e.to_string(),
-        })?
         .envs(&env?)
-        .map_err(|e| ExecutionError::WasmError {
-            message: e.to_string(),
-        })?
-        .stdin(Box::new(stdin))
-        .stdout(Box::new(stdout.clone()))
-        .inherit_stderr()
-        .build();
+        .stdin(stdin)
+        .stdout(stdout.clone())
+        .stderr(stderr.clone())
+        .build_p1();
 
     let mut store = Store::new(&wasm.engine, wasi);
     store.set_fuel(fuel)?;
     store.fuel_async_yield_interval(max_async_yield)?;
 
-    let mut linker = Linker::new(&wasm.engine);
-    // Add WASI for Tokio magic
-    wasmtime_wasi::tokio::add_to_linker(&mut linker, |cx| cx)?;
-
-    linker.module_async(&mut store, "", &wasm.module).await?;
-    linker
+    let func = wasm
+        .linker
+        .module_async(&mut store, "", &wasm.module)
+        .await?
         .get_default(&mut store, "")?
-        .typed::<(), ()>(&store)?
-        .call_async(store, ())
-        .await?;
+        .typed::<(), ()>(&store)?;
 
-    let data = stdout.try_into_inner().unwrap_or_default().into_inner();
+    func.call_async(&mut store, ()).await?;
+
+    let data = stdout.contents();
     let data = String::from_utf8_lossy(&data).to_string();
 
     store_value(store_as, context, step_id, data.into()).await?;

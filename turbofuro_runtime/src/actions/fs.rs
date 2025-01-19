@@ -5,7 +5,7 @@ use std::{
 };
 
 use futures_util::StreamExt;
-use notify::{RecursiveMode, Watcher};
+use notify::RecursiveMode;
 use notify_debouncer_full::new_debouncer;
 use tel::{ObjectBody, StorageValue};
 use tokio::{fs::OpenOptions, io::AsyncWriteExt, sync::mpsc};
@@ -281,7 +281,7 @@ pub async fn setup_watcher<'a>(
 
     // Add a path to be watched. All files and directories at that path and
     // below will be monitored for changes.
-    debouncer.watcher().watch(path.as_ref(), recursive_mode)?;
+    debouncer.watch(path, recursive_mode)?;
 
     tokio::spawn(async move {
         while let Some(result) = rx.recv().await {

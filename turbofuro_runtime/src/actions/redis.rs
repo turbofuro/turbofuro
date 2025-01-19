@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, fmt::Display, sync::Arc, time::Duration};
 
 use crate::{
     actor::ActorCommand,
@@ -8,7 +8,7 @@ use crate::{
 use deadpool_redis::{Config, Runtime};
 use futures_util::StreamExt;
 use redis::FromRedisValue;
-use tel::{describe, Description, ObjectBody, StorageValue};
+use tel::{describe, Description, ObjectBody, StorageValue, NULL};
 use tokio::time::sleep;
 use tracing::{debug, error, instrument, warn};
 
@@ -221,26 +221,95 @@ pub async fn unsubscribe<'a>(
     Ok(())
 }
 
+enum RedisValueParseError {
+    Unsupported,
+    Invalid,
+}
+
+impl Display for RedisValueParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RedisValueParseError::Unsupported => write!(f, "Unsupported value"),
+            RedisValueParseError::Invalid => write!(f, "Invalid value"),
+        }
+    }
+}
+
 struct RedisResponse(StorageValue);
+
+impl TryFrom<redis::Value> for RedisResponse {
+    type Error = RedisValueParseError;
+
+    fn try_from(value: redis::Value) -> Result<Self, Self::Error> {
+        let value = match value {
+            redis::Value::Nil => NULL,
+            redis::Value::Int(i) => StorageValue::Number(i as f64),
+            redis::Value::BulkString(vec) => {
+                StorageValue::String(String::from_utf8_lossy(&vec).into())
+            }
+            redis::Value::Array(vec) => {
+                let mut arr = Vec::new();
+                for item in vec {
+                    arr.push(RedisResponse::try_from(item)?.0);
+                }
+                StorageValue::Array(arr)
+            }
+            redis::Value::SimpleString(s) => StorageValue::String(s.clone()),
+            redis::Value::Okay => StorageValue::String("OK".to_owned()),
+            redis::Value::Map(vec) => {
+                let mut obj = ObjectBody::new();
+                for (key, value) in vec {
+                    let key = RedisResponse::try_from(key)?.0;
+                    let key = key.to_string().map_err(|_| RedisValueParseError::Invalid)?;
+                    obj.insert(key, RedisResponse::try_from(value)?.0);
+                }
+                StorageValue::Object(obj)
+            }
+            redis::Value::Attribute { data, attributes } => {
+                // TODO: Validate this implementation
+                let mut obj = ObjectBody::new();
+                obj.insert("data".to_owned(), RedisResponse::try_from(*data)?.0);
+                for (key, value) in attributes {
+                    let key = RedisResponse::try_from(key)?.0;
+                    let key = key.to_string().map_err(|_| RedisValueParseError::Invalid)?;
+                    obj.insert(key, RedisResponse::try_from(value)?.0);
+                }
+                StorageValue::Object(obj)
+            }
+            redis::Value::Set(vec) => {
+                let mut arr = Vec::new();
+                for item in vec {
+                    arr.push(RedisResponse::try_from(item)?.0);
+                }
+                StorageValue::Array(arr)
+            }
+            redis::Value::Double(d) => StorageValue::Number(d),
+            redis::Value::Boolean(b) => StorageValue::Boolean(b),
+            redis::Value::VerbatimString { format: _, text } => StorageValue::String(text.clone()),
+            redis::Value::BigNumber(_big_int) => {
+                return Err(RedisValueParseError::Unsupported);
+            }
+            redis::Value::Push { .. } => {
+                return Err(RedisValueParseError::Unsupported);
+            }
+            redis::Value::ServerError(_server_error) => {
+                return Err(RedisValueParseError::Unsupported);
+            }
+        };
+
+        Ok(Self(value))
+    }
+}
 
 impl FromRedisValue for RedisResponse {
     fn from_redis_value(v: &redis::Value) -> redis::RedisResult<Self> {
-        match v {
-            redis::Value::Nil => Ok(Self(StorageValue::Null(None))),
-            redis::Value::Int(i) => Ok(Self(StorageValue::Number(*i as f64))),
-            redis::Value::Data(d) => Ok(Self(StorageValue::String(
-                String::from_utf8_lossy(d).into(),
-            ))),
-            redis::Value::Bulk(v) => {
-                let mut arr = Vec::new();
-                for item in v {
-                    arr.push(RedisResponse::from_redis_value(item)?.0);
-                }
-                Ok(Self(StorageValue::Array(arr)))
-            }
-            redis::Value::Status(s) => Ok(Self(s.clone().into())),
-            redis::Value::Okay => Ok(Self("OK".into())),
-        }
+        RedisResponse::try_from(v.clone()).map_err(|e| {
+            redis::RedisError::from((
+                redis::ErrorKind::ParseError,
+                "Could not parse value",
+                e.to_string(),
+            ))
+        })
     }
 }
 

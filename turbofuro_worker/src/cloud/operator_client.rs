@@ -5,6 +5,7 @@ use crate::{
     shared::{ModuleVersion, WorkerStatus},
     utils::exponential_delay::ExponentialDelay,
 };
+use axum::body::Bytes;
 use futures_util::{SinkExt, StreamExt};
 use log::info;
 use reqwest::Url;
@@ -221,7 +222,7 @@ impl OperatorClient {
     async fn handle_message(&mut self, message: OperatorClientMessage) {
         match message {
             OperatorClientMessage::Connect => {
-                match connect_async(self.operator_url.clone())
+                match connect_async(self.operator_url.as_str())
                     .await
                     .map_err(|e| OperatorClientError::WebSocketError { error: e })
                 {
@@ -289,7 +290,7 @@ impl OperatorClient {
                                         match command {
                                             Some(command) => {
                                                 let text = serde_json::to_string(&command).unwrap();
-                                                let _ = write.feed(Message::Text(text)).await;
+                                                let _ = write.feed(Message::Text(text.into())).await;
                                             }
                                             None => {
                                                 break;
@@ -300,7 +301,7 @@ impl OperatorClient {
                                         let _ = write.flush().await;
                                     }
                                     _ = keep_alive_interval.tick() => {
-                                        let _ = write.send(Message::Ping(PING_PAYLOAD.into())).await;
+                                        let _ = write.send(Message::Ping(Bytes::from_static(PING_PAYLOAD))).await;
                                     }
                                 };
                             }

@@ -1,5 +1,3 @@
-extern crate log;
-
 mod cli;
 mod cloud;
 mod config;

@@ -1,3 +1,7 @@
+## 0.1.28 (unreleased)
+* Bump dependencies
+* Fixes all detected security vulnerabilities
+
 ## 0.1.27
 * Omnitool: toolkit for Turbofuro
 * Add streamable resource stack

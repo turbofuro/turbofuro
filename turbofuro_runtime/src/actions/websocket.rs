@@ -68,10 +68,10 @@ pub async fn send_message<'a>(
     let message_param = eval_param("message", parameters, context)?;
 
     let message: Message = match message_param {
-        StorageValue::String(s) => Message::Text(s),
-        StorageValue::Object(obj) => Message::Text(serde_json::to_string(&obj).unwrap()),
-        StorageValue::Array(arr) => Message::Text(serde_json::to_string(&arr).unwrap()),
-        v => Message::Text(v.to_string().unwrap_or_default()),
+        StorageValue::String(s) => Message::Text(s.into()),
+        StorageValue::Object(obj) => Message::Text(serde_json::to_string(&obj).unwrap().into()),
+        StorageValue::Array(arr) => Message::Text(serde_json::to_string(&arr).unwrap().into()),
+        v => Message::Text(v.to_string().unwrap_or_default().into()),
     };
 
     let websocket = context

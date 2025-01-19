@@ -1,5 +1,3 @@
-extern crate log;
-
 use crate::config::{Configuration, WorkerSettings};
 use crate::errors::WorkerError;
 use crate::events::{WorkerEvent, WorkerEventSender};
@@ -108,7 +106,7 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
                         if let Some(close_frame) = close_frame {
                             initial_storage.insert(
                                 "reason".to_string(),
-                                StorageValue::String(close_frame.reason.into_owned()),
+                                StorageValue::String(close_frame.reason.to_string()),
                             );
                         } else {
                             initial_storage.insert(
@@ -129,7 +127,9 @@ async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Resul
                     }
                     msg => {
                         let message: StorageValue = match msg {
-                            axum::extract::ws::Message::Text(text) => StorageValue::String(text),
+                            axum::extract::ws::Message::Text(text) => {
+                                StorageValue::String(text.to_string())
+                            }
                             axum::extract::ws::Message::Binary(bytes) => StorageValue::Array(
                                 bytes
                                     .iter()
@@ -315,7 +315,7 @@ impl WorkerHttpServer {
             .routes
             .clone()
             .into_iter()
-            .group_by(|endpoint| endpoint.path.clone())
+            .chunk_by(|endpoint| endpoint.path.clone())
             .into_iter()
             .map(|(path, route_handlers)| (path, route_handlers.collect_vec()))
             .collect::<Vec<(String, Vec<Route>)>>();
