@@ -4784,7 +4784,7 @@ checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 
 [[package]]
 name = "tel"
-version = "0.1.22"
+version = "0.1.23"
 dependencies = [
  "base64 0.22.1",
  "chumsky",
@@ -4800,7 +4800,7 @@ dependencies = [
 
 [[package]]
 name = "tel-wasm"
-version = "0.1.22"
+version = "0.1.23"
 dependencies = [
  "console_error_panic_hook",
  "serde",
@@ -5388,7 +5388,7 @@ dependencies = [
 
 [[package]]
 name = "turbofuro_runtime"
-version = "0.1.22"
+version = "0.1.23"
 dependencies = [
  "arc-swap",
  "async-recursion",
@@ -5458,7 +5458,7 @@ dependencies = [
 
 [[package]]
 name = "turbofuro_worker"
-version = "0.1.27"
+version = "0.1.28"
 dependencies = [
  "anyhow",
  "async-recursion",

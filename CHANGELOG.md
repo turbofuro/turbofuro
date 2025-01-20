@@ -1,4 +1,4 @@
-## 0.1.28 (unreleased)
+## 0.1.28
 * Bump dependencies
 * Fixes all detected security vulnerabilities
 
