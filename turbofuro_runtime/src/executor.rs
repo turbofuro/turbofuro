@@ -1133,16 +1133,19 @@ pub enum ExecutionEvent {
     ResourceProvisioned {
         id: u64,
         resource: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
         name: Option<String>,
     },
     ResourceConsumed {
         id: u64,
         resource: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
         name: Option<String>,
     },
     ResourceUsed {
         id: u64,
         resource: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
         name: Option<String>,
     },
 }
@@ -2275,6 +2278,21 @@ mod test_executor {
             id: "1".to_owned(),
             timestamp: 110,
         });
+        log.events.push(ExecutionEvent::ResourceConsumed {
+            id: 1,
+            resource: "test".to_owned(),
+            name: None,
+        });
+        log.events.push(ExecutionEvent::ResourceProvisioned {
+            id: 1,
+            resource: "test".to_owned(),
+            name: Some("testname".to_owned()),
+        });
+        log.events.push(ExecutionEvent::ResourceUsed {
+            id: 1,
+            resource: "test".to_owned(),
+            name: None,
+        });
 
         let serialized = serde_json::to_value(&log).unwrap();
         let expected = json!(
@@ -2299,7 +2317,10 @@ mod test_executor {
                         "value": 22
                     }
                   },
-                  { "type": "STEP_FINISHED", "id": "1", "timestamp": 110 }
+                  { "type": "STEP_FINISHED", "id": "1", "timestamp": 110 },
+                  { "type": "RESOURCE_CONSUMED", "id": 1, "resource": "test" },
+                  { "type": "RESOURCE_PROVISIONED", "id": 1, "resource": "test", "name": "testname" },
+                  { "type": "RESOURCE_USED", "id": 1, "resource": "test"}
                 ]
               }
 
