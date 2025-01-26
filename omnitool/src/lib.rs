@@ -46,6 +46,15 @@ pub struct ResourceEvent {
     operation: ResourceOperation,
 }
 
+fn is_worker_resource(resource: &str) -> bool {
+    resource == "postgres_connection"
+        || resource == "redis_connection"
+        || resource == "http_client"
+        || resource == "actor_link"
+        || resource == "libsql_connection"
+        || resource == "webdriver_client"
+}
+
 fn resource_matches(tested: &str, by: &str) -> bool {
     if by == "streamable" {
         return tested == "pending_http_request"
@@ -818,9 +827,19 @@ fn analyze_step(
                     // Apply top resource list
                     match annotation {
                         FunctionAnnotation::Provision { resource } => {
+                            // TODO: Decide how to handle worker resources
+                            if is_worker_resource(resource) {
+                                continue;
+                            }
+
                             context.add_resource(resource);
                         }
                         FunctionAnnotation::Consumption { resource } => {
+                            // TODO: Decide how to handle worker resources
+                            if is_worker_resource(resource) {
+                                continue;
+                            }
+
                             let found = context.consume_resource(resource);
                             if found.is_none() {
                                 // Let's check if there non-consumable resource
@@ -845,6 +864,11 @@ fn analyze_step(
                             }
                         }
                         FunctionAnnotation::Requirement { resource } => {
+                            // TODO: Decide how to handle worker resources
+                            if is_worker_resource(resource) {
+                                continue;
+                            }
+
                             let found = context.find_resource(resource);
                             if found.is_none() {
                                 analysis.problems.push(AnalysisProblem::Error {
