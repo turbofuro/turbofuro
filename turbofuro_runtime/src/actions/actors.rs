@@ -106,7 +106,12 @@ pub async fn send<'a>(
             execution_id: None,
         })
         .await
-        .expect("Failed to send message to actor");
+        .map_err(|e| ExecutionError::ActorCommandFailed {
+            message: format!(
+                "Could not send run command (handler: onMessage) to actor. Send error: {:?}",
+                e
+            ),
+        })?;
 
     Ok(())
 }
