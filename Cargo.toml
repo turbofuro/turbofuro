@@ -1,6 +1,6 @@
 [workspace.package]
 version = "0.1.0"
-authors = ["Bartosz Wiśniewski <kontakt@pr0gramista.pl>"]
+authors = ["Bartosz Wiśniewski <bartosz.wisniewski@turbofuro.com>"]
 repository = "https://github.com/turbofuro/turbofuro"
 license = "Apache-2.0"
 categories = ["compilers", "web-programming"]
