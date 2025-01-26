@@ -1,22 +1,4 @@
-import { useState, useEffect } from "react";
-import { useDebounce } from "./utils";
-import * as omnitool from "@turbofuro/omnitool";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type StepAnalysis = any;
-
-type Result =
-  | {
-      type: "error";
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      error: any;
-    }
-  | {
-      type: "success";
-      value: StepAnalysis;
-    };
-
-const DEFAULT_DECLARATIONS = [
+export const DEFAULT_DECLARATIONS = [
   {
     tag: "fd1",
     id: "hF-T7oV7lIU6EsbDL8U7p",
@@ -298,7 +280,7 @@ const DEFAULT_DECLARATIONS = [
   },
 ];
 
-const DEFAULT_INSTRUCTIONS = [
+export const DEFAULT_INSTRUCTIONS = [
   {
     id: "hF-T7oV7lIU6EsbDL8U7p",
     type: "defineFunction",
@@ -427,102 +409,3 @@ const DEFAULT_INSTRUCTIONS = [
     decorator: false,
   },
 ];
-
-export default function AnalyzerView() {
-  const [instructionsJson, setInstructionsJson] = useState(
-    JSON.stringify(DEFAULT_INSTRUCTIONS, null, 2)
-  );
-  const [declarationsJson, setDeclarationsJson] = useState(
-    JSON.stringify(DEFAULT_DECLARATIONS, null, 2)
-  );
-
-  const debouncedInstructions = useDebounce(instructionsJson);
-  const debouncedDeclarations = useDebounce(declarationsJson);
-
-  const [result, setResult] = useState<Result>();
-
-  useEffect(() => {
-    let instructions, declarations;
-    try {
-      instructions = JSON.parse(debouncedInstructions);
-    } catch (err) {
-      setResult({
-        type: "error",
-        error: {
-          code: "INVALID_INSTRUCTIONS",
-          errors: [],
-        },
-      });
-      return;
-    }
-
-    try {
-      declarations = JSON.parse(debouncedDeclarations);
-    } catch (err) {
-      setResult({
-        type: "error",
-        error: {
-          code: "INVALID_DECLARATIONS",
-          errors: [],
-        },
-      });
-      return;
-    }
-
-    try {
-      const parsed = omnitool.analyze(instructions, declarations, []);
-      setResult({
-        type: "success",
-        value: parsed,
-      });
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      console.error(err);
-      setResult({
-        type: "error",
-        error: {
-          code: "ANALYZE_ERROR",
-          errors: [],
-        },
-      });
-    }
-  }, [debouncedDeclarations, debouncedInstructions]);
-
-  return (
-    <div className="w-full">
-      <div className="split">
-        <div className="left">
-          <h4 className="m-md">Instructions</h4>
-          <textarea
-            id="instructions"
-            value={instructionsJson}
-            className="field w-full"
-            onChange={(e) => setInstructionsJson(e.target.value)}
-          ></textarea>
-          <h4 className="m-md">Declarations</h4>
-          <textarea
-            id="declarations"
-            className="field w-full"
-            value={declarationsJson}
-            onChange={(e) => setDeclarationsJson(e.target.value)}
-          ></textarea>
-        </div>
-        <div className="right">
-          {result?.type == "error" && (
-            <div className="error">
-              <span>Errored</span>
-              <pre>{result.error.code}</pre>
-              <pre className="text-sm">
-                {JSON.stringify(result.error.errors, null, 2)}
-              </pre>
-            </div>
-          )}
-          {result?.type == "success" && (
-            <pre id="output">{JSON.stringify(result.value, null, 2)}</pre>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}

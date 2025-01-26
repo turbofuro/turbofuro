@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useDebounce } from "./utils";
-import * as tel from "@turbofuro/tel-wasm";
+import * as tel from "@turbofuro/omnitool";
 
-export default function DescriptionEvaluator() {
+export default function DescriptionPlayground() {
   const [expression, setExpression] = useState("string.uuid | null");
 
   const debouncedExpression = useDebounce(expression);
@@ -10,8 +10,13 @@ export default function DescriptionEvaluator() {
   const [result, setResult] = useState<tel.DescriptionEvaluationResult>();
   const [parsed, setParsed] = useState<tel.DescriptionParseResult>();
 
+  const [error, setError] = useState<string>();
+
   useEffect(() => {
     try {
+      setError(undefined);
+      setResult(undefined);
+
       const parsed = tel.parseDescription(debouncedExpression);
       setParsed(parsed);
 
@@ -21,46 +26,29 @@ export default function DescriptionEvaluator() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error(err);
-      setResult({
-        value: {
-          type: "error",
-          error: {
-            code: "PARSE_ERROR",
-            errors: [],
-          },
-        },
-      });
+      setError(err.toString());
     }
   }, [debouncedExpression]);
 
   return (
-    <>
-      <h2>Descriptions</h2>
+    <div className="w-full">
       <div className="split">
         <div className="left">
-          <h3>Expression:</h3>
+          <h4 className="m-md">Notation</h4>
           <textarea
             id="expression"
+            className="field w-full"
             value={expression}
             onChange={(e) => setExpression(e.target.value)}
           ></textarea>
         </div>
         <div className="right">
-          {result?.value.type == "error" && (
-            <div className="error">
-              <span>Errored</span>
-              <pre>{result.value.error.code}</pre>
-            </div>
-          )}
-          {result?.value != null && (
-            <pre id="output">{JSON.stringify(result.value, null, 2)}</pre>
-          )}
-          {result?.value != null && (
-            <pre id="output">{tel.getNotation(result.value)}</pre>
-          )}
+          <h4 className="m-md">Output</h4>
+          <pre className="output mb-md">{JSON.stringify(result, null, 2)}</pre>
+          {error && <pre className="error mb-md">{error}</pre>}
           <pre className="text-sm">{JSON.stringify(parsed, null, 2)}</pre>
         </div>
       </div>
-    </>
+    </div>
   );
 }
