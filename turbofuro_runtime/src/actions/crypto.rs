@@ -48,6 +48,10 @@ pub async fn jwt_decode(
     let token = eval_string_param("token", parameters, context)?;
     let secret = eval_string_param("secret", parameters, context)?;
 
+    let audience = eval_opt_string_param("audience", parameters, context)?;
+    let issuer = eval_opt_string_param("issuer", parameters, context)?;
+    let subject = eval_opt_string_param("subject", parameters, context)?;
+
     // TODO: Add more options?
     // let should_validate = eval_optional_param_with_default(
     //     "validate",
@@ -82,8 +86,16 @@ pub async fn jwt_decode(
         }
     };
 
+    let mut validation = Validation::new(algorithm);
+    if let Some(aud) = audience {
+        validation.set_audience(&[aud]);
+    }
+    if let Some(iss) = issuer {
+        validation.set_issuer(&[iss]);
+    }
+    validation.sub = subject;
     // TODO: Add more options?
-    let validation = Validation::new(algorithm);
+
     let token_data = decode::<StorageValue>(
         &token,
         &DecodingKey::from_secret(secret.as_ref()),
@@ -297,5 +309,108 @@ mod test_crypto {
             eval("token.message", &context.storage, &context.environment).unwrap(),
             StorageValue::String("Hello World".to_owned())
         );
+    }
+
+    #[tokio::test]
+    async fn test_jwt_decode_with_aud_successfully() {
+        let mut t = ExecutionTest::default();
+        let mut context = t.get_context();
+
+        jwt_decode(
+            &mut context,
+            &vec![
+                Parameter::tel("token", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtZXNzYWdlIjoiSGVsbG8gV29ybGQiLCJleHAiOjQ1NTI1NTI1MjIsImlzcyI6Imlzc3Rlc3QiLCJzdWIiOiJzdWJ0ZXN0IiwiYXVkIjoiYXVkdGVzdCJ9.Zwc3ux_YIzJ-mH_J7FO4e326ZTttPoTDNs-mAUoi8lc\""),
+                Parameter::tel("audience", "\"audtest\""),
+                Parameter::tel("secret", "\"secret\""),
+            ],
+            "test",
+            Some("token")
+        ).await.unwrap();
+
+        assert_eq!(
+            eval("token.message", &context.storage, &context.environment).unwrap(),
+            StorageValue::String("Hello World".to_owned())
+        );
+    }
+
+    #[tokio::test]
+    async fn test_jwt_decode_full_successfully() {
+        let mut t = ExecutionTest::default();
+        let mut context = t.get_context();
+
+        jwt_decode(
+            &mut context,
+            &vec![
+                Parameter::tel("token", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtZXNzYWdlIjoiSGVsbG8gV29ybGQiLCJleHAiOjQ1NTI1NTI1MjIsImlzcyI6Imlzc3Rlc3QiLCJzdWIiOiJzdWJ0ZXN0IiwiYXVkIjoiYXVkdGVzdCJ9.Zwc3ux_YIzJ-mH_J7FO4e326ZTttPoTDNs-mAUoi8lc\""),
+                Parameter::tel("audience", "\"audtest\""),
+                Parameter::tel("issuer", "\"isstest\""),
+                Parameter::tel("subject", "\"subtest\""),
+                Parameter::tel("secret", "\"secret\""),
+            ],
+            "test",
+            Some("token")
+        ).await.unwrap();
+
+        assert_eq!(
+            eval("token.message", &context.storage, &context.environment).unwrap(),
+            StorageValue::String("Hello World".to_owned())
+        );
+    }
+
+    #[tokio::test]
+    async fn test_jwt_decode_errors_on_wrong_subject() {
+        let mut t = ExecutionTest::default();
+        let mut context = t.get_context();
+
+        assert!(jwt_decode(
+            &mut context,
+            &vec![
+                Parameter::tel("token", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtZXNzYWdlIjoiSGVsbG8gV29ybGQiLCJleHAiOjQ1NTI1NTI1MjIsImlzcyI6Imlzc3Rlc3QiLCJzdWIiOiJzdWJ0ZXN0IiwiYXVkIjoiYXVkdGVzdCJ9.Zwc3ux_YIzJ-mH_J7FO4e326ZTttPoTDNs-mAUoi8lc\""),
+                Parameter::tel("audience", "\"audtest\""),
+                Parameter::tel("issuer", "\"isstest\""),
+                Parameter::tel("subject", "\"wrong\""),
+                Parameter::tel("secret", "\"secret\""),
+            ],
+            "test",
+            Some("token")
+        ).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_jwt_decode_errors_on_wrong_audience() {
+        let mut t = ExecutionTest::default();
+        let mut context = t.get_context();
+
+        assert!(jwt_decode(
+            &mut context,
+            &vec![
+                Parameter::tel("token", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtZXNzYWdlIjoiSGVsbG8gV29ybGQiLCJleHAiOjQ1NTI1NTI1MjIsImlzcyI6Imlzc3Rlc3QiLCJzdWIiOiJzdWJ0ZXN0IiwiYXVkIjoiYXVkdGVzdCJ9.Zwc3ux_YIzJ-mH_J7FO4e326ZTttPoTDNs-mAUoi8lc\""),
+                Parameter::tel("audience", "\"wrong\""),
+                Parameter::tel("issuer", "\"isstest\""),
+                Parameter::tel("subject", "\"subtest\""),
+                Parameter::tel("secret", "\"secret\""),
+            ],
+            "test",
+            Some("token")
+        ).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_jwt_decode_errors_on_wrong_issuer() {
+        let mut t = ExecutionTest::default();
+        let mut context = t.get_context();
+
+        assert!(jwt_decode(
+            &mut context,
+            &vec![
+                Parameter::tel("token", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtZXNzYWdlIjoiSGVsbG8gV29ybGQiLCJleHAiOjQ1NTI1NTI1MjIsImlzcyI6Imlzc3Rlc3QiLCJzdWIiOiJzdWJ0ZXN0IiwiYXVkIjoiYXVkdGVzdCJ9.Zwc3ux_YIzJ-mH_J7FO4e326ZTttPoTDNs-mAUoi8lc\""),
+                Parameter::tel("audience", "\"audtest\""),
+                Parameter::tel("issuer", "\"wrong\""),
+                Parameter::tel("subject", "\"subtest\""),
+                Parameter::tel("secret", "\"secret\""),
+            ],
+            "test",
+            Some("token")
+        ).await.is_err());
     }
 }
