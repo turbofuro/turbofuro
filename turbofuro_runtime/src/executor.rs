@@ -53,6 +53,7 @@ use crate::actions::os;
 use crate::actions::postgres;
 use crate::actions::pubsub;
 use crate::actions::redis;
+use crate::actions::sound;
 use crate::actions::tasks;
 use crate::actions::time;
 use crate::actions::wasm;
@@ -1424,6 +1425,7 @@ async fn execute_native<'a>(
                 }
             };
         }
+        "sound/play_sound" => sound::play_sound(context, parameters, step_id, store_as).await?,
         id => {
             return Err(ExecutionError::Unsupported {
                 message: format!("Native function {} not found", id),

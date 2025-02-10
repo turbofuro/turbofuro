@@ -91,6 +91,7 @@ num = "0.4.3"
 ollama-rs = "0.2.1"
 fantoccini = "0.21.2"
 cap-std = "3.4.2"
+rodio = "0.20.1"
 
 [dev-dependencies]
 tower = { version = "0.5.2", features = ["util"] }

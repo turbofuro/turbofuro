@@ -1,3 +1,7 @@
+## 0.1.29 (pending)
+* Add audience, issuer, subject parameters to JWT decode
+* Add sound module via rodio
+
 ## 0.1.28
 * Bump dependencies
 * Fixes all detected security vulnerabilities
