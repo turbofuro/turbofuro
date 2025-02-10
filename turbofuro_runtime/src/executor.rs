@@ -1426,6 +1426,7 @@ async fn execute_native<'a>(
             };
         }
         "sound/play_sound" => sound::play_sound(context, parameters, step_id, store_as).await?,
+        "sound/play_signal" => sound::play_signal(context, parameters, step_id, store_as).await?,
         id => {
             return Err(ExecutionError::Unsupported {
                 message: format!("Native function {} not found", id),
