@@ -1,4 +1,4 @@
-## 0.1.29 (pending)
+## 0.1.29
 * Add audience, issuer, subject parameters to JWT decode
 * Add sound module via rodio
 
