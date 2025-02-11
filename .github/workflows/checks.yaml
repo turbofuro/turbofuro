@@ -8,6 +8,9 @@ jobs:
     name: Check
     runs-on: ubuntu-latest
     steps:
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev ca-certificates libasound2-dev
+
       - name: Checkout sources
         uses: actions/checkout@v4
 
@@ -27,6 +30,9 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev ca-certificates libasound2-dev
+
       - name: Checkout sources
         uses: actions/checkout@v4
 
@@ -46,6 +52,9 @@ jobs:
     name: Lints
     runs-on: ubuntu-latest
     steps:
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev ca-certificates libasound2-dev
+
       - name: Checkout sources
         uses: actions/checkout@v4
 

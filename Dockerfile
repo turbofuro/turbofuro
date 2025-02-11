@@ -1,6 +1,6 @@
 FROM rust:1.84-bookworm as builder
 RUN apt-get update
-RUN apt-get install -y pkg-config libssl-dev ca-certificates
+RUN apt-get install -y pkg-config libssl-dev ca-certificates libasound2-dev
 WORKDIR /build
 COPY . .
 RUN cargo build --release --locked
