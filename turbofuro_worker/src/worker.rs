@@ -21,6 +21,7 @@ use axum::{
 use futures_util::{SinkExt, StreamExt, TryFutureExt};
 use http::{HeaderValue, Request};
 use itertools::Itertools;
+use serde_json::error;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -324,6 +325,7 @@ impl WorkerHttpServer {
             let mut method_router = MethodRouter::new();
             for route in route_handlers {
                 let route_cloned = route.clone();
+                info!("Registering route {} {}", route.method.to_uppercase(), path);
                 match route.method.to_lowercase().as_str() {
                     "get" => {
                         method_router = method_router
