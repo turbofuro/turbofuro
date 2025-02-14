@@ -1,4 +1,4 @@
-FROM rust:1.84-bookworm as builder
+FROM rust:1.84-bookworm AS builder
 RUN apt-get update
 RUN apt-get install -y pkg-config libssl-dev ca-certificates libasound2-dev
 WORKDIR /build
