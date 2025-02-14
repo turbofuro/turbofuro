@@ -42,7 +42,7 @@ jobs:
           - TARGET: x86_64-unknown-linux-gnu
             OS: ubuntu-latest
           - TARGET: aarch64-unknown-linux-gnu # 64-bit ARM on Linux
-            OS: ubuntu-latest
+            OS: ubuntu-22.04-arm
           - TARGET: x86_64-apple-darwin
             OS: macos-latest
           - TARGET: aarch64-apple-darwin
