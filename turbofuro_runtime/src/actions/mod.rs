@@ -24,6 +24,7 @@ pub mod os;
 pub mod postgres;
 pub mod pubsub;
 pub mod redis;
+pub mod regex;
 pub mod sound;
 pub mod tasks;
 pub mod time;

@@ -21,7 +21,6 @@ use axum::{
 use futures_util::{SinkExt, StreamExt, TryFutureExt};
 use http::{HeaderValue, Request};
 use itertools::Itertools;
-use serde_json::error;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;

@@ -53,6 +53,7 @@ use crate::actions::os;
 use crate::actions::postgres;
 use crate::actions::pubsub;
 use crate::actions::redis;
+use crate::actions::regex;
 use crate::actions::sound;
 use crate::actions::tasks;
 use crate::actions::time;
@@ -1427,6 +1428,13 @@ async fn execute_native<'a>(
         }
         "sound/play_sound" => sound::play_sound(context, parameters, step_id, store_as).await?,
         "sound/play_signal" => sound::play_signal(context, parameters, step_id, store_as).await?,
+        "regex/matches" => regex::matches(context, parameters, step_id, store_as).await?,
+        "regex/find_all" => regex::find_all(context, parameters, step_id, store_as).await?,
+        "regex/find_first" => regex::find_first(context, parameters, step_id, store_as).await?,
+        "regex/replace" => regex::replace(context, parameters, step_id, store_as).await?,
+        "regex/replace_all" => regex::replace_all(context, parameters, step_id, store_as).await?,
+        "regex/capture" => regex::capture(context, parameters, step_id, store_as).await?,
+        "regex/capture_all" => regex::capture_all(context, parameters, step_id, store_as).await?,
         id => {
             return Err(ExecutionError::Unsupported {
                 message: format!("Native function {} not found", id),

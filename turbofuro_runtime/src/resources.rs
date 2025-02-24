@@ -593,7 +593,7 @@ impl Stream for PendingHttpRequestStream {
     }
 }
 
-type HammerStream = Pin<Box<dyn Stream<Item = Result<Bytes, ExecutionError>> + Send + Sync>>;
+pub type HammerStream = Pin<Box<dyn Stream<Item = Result<Bytes, ExecutionError>> + Send + Sync>>;
 
 #[derive(Debug)]
 pub struct SteamMetadata {

@@ -1,7 +1,3 @@
-use std::pin::Pin;
-
-use axum::body::Bytes;
-use futures_util::Stream;
 use reqwest::multipart::{Form, Part};
 use tracing::instrument;
 
@@ -9,7 +5,7 @@ use crate::{
     errors::ExecutionError,
     evaluations::{eval_opt_string_param, eval_opt_u64_param, eval_string_param},
     executor::{ExecutionContext, Parameter},
-    resources::{generate_resource_id, FormDataDraft, Resource},
+    resources::{generate_resource_id, FormDataDraft, HammerStream, Resource},
 };
 
 #[instrument(level = "trace", skip_all)]
@@ -25,8 +21,6 @@ pub fn create_form_data<'a>(
         .add_form_data(FormDataDraft(generate_resource_id(), form));
     Ok(())
 }
-
-type HammerStream = Pin<Box<dyn Stream<Item = Result<Bytes, ExecutionError>> + Send + Sync>>;
 
 struct StreamPart(HammerStream);
 
