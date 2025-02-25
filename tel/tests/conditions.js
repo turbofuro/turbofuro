@@ -157,6 +157,7 @@ numbers[0] + numbers[1] == 3
 {} > [] == false
 {} < [] == false 
 "aaa" > "aa" == true
+"a" < "b"
 "hello_world".replace("world") == "hello_"
 "hello_world".stripPrefix("hello") == "_world"
 "hello_world".stripSuffix("_world") == "hello"
@@ -177,9 +178,16 @@ numbers[0] + numbers[1] == 3
 "dHVyYm9mdXJv".fromBase64String().fromCodePoints() == "turbofuro"
 "dHVyYm9mdXJv".fromBase64String() == [116, 117, 114, 98, 111, 102, 117, 114, 111]
 "1,2,3".split(",") == ["1", "2", "3"]
-{}.isEmpty() == true
-[].isEmpty() == true
+["1", "2", "3"].join(", ") == "1, 2, 3"
+{}.isEmpty()
+[].isEmpty()
 { a: 5, } == { a: 5 }
 [1, 2, 3,] == [1, 2, 3]
+-5.sign() == -1
+(-5).sign() == -1
+(-5.7).truncate() == -5
+-5.7.floor() == -5
+(-5.7).floor() == -6
+5.7.floor() == 5
 // "false".toBoolean() == false
 // "Hello".toBoolean() == true
