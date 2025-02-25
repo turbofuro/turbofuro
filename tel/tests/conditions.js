@@ -178,5 +178,7 @@ numbers[0] + numbers[1] == 3
 [99, 122, 101, 197, 155, 196, 135].fromCodePoints() == "cześć"
 {}.isEmpty() == true
 [].isEmpty() == true
+{ a: 5, } == { a: 5 }
+[1, 2, 3,] == [1, 2, 3]
 // "false".toBoolean() == false
 // "Hello".toBoolean() == true

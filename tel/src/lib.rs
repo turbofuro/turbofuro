@@ -839,9 +839,8 @@ fn parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + Clone 
 
         let array = expr
             .clone()
-            .chain(just(Token::Ctrl(',')).ignore_then(expr.clone()).repeated())
-            .or_not()
-            .flatten()
+            .separated_by(just(Token::Ctrl(',')))
+            .allow_trailing()
             .delimited_by(just(Token::Ctrl('[')), just(Token::Ctrl(']')))
             .map(Expr::Array)
             .labelled("array");
@@ -854,9 +853,8 @@ fn parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + Clone 
 
         let object = field
             .clone()
-            .chain(just(Token::Ctrl(',')).ignore_then(field).repeated())
-            .or_not()
-            .flatten()
+            .separated_by(just(Token::Ctrl(',')))
+            .allow_trailing()
             .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}')))
             .collect::<HashMap<String, Spanned<Expr>>>()
             .map(Expr::Object)
