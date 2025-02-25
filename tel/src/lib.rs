@@ -1350,7 +1350,7 @@ pub fn evaluate_value<T: Storage, E: Environment>(
 
             match value {
                 StorageValue::String(s) => match name.as_str() {
-                    "toBytes" => StorageValue::Array(
+                    "toCodePoints" => StorageValue::Array(
                         s.bytes().map(|b| StorageValue::Number(b as f64)).collect(),
                     ),
                     "fromHexString" => {
