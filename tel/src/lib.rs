@@ -1430,8 +1430,8 @@ pub fn evaluate_value<T: Storage, E: Environment>(
                             let arg = evaluate_value(arg, storage, environment)?;
                             let arg = arg.to_string()?;
 
-                            if let Some(removed) = s.strip_prefix(arg.as_str()) {
-                                StorageValue::String(removed.to_string())
+                            if let Some(modified) = s.strip_prefix(arg.as_str()) {
+                                StorageValue::String(modified.to_string())
                             } else {
                                 s.into()
                             }
@@ -1445,8 +1445,8 @@ pub fn evaluate_value<T: Storage, E: Environment>(
                             let arg = evaluate_value(arg, storage, environment)?;
                             let arg = arg.to_string()?;
 
-                            if let Some(removed) = s.strip_suffix(arg.as_str()) {
-                                StorageValue::String(removed.to_string())
+                            if let Some(modified) = s.strip_suffix(arg.as_str()) {
+                                StorageValue::String(modified.to_string())
                             } else {
                                 s.into()
                             }
@@ -1461,7 +1461,10 @@ pub fn evaluate_value<T: Storage, E: Environment>(
                             let arg = arg.to_string()?;
                             StorageValue::Boolean(s.starts_with(&arg))
                         } else {
-                            StorageValue::Boolean(false)
+                            return Err(TelError::MissingArgument {
+                                index: 0,
+                                method_name: "startsWith".to_owned(),
+                            });
                         }
                     }
                     "endsWith" => {
@@ -1471,7 +1474,10 @@ pub fn evaluate_value<T: Storage, E: Environment>(
                             let arg = arg.to_string()?;
                             StorageValue::Boolean(s.ends_with(&arg))
                         } else {
-                            StorageValue::Boolean(false)
+                            return Err(TelError::MissingArgument {
+                                index: 0,
+                                method_name: "endsWith".to_owned(),
+                            });
                         }
                     }
                     "stripFileExtension" => Path::new(&s)
@@ -1479,6 +1485,23 @@ pub fn evaluate_value<T: Storage, E: Environment>(
                         .map(|s| s.to_string_lossy().to_string())
                         .unwrap_or(s)
                         .into(),
+                    "split" => {
+                        let arg = arguments.pop();
+                        if let Some(arg) = arg {
+                            let arg = evaluate_value(arg, storage, environment)?;
+                            let arg = arg.to_string()?;
+                            StorageValue::Array(
+                                s.split(&arg)
+                                    .map(|s| StorageValue::String(s.to_string()))
+                                    .collect(),
+                            )
+                        } else {
+                            return Err(TelError::MissingArgument {
+                                index: 0,
+                                method_name: "split".to_owned(),
+                            });
+                        }
+                    }
                     _ => NULL,
                 },
                 StorageValue::Number(f) => match name.as_str() {
@@ -1564,7 +1587,7 @@ pub fn evaluate_value<T: Storage, E: Environment>(
                         let bytes = StorageValue::Array(arr).to_byte_array()?;
                         StorageValue::String(STANDARD.encode(bytes))
                     }
-                    "toString" => {
+                    "fromCodePoints" => {
                         let bytes = StorageValue::Array(arr).to_byte_array()?;
                         String::from_utf8_lossy(&bytes).to_string().into()
                     }
@@ -1581,7 +1604,10 @@ pub fn evaluate_value<T: Storage, E: Environment>(
                             let arg = arg.to_string()?;
                             StorageValue::String(strings.join(&arg))
                         } else {
-                            StorageValue::String(strings.join(", "))
+                            return Err(TelError::MissingArgument {
+                                index: 0,
+                                method_name: "join".to_owned(),
+                            });
                         }
                     }
                     "contains" => {
@@ -1590,10 +1616,14 @@ pub fn evaluate_value<T: Storage, E: Environment>(
                             let arg = evaluate_value(arg, storage, environment)?;
                             StorageValue::Boolean(arr.contains(&arg))
                         } else {
-                            StorageValue::Boolean(false)
+                            return Err(TelError::MissingArgument {
+                                index: 0,
+                                method_name: "contains".to_owned(),
+                            });
                         }
                     }
                     "length" => StorageValue::Number(arr.len() as f64),
+                    "isEmpty" => StorageValue::Boolean(arr.is_empty()),
                     _ => NULL,
                 },
                 StorageValue::Object(object) => match name.as_str() {
@@ -1607,6 +1637,7 @@ pub fn evaluate_value<T: Storage, E: Environment>(
                             .map(|k| StorageValue::String(k.clone()))
                             .collect(),
                     ),
+                    "isEmpty" => StorageValue::Boolean(object.is_empty()),
                     _ => NULL,
                 },
                 StorageValue::Null(_) => match name.as_str() {

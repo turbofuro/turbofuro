@@ -169,10 +169,14 @@ numbers[0] + numbers[1] == 3
 "image.jpg".stripFileExtension() == "image"
 "image".stripFileExtension() == "image"
 "abc".toBytes() == [97, 98, 99]
+[97, 98, 99].fromCodePoints() == "abc"
 "FFAC".fromHexString() == [255, 172]
 [250, 204, 21].toHexString() == "facc15"
-"dHVyYm9mdXJv".fromBase64String().toString() == "turbofuro"
+"dHVyYm9mdXJv".fromBase64String().fromCodePoints() == "turbofuro"
 "dHVyYm9mdXJv".fromBase64String() == [116, 117, 114, 98, 111, 102, 117, 114, 111]
-// "true".toBoolean() == true
+"1,2,3".split(",") == ["1", "2", "3"]
+[99, 122, 101, 197, 155, 196, 135].fromCodePoints() == "cześć"
+{}.isEmpty() == true
+[].isEmpty() == true
 // "false".toBoolean() == false
 // "Hello".toBoolean() == true
