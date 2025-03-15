@@ -189,5 +189,12 @@ numbers[0] + numbers[1] == 3
 -5.7.floor() == -5
 (-5.7).floor() == -6
 5.7.floor() == 5
+"Hello, World".split(", ") == ["Hello", "World"]
+NaN.isNaN() == true
+Infinity.isFinite() == false
+-Infinity.isFinite() == false
+NaN.type() == "number"
+Infinity.type() == "number"
+-Infinity.type() == "number"
 // "false".toBoolean() == false
 // "Hello".toBoolean() == true

@@ -689,6 +689,14 @@ fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
         .map(Token::Number)
         .labelled("number");
 
+    let nan = just("NaN").to(Token::Number("NaN".to_owned()));
+    let infinity = just("Infinity");
+    let neg_infinity = just("-Infinity");
+    let number_misc = nan
+        .to(Token::Number("NaN".to_owned()))
+        .or(infinity.to(Token::Number("Infinity".to_owned())))
+        .or(neg_infinity.to(Token::Number("-Infinity".to_owned())));
+
     let escape = just('\\').ignore_then(
         just('\\')
             .or(just('/'))
@@ -773,6 +781,7 @@ fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
 
     let token = choice((
         number,
+        number_misc,
         string,
         multiline_string,
         environment_ref,
