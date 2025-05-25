@@ -11,10 +11,13 @@ use crate::{
 use tel::{describe, Description, StorageValue};
 use tracing::instrument;
 use wasmtime::{Config, Engine, Linker, Module, Store};
-use wasmtime_wasi::preview1::{add_to_linker_async, WasiP1Ctx};
 use wasmtime_wasi::{
-    pipe::{MemoryInputPipe, MemoryOutputPipe},
-    DirPerms, FilePerms, WasiCtxBuilder,
+    p2::{
+        pipe::{MemoryInputPipe, MemoryOutputPipe},
+        WasiCtxBuilder,
+    },
+    preview1::{add_to_linker_async, WasiP1Ctx},
+    DirPerms, FilePerms,
 };
 
 use super::store_value;
