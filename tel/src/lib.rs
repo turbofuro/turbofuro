@@ -675,6 +675,16 @@ impl std::fmt::Display for Token {
 }
 
 fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
+    let hex = just('0')
+        .chain::<char, _, _>(just('x').or(just('X')))
+        .chain::<char, _, _>(text::digits(16));
+    let oct = just('0')
+        .chain::<char, _, _>(just('o').or(just('O')))
+        .chain::<char, _, _>(text::digits(8));
+    let bin = just('0')
+        .chain::<char, _, _>(just('b').or(just('B')))
+        .chain::<char, _, _>(text::digits(2));
+
     let frac = just('.').chain(text::digits(10));
 
     let exp = just('e')
@@ -682,9 +692,12 @@ fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
         .chain(just('+').or(just('-')).or_not())
         .chain::<char, _, _>(text::digits(10));
 
-    let number = text::int(10)
-        .chain::<char, _, _>(frac.or_not().flatten())
-        .chain::<char, _, _>(exp.or_not().flatten())
+    let number = hex
+        .or(oct)
+        .or(bin)
+        .or(text::int(10)
+            .chain::<char, _, _>(frac.or_not().flatten())
+            .chain::<char, _, _>(exp.or_not().flatten()))
         .collect::<String>()
         .map(Token::Number)
         .labelled("number");
@@ -826,7 +839,34 @@ fn parser() -> impl Parser<Token, Spanned<Expr>, Error = Simple<Token>> + Clone 
             Token::Number(n) => {
                 match n.parse() {
                     Ok(f) => Expr::Number(f),
-                    Err(_) => Expr::Invalid,
+                    Err(_) => {
+                        let n = n.to_lowercase();
+                        let hex = n.strip_prefix("0x");
+                        if let Some(hex_raw) = hex {
+                            return Ok(match i32::from_str_radix(hex_raw, 16) {
+                                Ok(z) => Expr::Number(z.into()),
+                                Err(_) => Expr::Invalid
+                            });
+                        }
+
+                        let oct = n.strip_prefix("0o");
+                        if let Some(oct_raw) = oct {
+                            return Ok(match i32::from_str_radix(oct_raw, 8) {
+                                Ok(z) => Expr::Number(z.into()),
+                                Err(_) => Expr::Invalid,
+                            });
+                        }
+
+                        let bin = n.strip_prefix("0b");
+                        if let Some(bin_raw) = bin {
+                            return Ok(match i32::from_str_radix(bin_raw, 2) {
+                                Ok(z) => Expr::Number(z.into()),
+                                Err(_) => Expr::Invalid,
+                            });
+                        }
+
+                        Expr::Invalid
+                    },
                 }
             },
             Token::EnvironmentRef(s) => Expr::Environment(s),

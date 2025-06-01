@@ -196,5 +196,9 @@ Infinity.isFinite() == false
 NaN.type() == "number"
 Infinity.type() == "number"
 -Infinity.type() == "number"
+0x12 == 18
+0o22 == 18
+0b1010 == 10
+0XFF == 255
 // "false".toBoolean() == false
 // "Hello".toBoolean() == true

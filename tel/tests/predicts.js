@@ -145,3 +145,4 @@ anything CHECK any
 (5 || "Hello").type() CHECK "number" | "string"
 anything != null CHECK boolean
 unknown != null CHECK boolean
+0xAA CHECK 170
