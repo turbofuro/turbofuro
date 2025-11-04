@@ -57,3 +57,39 @@ pub async fn run_function(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use tel::StorageValue;
+
+    use super::*;
+    use crate::{evaluations::eval, executor::ExecutionTest};
+
+    #[tokio::test]
+    async fn test_lua_interop() {
+        let mut t = ExecutionTest::default();
+        let mut context = t.get_context();
+
+        let code = r#"
+```lua
+function (data)
+    return data
+end
+```
+        "#;
+
+        let result = run_function(
+            &mut context,
+            &vec![Parameter::tel("code", code), Parameter::tel("value", "3.0")],
+            "test",
+            Some("output"),
+        )
+        .await;
+
+        assert!(result.is_ok());
+        assert_eq!(
+            eval("output", &context.storage, &context.environment).unwrap(),
+            StorageValue::Number(3.0)
+        );
+    }
+}
