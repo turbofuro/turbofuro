@@ -173,6 +173,7 @@ static PING_PAYLOAD: &[u8; 4] = b"ping";
 #[derive(Debug)]
 pub enum OperatorClientError {
     WebSocketError {
+        #[allow(dead_code)]
         error: tokio_tungstenite::tungstenite::Error,
     },
 }

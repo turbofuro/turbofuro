@@ -13,7 +13,7 @@ pub enum WorkerError {
     MalformedEnvironment,
     InvalidArguments { message: String },
     InvalidEnvironmentVariable { name: String, message: String },
-    ExecutionFailed { error: ExecutionError },
+    ExecutionFailed { error: Box<ExecutionError> },
     CouldNotFetchConfiguration { message: String },
     MalformedConfiguration { message: String },
     InvalidCloudAgentCommand { message: String },
@@ -31,7 +31,9 @@ impl From<pico_args::Error> for WorkerError {
 
 impl From<ExecutionError> for WorkerError {
     fn from(error: ExecutionError) -> Self {
-        WorkerError::ExecutionFailed { error }
+        WorkerError::ExecutionFailed {
+            error: Box::new(error),
+        }
     }
 }
 
@@ -52,28 +54,28 @@ impl Display for WorkerError {
             WorkerError::EnvironmentNotFound => write!(f, "Environment not found"),
             WorkerError::MalformedEnvironment => write!(f, "Malformed environment"),
             WorkerError::InvalidArguments { message } => {
-                write!(f, "Invalid arguments: {}", message)
+                write!(f, "Invalid arguments: {message}")
             }
             WorkerError::InvalidEnvironmentVariable { name, message } => {
-                write!(f, "Invalid environment variable {}: {}", name, message)
+                write!(f, "Invalid environment variable {name}: {message}")
             }
             WorkerError::ExecutionFailed { error } => {
-                write!(f, "Execution failed: {}", error)
+                write!(f, "Execution failed: {error}")
             }
             WorkerError::CouldNotFetchConfiguration { message } => {
-                write!(f, "Could not fetch configuration: {}", message)
+                write!(f, "Could not fetch configuration: {message}")
             }
             WorkerError::MalformedConfiguration { message } => {
-                write!(f, "Malformed configuration: {}", message)
+                write!(f, "Malformed configuration: {message}")
             }
             WorkerError::InvalidCloudAgentCommand { message } => {
-                write!(f, "Invalid cloud agent command: {}", message)
+                write!(f, "Invalid cloud agent command: {message}")
             }
             WorkerError::InvalidOperatorUrl { url } => {
-                write!(f, "Invalid operator URL: {}", url)
+                write!(f, "Invalid operator URL: {url}")
             }
             WorkerError::Unsupported { message } => {
-                write!(f, "Unsupported operation: {}", message)
+                write!(f, "Unsupported operation: {message}")
             }
         }
     }

@@ -30,8 +30,8 @@ pub async fn run_command(
         }
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: "args".to_owned(),
-            expected: Description::new_base_type("array"),
-            actual: describe(s),
+            expected: Description::new_base_type("array").into(),
+            actual: describe(s).into(),
         }),
     }?;
 

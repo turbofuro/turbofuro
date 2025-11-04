@@ -20,7 +20,7 @@ pub struct FileSystemEnvironmentResolver {}
 #[async_trait]
 impl EnvironmentResolver for FileSystemEnvironmentResolver {
     async fn get_environment(&mut self, id: &str) -> Result<Environment, WorkerError> {
-        let path = format!("test_environments/{}.json", id);
+        let path = format!("test_environments/{id}.json");
         let mut file = File::open(path)
             .map_err(|_| WorkerError::EnvironmentNotFound)
             .await?;

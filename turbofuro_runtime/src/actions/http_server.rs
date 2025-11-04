@@ -30,6 +30,7 @@ pub async fn setup_route<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     _step_id: &str,
+    _store: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let method_param =
         eval_opt_string_param("method", parameters, context)?.unwrap_or_else(|| "get".to_owned());
@@ -89,8 +90,9 @@ fn fill_headers_response(
                 expected: Description::new_union(vec![
                     Description::new_base_type("array"),
                     Description::new_base_type("object"),
-                ]),
-                actual: describe(s),
+                ])
+                .into(),
+                actual: describe(s).into(),
             })
         }
     }
@@ -103,14 +105,14 @@ fn fill_headers_response(
                         response_builder = apply_cookie(
                             cookie,
                             response_builder,
-                            format!("cookies[{}]", index).as_str(),
+                            format!("cookies[{index}]").as_str(),
                         )?;
                     }
                     _ => {
                         return Err(ExecutionError::ParameterTypeMismatch {
                             name: "cookies".to_owned(),
-                            expected: Description::new_base_type("object"),
-                            actual: describe(cookie),
+                            expected: Description::new_base_type("object").into(),
+                            actual: describe(cookie).into(),
                         })
                     }
                 }
@@ -125,8 +127,9 @@ fn fill_headers_response(
                 expected: Description::new_union(vec![
                     Description::new_base_type("array"),
                     Description::new_base_type("object"),
-                ]),
-                actual: describe(s),
+                ])
+                .into(),
+                actual: describe(s).into(),
             })
         }
     }
@@ -139,6 +142,7 @@ pub async fn respond_with<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     _step_id: &str,
+    _store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let status = eval_opt_integer_param("status", parameters, context)?.unwrap_or(200);
     let headers_param = eval_optional_param_with_default(
@@ -222,7 +226,7 @@ pub async fn respond_with<'a>(
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to respond to HTTP request".to_owned(),
             subject: HttpRequestToRespond::static_type().into(),
-            inner: format!("{:?}", e),
+            inner: format!("{e:?}"),
         })?;
 
     receiver.await.map_err(|e| ExecutionError::StateInvalid {
@@ -246,7 +250,7 @@ fn apply_cookie(
                 name: "name".to_owned(),
                 message: "Cookie name is missing".to_owned(),
             })?,
-        format!("{}.name", path).as_str(),
+        format!("{path}.name").as_str(),
     )?;
     let value = as_string(
         cookie
@@ -255,27 +259,27 @@ fn apply_cookie(
                 name: "value".to_owned(),
                 message: "Cookie name is missing".to_owned(),
             })?,
-        format!("{}.value", path).as_str(),
+        format!("{path}.value").as_str(),
     )?;
     let expires = cookie
         .remove("expires")
-        .map(|v| as_number(v, format!("{}.expires", path).as_str()))
+        .map(|v| as_number(v, format!("{path}.expires").as_str()))
         .transpose()?;
     let max_age = cookie
         .remove("maxAge")
-        .map(|v| as_number(v, format!("{}.maxAge", path).as_str()))
+        .map(|v| as_number(v, format!("{path}.maxAge").as_str()))
         .transpose()?;
     let secure = cookie
         .remove("secure")
-        .map(|v| as_boolean(v, format!("{}.secure", path).as_str()))
+        .map(|v| as_boolean(v, format!("{path}.secure").as_str()))
         .transpose()?;
     let http_only = cookie
         .remove("httpOnly")
-        .map(|v| as_boolean(v, format!("{}.httpOnly", path).as_str()))
+        .map(|v| as_boolean(v, format!("{path}.httpOnly").as_str()))
         .transpose()?;
     let same_site = cookie
         .remove("sameSite")
-        .map(|v| as_string(v, format!("{}.sameSite", path).as_str()))
+        .map(|v| as_string(v, format!("{path}.sameSite").as_str()))
         .transpose()?;
 
     let mut cookie_builder = Cookie::build((name, value));
@@ -304,7 +308,7 @@ fn apply_cookie(
             "none" => cookie_builder = cookie_builder.same_site(cookie::SameSite::None),
             _ => {
                 return Err(ExecutionError::ParameterInvalid {
-                    name: format!("{}.sameSite", path),
+                    name: format!("{path}.sameSite"),
                     message: "Invalid value for sameSite".to_owned(),
                 })
             }
@@ -322,6 +326,7 @@ pub async fn respond_with_stream<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     _step_id: &str,
+    _store: Option<&str>,
 ) -> Result<(), ExecutionError> {
     let status = eval_opt_integer_param("status", parameters, context)?.unwrap_or(200);
     let headers_param = eval_optional_param_with_default(
@@ -373,7 +378,7 @@ pub async fn respond_with_stream<'a>(
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to respond to HTTP request".to_owned(),
             subject: HttpRequestToRespond::static_type().into(),
-            inner: format!("{:?}", e),
+            inner: format!("{e:?}"),
         })?;
 
     receiver.await.map_err(|e| ExecutionError::StateInvalid {
@@ -454,7 +459,7 @@ pub async fn respond_with_sse_stream<'a>(
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to respond to HTTP request".to_owned(),
             subject: HttpRequestToRespond::static_type().into(),
-            inner: format!("{:?}", e),
+            inner: format!("{e:?}"),
         })?;
 
     let stream_id = generate_resource_id();

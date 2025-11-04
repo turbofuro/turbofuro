@@ -20,7 +20,7 @@ pub struct FileSystemModuleVersionResolver {}
 #[async_trait]
 impl ModuleVersionResolver for FileSystemModuleVersionResolver {
     async fn get_module_version(&self, id: &str) -> Result<ModuleVersion, WorkerError> {
-        let path = format!("test_module_versions/{}.json", id);
+        let path = format!("test_module_versions/{id}.json");
         let mut file = File::open(path)
             .map_err(|_| WorkerError::ModuleVersionNotFound)
             .await?;

@@ -278,11 +278,11 @@ pub enum Callee {
 impl Display for Callee {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Callee::Local { function_id } => write!(f, "local/{}", function_id),
+            Callee::Local { function_id } => write!(f, "local/{function_id}"),
             Callee::Import {
                 import_name,
                 function_id,
-            } => write!(f, "import/{}/{}", import_name, function_id),
+            } => write!(f, "import/{import_name}/{function_id}"),
         }
     }
 }
@@ -589,7 +589,7 @@ fn check_expression(
         if let Some(error) = value_description.error() {
             problems.push(AnalysisProblem::Error {
                 code: "RESOLVES_TO_ERROR".to_owned(),
-                message: format!("Expression resolves to error: {}", error),
+                message: format!("Expression resolves to error: {error}"),
                 field: field.clone(),
             });
         }
@@ -603,8 +603,7 @@ fn check_expression(
                 problems.push(AnalysisProblem::Error {
                     code: "INCOMPATIBLE_VALUE".to_owned(),
                     message: format!(
-                        "Expected {} but got {}",
-                        declaration_description, value_description
+                        "Expected {declaration_description} but got {value_description}"
                     ),
                     field: field.clone(),
                 });
@@ -625,7 +624,7 @@ fn check_not_always_boolean(
         Description::BooleanValue { value } => {
             vec![AnalysisProblem::Warning {
                 code: "CONSTANT_CONDITION".to_owned(),
-                message: format!("Value is always {}", value),
+                message: format!("Value is always {value}"),
                 field,
             }]
         }
@@ -693,7 +692,7 @@ fn store_in_storage(
 fn analyze_step(
     context: &mut Context,
     step: &Step,
-    previous: Option<&Analysis>,
+    previous: Option<&Analysis>, // TODO: Use as cache
 ) -> Vec<StepAnalysis> {
     let mut list = vec![];
     let capture_storage = context
@@ -752,7 +751,7 @@ fn analyze_step(
             if function.is_none() {
                 analysis.problems.push(AnalysisProblem::Error {
                     code: "FUNCTION_NOT_FOUND".to_owned(),
-                    message: format!("Function {} not found", callee),
+                    message: format!("Function {callee} not found"),
                     field: None,
                 });
             }
@@ -796,7 +795,7 @@ fn analyze_step(
                                         None => {
                                             analysis.problems.push(AnalysisProblem::Error {
                                                 code: "FUNCTION_NOT_FOUND".to_owned(),
-                                                message: format!("Function {} not found", id),
+                                                message: format!("Function {id} not found"),
                                                 field: Some(name.clone()),
                                             });
                                         }
@@ -849,15 +848,14 @@ fn analyze_step(
                                     analysis.problems.push(AnalysisProblem::Error {
                                         code: "MISSING_RESOURCE".to_owned(),
                                         message: format!(
-                                            "Missing resource {} that can be consumed",
-                                            resource
+                                            "Missing resource {resource} that can be consumed"
                                         ),
                                         field: None,
                                     });
                                 } else {
                                     analysis.problems.push(AnalysisProblem::Error {
                                         code: "MISSING_RESOURCE".to_owned(),
-                                        message: format!("Missing resource {}", resource),
+                                        message: format!("Missing resource {resource}"),
                                         field: None,
                                     });
                                 }
@@ -873,7 +871,7 @@ fn analyze_step(
                             if found.is_none() {
                                 analysis.problems.push(AnalysisProblem::Error {
                                     code: "MISSING_RESOURCE".to_owned(),
-                                    message: format!("Missing resource {}", resource),
+                                    message: format!("Missing resource {resource}"),
                                     field: None,
                                 });
                             }
@@ -1063,7 +1061,7 @@ fn analyze_step(
                     );
                     let (condition, mut problems) = description_to_problems(
                         condition,
-                        Some(format!("branches[{}].condition", i)),
+                        Some(format!("branches[{i}].condition")),
                     );
                     analysis.problems.append(&mut problems);
                     if let Some(condition) = condition {
@@ -1147,7 +1145,7 @@ fn analyze_step(
                     if !value.is_compatible(output_description) {
                         analysis.problems.push(AnalysisProblem::Error {
                             code: "INCOMPATIBLE_VALUE".to_owned(),
-                            message: format!("Expected {} but got {}", output_description, value),
+                            message: format!("Expected {output_description} but got {value}"),
                             field: Some("value".to_owned()),
                         });
                     }
@@ -1163,10 +1161,7 @@ fn analyze_step(
                 if !value.is_compatible(output_description) {
                     analysis.problems.push(AnalysisProblem::Error {
                         code: "INCOMPATIBLE_VALUE".to_owned(),
-                        message: format!(
-                            "Expected {} but no value is returned",
-                            output_description,
-                        ),
+                        message: format!("Expected {output_description} but no value is returned",),
                         field: None,
                     });
                 }

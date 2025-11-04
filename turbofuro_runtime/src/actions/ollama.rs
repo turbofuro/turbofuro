@@ -57,7 +57,7 @@ pub async fn generate(
                         }
                         _ => {
                             return Err(ExecutionError::ParameterInvalid {
-                                name: format!("images[{}]", i),
+                                name: format!("images[{i}]"),
                                 message: "Images must be an array of base64 encoded images"
                                     .to_owned(),
                             })

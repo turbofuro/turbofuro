@@ -194,8 +194,8 @@ pub async fn convert(
         }
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: "actions".to_owned(),
-            expected: Description::new_base_type("array"),
-            actual: describe(s),
+            expected: Description::new_base_type("array").into(),
+            actual: describe(s).into(),
         }),
     }?;
 
@@ -210,8 +210,8 @@ pub async fn convert(
         }
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: "output".to_owned(),
-            expected: Description::new_base_type("object"),
-            actual: describe(s),
+            expected: Description::new_base_type("object").into(),
+            actual: describe(s).into(),
         }),
     }?;
 

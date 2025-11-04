@@ -30,8 +30,7 @@ impl HttpServerOptions {
         SocketAddrV4::from_str(&socket_addr)
             .map_err(|e| WorkerError::InvalidArguments {
                 message: format!(
-                    "Could not parse socket address \"{}\", error was: {:?}",
-                    socket_addr, e
+                    "Could not parse socket address \"{socket_addr}\", error was: {e:?}"
                 ),
             })
             .map(|socket_addr| socket_addr.into())

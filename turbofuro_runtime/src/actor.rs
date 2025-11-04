@@ -66,12 +66,12 @@ pub enum ActorCommand {
 impl Display for ActorCommand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ActorCommand::Run { handler, .. } => write!(f, "Run handler {}", handler),
+            ActorCommand::Run { handler, .. } => write!(f, "Run handler {handler}"),
             ActorCommand::RunFunctionRef { function_ref, .. } => {
-                write!(f, "Run function ref {}", function_ref)
+                write!(f, "Run function ref {function_ref}")
             }
             ActorCommand::RunAlarm { handler, .. } => {
-                write!(f, "Run alarm for handler {}", handler)
+                write!(f, "Run alarm for handler {handler}")
             }
             ActorCommand::TakeResources(_resources) => write!(f, "Take resources"),
             ActorCommand::EnableDebugger { handle: _ } => {
@@ -549,7 +549,7 @@ impl Actor {
             Function::Native { id, .. } => {
                 // TODO: Handle native functions
                 return Err(ExecutionError::Unsupported {
-                    message: format!("Native function {} can't be executed as a handler", id),
+                    message: format!("Native function {id} can't be executed as a handler"),
                 });
             }
         };

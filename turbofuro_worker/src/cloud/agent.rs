@@ -263,7 +263,7 @@ impl CloudAgent {
                         };
                     }
                     WorkerEvent::WarningRaised(warning) => {
-                        self.status.add_warning(warning.clone());
+                        self.status.add_warning(*warning.clone());
                     }
                 }
                 self.update_state().await

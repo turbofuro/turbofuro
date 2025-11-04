@@ -21,7 +21,7 @@ use crate::{
 };
 
 fn cancellation_name(channel: &str) -> String {
-    format!("pubsub_{}", channel)
+    format!("pubsub_{channel}")
 }
 
 #[instrument(level = "trace", skip_all)]

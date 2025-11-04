@@ -17,7 +17,7 @@ fn test_predicts_cases() {
         let case = splited[0];
         let expected = splited[1].trim();
 
-        println!("Case: {:?}", case);
+        println!("Case: {case:?}");
         let result = parse(case);
         // println!("Program: {:?}", program);
 

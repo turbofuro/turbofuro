@@ -34,7 +34,7 @@ fn retrieve_content_type(headers: &HeaderMap) -> DetectedContentType {
     };
 
     if mime.type_() == "application"
-        && (mime.subtype() == "json" || mime.suffix().map_or(false, |name| name == "json"))
+        && (mime.subtype() == "json" || mime.suffix().is_some_and(|name| name == "json"))
     {
         return DetectedContentType::Json;
     }
@@ -43,7 +43,7 @@ fn retrieve_content_type(headers: &HeaderMap) -> DetectedContentType {
         && (mime.subtype() == "x-www-form-urlencoded"
             || mime
                 .suffix()
-                .map_or(false, |name| name == "x-www-form-urlencoded"))
+                .is_some_and(|name| name == "x-www-form-urlencoded"))
     {
         return DetectedContentType::Form;
     }
@@ -60,7 +60,7 @@ fn retrieve_content_type(headers: &HeaderMap) -> DetectedContentType {
 
     if mime.type_() == "application"
         && (mime.subtype() == "octet-stream"
-            || mime.suffix().map_or(false, |name| name == "octet-stream"))
+            || mime.suffix().is_some_and(|name| name == "octet-stream"))
     {
         return DetectedContentType::Bytes;
     }
@@ -96,7 +96,7 @@ impl Display for DetectedContentType {
             }
         };
 
-        write!(f, "{}", string)
+        write!(f, "{string}")
     }
 }
 

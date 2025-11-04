@@ -51,7 +51,7 @@ impl From<TelError> for ErrorRepresentation {
             },
             TelError::ConversionError { message, from, to } => ErrorRepresentation {
                 code: "CONVERSION_ERROR".to_owned(),
-                message: format!("Conversion error: {} from {} to {}", message, from, to),
+                message: format!("Conversion error: {message} from {from} to {to}"),
                 details: None,
                 metadata: None,
             },
@@ -122,7 +122,7 @@ impl From<TelError> for ErrorRepresentation {
                 actual,
             } => ErrorRepresentation {
                 code: "INVALID_ARGUMENT".to_owned(),
-                message: format!("Invalid argument {} of {}", index, method_name),
+                message: format!("Invalid argument {index} of {method_name}"),
                 details: Some(storage_value!({
                     "index": index,
                     "name": method_name,
@@ -133,7 +133,7 @@ impl From<TelError> for ErrorRepresentation {
             },
             TelError::MissingArgument { index, method_name } => ErrorRepresentation {
                 code: "MISSING_ARGUMENT".to_owned(),
-                message: format!("Missing argument {} of {}", index, method_name),
+                message: format!("Missing argument {index} of {method_name}"),
                 details: Some(storage_value!({
                     "index": index,
                     "name": method_name,
@@ -181,13 +181,13 @@ impl From<ExecutionError> for ErrorRepresentation {
             } => ErrorRepresentation {
                 code: inner_code,
                 message,
-                details,
-                metadata,
+                details: details.map(|d| *d),
+                metadata: metadata.map(|m| *m),
             },
             ExecutionError::Tel { error } => error.into(),
             ExecutionError::MissingParameter { name } => ErrorRepresentation {
                 code: "MISSING_PARAMETER".to_owned(),
-                message: format!("Missing parameter {}", name),
+                message: format!("Missing parameter {name}"),
                 details: Some(storage_value!({
                     "name": name,
                 })),
@@ -199,7 +199,7 @@ impl From<ExecutionError> for ErrorRepresentation {
                 actual,
             } => ErrorRepresentation {
                 code: "PARAMETER_TYPE_MISMATCH".to_owned(),
-                message: format!("Parameter {} has invalid type", name),
+                message: format!("Parameter {name} has invalid type"),
                 details: Some(storage_value!({
                     "name": name,
                     "expected": expected,
@@ -217,7 +217,7 @@ impl From<ExecutionError> for ErrorRepresentation {
             },
             ExecutionError::Unknown { message } => ErrorRepresentation {
                 code: "UNKNOWN".to_owned(),
-                message: format!("Unknown error: {}", message),
+                message: format!("Unknown error: {message}"),
                 details: None,
                 metadata: None,
             },
@@ -236,7 +236,7 @@ impl From<ExecutionError> for ErrorRepresentation {
             },
             ExecutionError::MissingResource { resource_type } => ErrorRepresentation {
                 code: "MISSING_RESOURCE".to_owned(),
-                message: format!("Missing resource: {}", resource_type),
+                message: format!("Missing resource: {resource_type}"),
                 details: Some(storage_value!({
                     "resource": resource_type,
                 })),
@@ -398,8 +398,8 @@ pub enum ExecutionError {
     Custom {
         inner_code: String,
         message: String,
-        details: Option<StorageValue>,
-        metadata: Option<StorageValue>,
+        details: Option<Box<StorageValue>>,
+        metadata: Option<Box<StorageValue>>,
     },
     Tel {
         error: TelError,
@@ -409,8 +409,8 @@ pub enum ExecutionError {
     },
     ParameterTypeMismatch {
         name: String,
-        expected: Description,
-        actual: Description,
+        expected: Box<Description>,
+        actual: Box<Description>,
     },
     ParameterInvalid {
         name: String,

@@ -77,7 +77,7 @@ pub async fn fetch_configuration(options: &CloudOptions) -> Result<Configuration
         .send()
         .await
         .map_err(|e| WorkerError::CouldNotFetchConfiguration {
-            message: format!("Failed to fetch configuration: {}", e),
+            message: format!("Failed to fetch configuration: {e}"),
         })?;
 
     if !response.status().is_success() {
@@ -95,14 +95,13 @@ pub async fn fetch_configuration(options: &CloudOptions) -> Result<Configuration
             .await
             .map_err(|e| WorkerError::CouldNotFetchConfiguration {
                 message: format!(
-                    "Failed to fetch configuration. Could not read response body: {}",
-                    e
+                    "Failed to fetch configuration. Could not read response body: {e}"
                 ),
             })?;
 
     let config: Configuration =
         serde_json::from_str(&response_body).map_err(|e| WorkerError::MalformedConfiguration {
-            message: format!("Failed to parse configuration: {}", e),
+            message: format!("Failed to parse configuration: {e}"),
         })?;
 
     debug!(

@@ -24,7 +24,7 @@ pub async fn render_template(
             message: e.to_string(),
         })?;
 
-    let data = eval_param("data", parameters, &context)?;
+    let data = eval_param("data", parameters, context)?;
 
     let output = template
         .render_to_string(&data)

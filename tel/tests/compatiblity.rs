@@ -12,7 +12,7 @@ fn test_description_compatibility_cases() {
             continue;
         }
 
-        println!("A / B: {:?} {:?}", a, b);
+        println!("A / B: {a:?} {b:?}");
 
         let a = {
             let result = parse_description(a);

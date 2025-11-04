@@ -12,7 +12,7 @@ pub enum WorkerEvent {
     WorkerStarted,
     WorkerStopping(WorkerStoppingReason),
     WorkerStopped(WorkerStoppingReason),
-    WarningRaised(WorkerWarning),
+    WarningRaised(Box<WorkerWarning>),
 }
 
 #[derive(Debug)]

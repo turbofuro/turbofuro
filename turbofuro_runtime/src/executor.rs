@@ -124,11 +124,11 @@ pub enum Callee {
 impl Display for Callee {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Callee::Local { function_id } => write!(f, "local/{}", function_id),
+            Callee::Local { function_id } => write!(f, "local/{function_id}"),
             Callee::Import {
                 import_name,
                 function_id,
-            } => write!(f, "import/{}/{}", import_name, function_id),
+            } => write!(f, "import/{import_name}/{function_id}"),
         }
     }
 }
@@ -1206,12 +1206,10 @@ async fn execute_native<'a>(
         "alarms/set_interval" => alarms::set_interval(context, parameters, step_id).await?,
         "alarms/cancel" => alarms::cancel_alarm(context, parameters, step_id).await?,
         "alarms/setup_cronjob" => alarms::setup_cronjob(context, parameters, step_id).await?,
-        "time/sleep" => time::sleep(context, parameters, step_id).await?,
-        "time/get_current_time" => {
-            time::get_current_time(context, parameters, step_id, store_as).await?
-        }
+        "time/sleep" => time::sleep(context, parameters).await?,
+        "time/get_current_time" => time::get_current_time(context, step_id, store_as).await?,
         "time/get_current_datetime" => {
-            time::get_current_datetime(context, parameters, step_id, store_as).await?
+            time::get_current_datetime(context, step_id, store_as).await?
         }
         "actors/spawn" => actors::spawn_actor(context, parameters, step_id, store_as).await?,
         "os/run_command" => os::run_command(context, parameters, step_id, store_as).await?,
@@ -1224,9 +1222,7 @@ async fn execute_native<'a>(
         "actors/terminate" => actors::terminate(context, parameters, step_id).await?,
         "actors/send" => actors::send(context, parameters, step_id).await?,
         "actors/request" => actors::request(context, parameters, step_id, store_as).await?,
-        "actors/get_actor_id" => {
-            actors::get_actor_id(context, parameters, step_id, store_as).await?
-        }
+        "actors/get_actor_id" => actors::get_actor_id(context, step_id, store_as).await?,
         "actors/check_actor_exists" => {
             actors::check_actor_exists(context, parameters, step_id, store_as).await?
         }
@@ -1255,22 +1251,24 @@ async fn execute_native<'a>(
         "http_client/build_client" => {
             http_client::build_client(context, parameters, step_id, store_as).await?
         }
-        "form_data/create" => form_data::create_form_data(context, parameters, step_id, store_as)?,
+        "form_data/create" => form_data::create_form_data(context)?,
         "form_data/add_stream_part" => {
             form_data::add_stream_part_to_form_data(context, parameters, step_id, store_as).await?
         }
         "form_data/add_text_part" => {
             form_data::add_text_part_to_form_data(context, parameters, step_id, store_as).await?
         }
-        "http_server/setup_route" => http_server::setup_route(context, parameters, step_id).await?,
+        "http_server/setup_route" => {
+            http_server::setup_route(context, parameters, step_id, store_as).await?
+        }
         "http_server/setup_streaming_route" => {
             http_server::setup_streaming_route(context, parameters, step_id).await?
         }
         "http_server/respond_with" => {
-            http_server::respond_with(context, parameters, step_id).await?
+            http_server::respond_with(context, parameters, step_id, store_as).await?
         }
         "http_server/respond_with_stream" => {
-            http_server::respond_with_stream(context, parameters, step_id).await?
+            http_server::respond_with_stream(context, parameters, step_id, store_as).await?
         }
         "http_server/respond_with_sse_stream" => {
             http_server::respond_with_sse_stream(context, parameters, step_id, store_as).await?
@@ -1322,8 +1320,8 @@ async fn execute_native<'a>(
         }
         "convert/parse_url" => convert::parse_url(context, parameters, step_id, store_as).await?,
         "convert/to_url" => convert::to_url(context, parameters, step_id, store_as).await?,
-        "crypto/get_uuid_v4" => crypto::get_uuid_v4(context, parameters, step_id, store_as).await?,
-        "crypto/get_uuid_v7" => crypto::get_uuid_v7(context, parameters, step_id, store_as).await?,
+        "crypto/get_uuid_v4" => crypto::get_uuid_v4(context, step_id, store_as).await?,
+        "crypto/get_uuid_v7" => crypto::get_uuid_v7(context, step_id, store_as).await?,
         "crypto/jwt_decode" => crypto::jwt_decode(context, parameters, step_id, store_as).await?,
         "crypto/sha2" => crypto::sha2(context, parameters, step_id, store_as).await?,
         "crypto/hmac_verify" => crypto::hmac_verify(context, parameters, step_id, store_as).await?,
@@ -1437,7 +1435,7 @@ async fn execute_native<'a>(
         "regex/capture_all" => regex::capture_all(context, parameters, step_id, store_as).await?,
         id => {
             return Err(ExecutionError::Unsupported {
-                message: format!("Native function {} not found", id),
+                message: format!("Native function {id} not found"),
             });
         }
     }
@@ -1651,8 +1649,9 @@ async fn for_each_inner<'a>(
                         Description::new_base_type("string"),
                         Description::new_base_type("object"),
                     ],
-                },
-                actual: describe(v),
+                }
+                .into(),
+                actual: describe(v).into(),
             });
         }
     };
@@ -1896,16 +1895,24 @@ async fn execute_step<'a>(
                 inner_code: code.to_owned(),
                 message: message.to_owned(),
                 details: {
-                    let mut evaluated: Option<StorageValue> = None;
+                    let mut evaluated: Option<Box<StorageValue>> = None;
                     if let Some(value) = details {
-                        evaluated = Some(eval(value, &context.storage, &context.environment)?);
+                        evaluated = Some(Box::new(eval(
+                            value,
+                            &context.storage,
+                            &context.environment,
+                        )?));
                     }
                     evaluated
                 },
                 metadata: {
-                    let mut evaluated: Option<StorageValue> = None;
+                    let mut evaluated: Option<Box<StorageValue>> = None;
                     if let Some(value) = metadata {
-                        evaluated = Some(eval(value, &context.storage, &context.environment)?);
+                        evaluated = Some(Box::new(eval(
+                            value,
+                            &context.storage,
+                            &context.environment,
+                        )?));
                     }
                     evaluated
                 },

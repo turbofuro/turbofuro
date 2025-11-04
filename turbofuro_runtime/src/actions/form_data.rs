@@ -9,12 +9,7 @@ use crate::{
 };
 
 #[instrument(level = "trace", skip_all)]
-pub fn create_form_data<'a>(
-    context: &mut ExecutionContext<'a>,
-    _parameters: &Vec<Parameter>,
-    _step_id: &str,
-    _store_as: Option<&str>,
-) -> Result<(), ExecutionError> {
+pub fn create_form_data<'a>(context: &mut ExecutionContext<'a>) -> Result<(), ExecutionError> {
     let form: Form = Form::new();
     context
         .resources

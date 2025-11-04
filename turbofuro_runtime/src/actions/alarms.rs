@@ -24,7 +24,7 @@ use tracing::{debug, instrument, warn};
 static ALARM_ID: AtomicU64 = AtomicU64::new(0);
 
 pub fn cancellation_name(alarm_id: u64) -> String {
-    format!("alarm_{}", alarm_id)
+    format!("alarm_{alarm_id}")
 }
 
 #[instrument(level = "trace", skip_all)]
@@ -44,7 +44,7 @@ pub async fn set_alarm<'a>(
         .try_into()
         .map_err(|e| ExecutionError::ParameterInvalid {
             name: "timeout".to_owned(),
-            message: format!("Could not convert to milliseconds: {}", e),
+            message: format!("Could not convert to milliseconds: {e}"),
         })?;
 
     let data =
@@ -206,7 +206,7 @@ pub async fn set_interval<'a>(
         .try_into()
         .map_err(|e| ExecutionError::ParameterInvalid {
             name: "interval".to_owned(),
-            message: format!("Could not convert to milliseconds: {}", e),
+            message: format!("Could not convert to milliseconds: {e}"),
         })?;
 
     let data =
@@ -374,9 +374,9 @@ pub async fn setup_cronjob<'a>(
     let cron =
         Cron::new(schedule.as_str())
             .parse()
-            .map_err(|e| ExecutionError::ParameterInvalid {
+            .map_err(|err| ExecutionError::ParameterInvalid {
                 name: "schedule".to_owned(),
-                message: format!("Could not parse {} as a CRON expression", e),
+                message: format!("Could not parse {err} as a CRON expression"),
             })?;
 
     let actor_id = context.actor_id.clone();
@@ -387,7 +387,7 @@ pub async fn setup_cronjob<'a>(
     if let Err(err) = cron.find_next_occurrence(&now, false) {
         return Err(ExecutionError::ParameterInvalid {
             name: "schedule".to_owned(),
-            message: format!("Could not find next schedule: {}", err),
+            message: format!("Could not find next schedule: {err}"),
         });
     }
 

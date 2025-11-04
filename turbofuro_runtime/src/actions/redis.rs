@@ -92,8 +92,8 @@ pub async fn low_level_command<'a>(
         StorageValue::Array(a) => Ok(a),
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: "args".to_owned(),
-            expected: Description::new_base_type("array"),
-            actual: describe(s),
+            expected: Description::new_base_type("array").into(),
+            actual: describe(s).into(),
         }),
     }?;
 
@@ -143,7 +143,7 @@ pub async fn low_level_command<'a>(
 }
 
 fn cancellation_name(channel: &str) -> String {
-    format!("redis_pubsub_{}", channel)
+    format!("redis_pubsub_{channel}")
 }
 
 #[instrument(level = "trace", skip_all)]
@@ -360,11 +360,11 @@ impl RedisPubSubCoordinatorHandle {
             })
             .await
             .map_err(|e| ExecutionError::RedisError {
-                message: format!("Subscribe sender failed: {}", e),
+                message: format!("Subscribe sender failed: {e}"),
             })?;
 
         receiver.await.map_err(|e| ExecutionError::RedisError {
-            message: format!("Subscribe receiver failed: {}", e),
+            message: format!("Subscribe receiver failed: {e}"),
         })??;
 
         let (sender, receiver) = tokio::sync::oneshot::channel::<()>();

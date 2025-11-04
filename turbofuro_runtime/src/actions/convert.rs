@@ -187,7 +187,7 @@ pub async fn to_url(
     let password = eval_opt_string_param("password", parameters, context)?;
 
     // Construct the URL
-    let mut url = Url::parse(&format!("{}://{}", scheme, host)).map_err(|e| {
+    let mut url = Url::parse(&format!("{scheme}://{host}")).map_err(|e| {
         ExecutionError::ParameterInvalid {
             name: "host".into(),
             message: e.to_string(),

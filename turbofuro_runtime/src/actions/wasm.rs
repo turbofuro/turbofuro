@@ -84,8 +84,8 @@ pub async fn run_wasi(
             .collect()),
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: "env".to_owned(),
-            expected: Description::new_base_type("object"),
-            actual: describe(s),
+            expected: Description::new_base_type("object").into(),
+            actual: describe(s).into(),
         }),
     }?;
 
@@ -101,8 +101,8 @@ pub async fn run_wasi(
         }
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: "args".to_owned(),
-            expected: Description::new_base_type("array"),
-            actual: describe(s),
+            expected: Description::new_base_type("array").into(),
+            actual: describe(s).into(),
         }),
     }?;
 

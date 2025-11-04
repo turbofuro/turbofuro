@@ -275,11 +275,11 @@ static OPERATORS: Lazy<HashMap<String, Description>> = Lazy::new(|| {
     );
     for thing_summable_to_string in ["number", "boolean", "null", "any"] {
         map.insert(
-            format!("{}_string_+", thing_summable_to_string),
+            format!("{thing_summable_to_string}_string_+"),
             Description::new_base_type("string"),
         );
         map.insert(
-            format!("string_{}_+", thing_summable_to_string),
+            format!("string_{thing_summable_to_string}_+"),
             Description::new_base_type("string"),
         );
     }
@@ -377,14 +377,8 @@ static OPERATORS: Lazy<HashMap<String, Description>> = Lazy::new(|| {
         for b in [
             "string", "number", "boolean", "object", "array", "null", "any",
         ] {
-            map.insert(
-                format!("{}_{}_==", a, b),
-                Description::new_base_type("boolean"),
-            );
-            map.insert(
-                format!("{}_{}_!=", a, b),
-                Description::new_base_type("boolean"),
-            );
+            map.insert(format!("{a}_{b}_=="), Description::new_base_type("boolean"));
+            map.insert(format!("{a}_{b}_!="), Description::new_base_type("boolean"));
 
             // The || operator returns a union of positive types from left and the last type
             let mut possibilities = vec![Description::new_base_type(b)];
@@ -392,29 +386,14 @@ static OPERATORS: Lazy<HashMap<String, Description>> = Lazy::new(|| {
                 possibilities.insert(0, only_positive);
             }
 
-            map.insert(
-                format!("{}_{}_||", a, b),
-                Description::new_union(possibilities),
-            );
-            map.insert(format!("{}_{}_&&", a, b), Description::new_base_type(b));
+            map.insert(format!("{a}_{b}_||"), Description::new_union(possibilities));
+            map.insert(format!("{a}_{b}_&&"), Description::new_base_type(b));
 
             // Only implemented for string, number, boolean, but any will work (just no ordering)
-            map.insert(
-                format!("{}_{}_>", a, b),
-                Description::new_base_type("boolean"),
-            );
-            map.insert(
-                format!("{}_{}_>=", a, b),
-                Description::new_base_type("boolean"),
-            );
-            map.insert(
-                format!("{}_{}_<", a, b),
-                Description::new_base_type("boolean"),
-            );
-            map.insert(
-                format!("{}_{}_<=", a, b),
-                Description::new_base_type("boolean"),
-            );
+            map.insert(format!("{a}_{b}_>"), Description::new_base_type("boolean"));
+            map.insert(format!("{a}_{b}_>="), Description::new_base_type("boolean"));
+            map.insert(format!("{a}_{b}_<"), Description::new_base_type("boolean"));
+            map.insert(format!("{a}_{b}_<="), Description::new_base_type("boolean"));
         }
     }
 
@@ -571,7 +550,7 @@ impl Description {
                     let k = if k.chars().all(|c| c.is_alphanumeric()) {
                         k.clone()
                     } else {
-                        format!("\"{}\"", k)
+                        format!("\"{k}\"")
                     };
 
                     notation.push_str(&format!(
@@ -618,7 +597,7 @@ impl Description {
                     }
                     _ => item_type.to_notation(),
                 };
-                format!("{}[]", item_type)
+                format!("{item_type}[]")
             }
             Description::BaseType { field_type } => field_type.to_owned(),
             Description::Union { of } => {
@@ -723,7 +702,7 @@ impl Description {
                 "number" => Err(None),
                 _ => Err(Some(TelError::InvalidIndex {
                     subject: field_type.to_owned(),
-                    message: format!("Can't use {} as array index", field_type),
+                    message: format!("Can't use {field_type} as array index"),
                 })),
             },
             Description::Union { of: _ } => Err(None), // TODO: Improve prediction
@@ -1607,7 +1586,7 @@ pub fn evaluate_selector_description<S: DescribedStorage, E: DescribedEnvironmen
                 e => {
                     vec![SelectorDescription::Error {
                         error: TelError::InvalidSelector {
-                            message: format!("Invalid selector containing: {:?}", e),
+                            message: format!("Invalid selector containing: {e:?}"),
                         },
                     }]
                 }
@@ -1615,7 +1594,7 @@ pub fn evaluate_selector_description<S: DescribedStorage, E: DescribedEnvironmen
         }
         e => vec![SelectorDescription::Error {
             error: TelError::InvalidSelector {
-                message: format!("Invalid selector containing: {:?}", e),
+                message: format!("Invalid selector containing: {e:?}"),
             },
         }],
     }
@@ -1629,7 +1608,7 @@ enum ContextStorage<'a> {
 }
 
 pub fn store_description(
-    selectors: &Vec<SelectorPart>,
+    selectors: &[SelectorPart],
     storage: &mut HashMap<String, Description>,
     value: Description,
 ) -> Result<(), TelError> {
@@ -1660,7 +1639,7 @@ pub fn store_description(
                     }
                     ContextStorage::Array(_) | ContextStorage::SimpleArray(_) => {
                         return Err(TelError::NoAttribute {
-                            message: format!("array has no attribute {}", attr),
+                            message: format!("array has no attribute {attr}"),
                             subject: "array".to_owned(),
                             attribute: attr.to_string(),
                         });
@@ -1768,7 +1747,7 @@ pub fn store_description(
                             return Err(TelError::NoAttribute {
                                 attribute: attr.to_string(),
                                 subject: "object".to_owned(),
-                                message: format!("object has no attribute {}", attr),
+                                message: format!("object has no attribute {attr}"),
                             })
                         }
                     },
@@ -1776,7 +1755,7 @@ pub fn store_description(
                         return Err(TelError::NoAttribute {
                             attribute: attr.to_string(),
                             subject: "array".to_owned(),
-                            message: format!("array has no attribute {}", attr),
+                            message: format!("array has no attribute {attr}"),
                         })
                     }
                     ContextStorage::Any => {
@@ -1817,7 +1796,7 @@ pub fn store_description(
                                 return Err(TelError::NoAttribute {
                                     attribute: key.to_string(),
                                     subject: "object".to_owned(),
-                                    message: format!("object has no attribute {}", key),
+                                    message: format!("object has no attribute {key}"),
                                 })
                             }
                         }
@@ -1862,7 +1841,7 @@ pub fn store_description(
                                 return Err(TelError::NoAttribute {
                                     attribute: index.to_string(),
                                     subject: "array".to_owned(),
-                                    message: format!("array has no element at index {}", index),
+                                    message: format!("array has no element at index {index}"),
                                 })
                             }
                         }

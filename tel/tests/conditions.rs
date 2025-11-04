@@ -12,11 +12,11 @@ fn test_conditional_cases() {
         if case.starts_with("//") {
             continue;
         }
-        println!("Case: {:?}", case);
+        println!("Case: {case:?}");
         let result = parse(case);
         let expr = result.expr.expect("Expected expression");
 
-        println!("Program: {:?}", expr);
+        println!("Program: {expr:?}");
 
         let storage_json = json!(
             {
@@ -45,7 +45,7 @@ fn test_conditional_cases() {
 
         match evaluate_value(expr, &storage, &environment).unwrap() {
             StorageValue::Boolean(f) => assert!(f),
-            s => panic!("Expected boolean value got {:?}", s),
+            s => panic!("Expected boolean value got {s:?}"),
         }
     }
 }

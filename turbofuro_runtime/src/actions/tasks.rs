@@ -21,7 +21,7 @@ use tracing::{debug, instrument, warn};
 static TASK_ID: AtomicU64 = AtomicU64::new(0);
 
 pub fn cancellation_name(task_id: u64) -> String {
-    format!("task_{}", task_id)
+    format!("task_{task_id}")
 }
 
 #[instrument(level = "trace", skip_all)]

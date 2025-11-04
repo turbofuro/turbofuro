@@ -14,15 +14,15 @@ fn test_modification_cases() {
         }
 
         let splited: Vec<&str> = case.split("CHECK").collect();
-        println!("Case: {:?}", splited);
+        println!("Case: {splited:?}");
         let case = splited[0];
         let expected = splited[1];
 
         let modifier_result = parse(case);
-        println!("Modifier: {:?}", modifier_result);
+        println!("Modifier: {modifier_result:?}");
 
         let check_result = parse(expected);
-        println!("Check: {:?}", check_result);
+        println!("Check: {check_result:?}");
 
         let storage_json = json!(
             {

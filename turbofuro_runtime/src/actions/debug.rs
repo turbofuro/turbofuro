@@ -182,7 +182,7 @@ pub fn eval_debug_options_param(
         StorageValue::Array(arr) => {
             let mut result = Vec::with_capacity(arr.len());
             for (i, item) in arr.iter().enumerate() {
-                let this_option = format!("options[{}]", i);
+                let this_option = format!("options[{i}]");
 
                 match item {
                     StorageValue::Object(option_object) => {
@@ -222,7 +222,7 @@ pub fn eval_debug_options_param(
                     }
                     _ => {
                         return Err(ExecutionError::ParameterInvalid {
-                            name: format!("options[{}]", i),
+                            name: format!("options[{i}]"),
                             message: "Could not parse option that is not an object".to_owned(),
                         })
                     }
@@ -232,8 +232,8 @@ pub fn eval_debug_options_param(
         }
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: "options".to_owned(),
-            expected: Description::new_base_type("array"),
-            actual: describe(s),
+            expected: Description::new_base_type("array").into(),
+            actual: describe(s).into(),
         }),
     }
 }

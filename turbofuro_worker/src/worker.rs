@@ -39,7 +39,7 @@ use turbofuro_runtime::resources::{
 };
 use turbofuro_runtime::{handle_dangling_error, spawn_kv_cleaner, ObjectBody, StorageValue};
 
-async fn handle_websocket_with_errors<'a>(socket: WebSocket, actor: ActorLink) {
+async fn handle_websocket_with_errors(socket: WebSocket, actor: ActorLink) {
     match handle_websocket(socket, actor).await {
         Ok(_) => {}
         Err(e) => {
@@ -48,7 +48,7 @@ async fn handle_websocket_with_errors<'a>(socket: WebSocket, actor: ActorLink) {
     }
 }
 
-async fn handle_websocket<'a>(socket: WebSocket, actor_link: ActorLink) -> Result<(), WorkerError> {
+async fn handle_websocket(socket: WebSocket, actor_link: ActorLink) -> Result<(), WorkerError> {
     let (mut ws_sender, mut ws_receiver) = socket.split();
     let (ws_command_sender, mut ws_command_receiver) = mpsc::channel::<WebSocketCommand>(32);
 
@@ -390,7 +390,7 @@ impl WorkerHttpServer {
                 for raw_origin in raw_origins {
                     let header_value = HeaderValue::from_str(&raw_origin).map_err(|e| {
                         WorkerError::MalformedConfiguration {
-                            message: format!("Could not parse origin: {}", e),
+                            message: format!("Could not parse origin: {e}"),
                         }
                     })?;
                     origins.push(header_value);
@@ -496,13 +496,13 @@ impl Worker {
                         module_id, module_version_id, err,
                     );
                     self.event_sender
-                        .send(WorkerEvent::WarningRaised(
+                        .send(WorkerEvent::WarningRaised(Box::new(
                             WorkerWarning::ModuleCouldNotBeLoaded {
                                 module_id: module_id.clone(),
                                 module_version_id: module_version_id.clone(),
                                 error: err,
                             },
-                        ))
+                        )))
                         .await
                 }
             }
@@ -581,26 +581,26 @@ impl Worker {
                                 }
                                 Err(err) => {
                                     event_sender
-                                        .send(WorkerEvent::WarningRaised(
+                                        .send(WorkerEvent::WarningRaised(Box::new(
                                             WorkerWarning::ModuleStartupFailed {
                                                 module_id: module_version_id,
                                                 error: WorkerError::from(err),
                                             },
-                                        ))
+                                        )))
                                         .await;
                                 }
                             }
                         }
                         Err(_) => {
                             event_sender
-                                .send(WorkerEvent::WarningRaised(
+                                .send(WorkerEvent::WarningRaised(Box::new(
                                     WorkerWarning::ModuleStartupFailed {
                                         module_id: module_version_id,
                                         error: WorkerError::from(
                                             ExecutionError::new_missing_response_from_actor(),
                                         ),
                                     },
-                                ))
+                                )))
                                 .await;
                         }
                     }
@@ -645,11 +645,11 @@ impl Worker {
                         err
                     );
                     event_sender
-                        .send(WorkerEvent::WarningRaised(
+                        .send(WorkerEvent::WarningRaised(Box::new(
                             WorkerWarning::HttpServerFailedToStart {
                                 message: err.to_string(),
                             },
-                        ))
+                        )))
                         .await;
 
                     return;
@@ -689,11 +689,11 @@ impl Worker {
                 Err(err) => {
                     error!("HTTP server startup error: {:?}", err);
                     event_sender
-                        .send(WorkerEvent::WarningRaised(
+                        .send(WorkerEvent::WarningRaised(Box::new(
                             WorkerWarning::HttpServerFailedToStart {
                                 message: err.to_string(),
                             },
-                        ))
+                        )))
                         .await;
 
                     return;

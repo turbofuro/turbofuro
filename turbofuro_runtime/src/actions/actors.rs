@@ -108,8 +108,7 @@ pub async fn send<'a>(
         .await
         .map_err(|e| ExecutionError::ActorCommandFailed {
             message: format!(
-                "Could not send run command (handler: onMessage) to actor. Send error: {:?}",
-                e
+                "Could not send run command (handler: onMessage) to actor. Send error: {e:?}",
             ),
         })?;
 
@@ -154,8 +153,7 @@ pub async fn request<'a>(
         .await
         .map_err(|e| ExecutionError::ActorCommandFailed {
             message: format!(
-                "Could not send run command (handler: onRequest) to actor. Send error: {:?}",
-                e
+                "Could not send run command (handler: onRequest) to actor. Send error: {e:?}",
             ),
         })?;
 
@@ -167,7 +165,7 @@ pub async fn request<'a>(
             }
             Err(e) => {
                 return Err(ExecutionError::ActorCommandFailed {
-                    message: format!("Actor did not respond: {}", e),
+                    message: format!("Actor did not respond: {e}"),
                 })
             }
         },
@@ -199,10 +197,7 @@ pub async fn terminate<'a>(
             .map(|r| r.value().clone())?
     };
 
-    messenger
-        .send(ActorCommand::Terminate)
-        .await
-        .map_err(ExecutionError::from)?;
+    messenger.send(ActorCommand::Terminate).await?;
 
     Ok(())
 }
@@ -210,7 +205,6 @@ pub async fn terminate<'a>(
 #[instrument(level = "trace", skip_all)]
 pub async fn get_actor_id<'a>(
     context: &mut ExecutionContext<'a>,
-    _parameters: &Vec<Parameter>,
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
@@ -229,7 +223,7 @@ mod tests {
         let mut t = ExecutionTest::default();
         let mut context = t.get_context();
 
-        let result = get_actor_id(&mut context, &vec![], "test", Some("id")).await;
+        let result = get_actor_id(&mut context, "test", Some("id")).await;
 
         assert!(result.is_ok());
         assert_eq!(

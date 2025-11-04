@@ -58,7 +58,7 @@ fn get_builder(
         method => {
             return Err(ExecutionError::ParameterInvalid {
                 name: "method".to_string(),
-                message: format!("Unknown method: {}", method),
+                message: format!("Unknown method: {method}"),
             });
         }
     };
@@ -114,7 +114,7 @@ fn prepare_deep_encoded(obj: ObjectBody) -> ObjectBody {
         match deep_encode(value) {
             StorageValue::Object(obj) => {
                 for (sub_key, value) in obj {
-                    flatten.insert(format!("{}{}", key, sub_key), value);
+                    flatten.insert(format!("{key}{sub_key}"), value);
                 }
             }
             v => {
@@ -134,16 +134,16 @@ fn deep_encode(value: StorageValue) -> StorageValue {
                 match value {
                     StorageValue::Object(obj) => {
                         for (sub_key, value) in obj {
-                            result.insert(format!("[{}]{}", key, sub_key), value);
+                            result.insert(format!("[{key}]{sub_key}"), value);
                         }
                     }
                     StorageValue::Array(arr) => {
                         for item in arr {
-                            result.insert(format!("[{}]", key), item);
+                            result.insert(format!("[{key}]"), item);
                         }
                     }
                     _ => {
-                        result.insert(format!("[{}]", key), value);
+                        result.insert(format!("[{key}]"), value);
                     }
                 };
             }
@@ -156,11 +156,11 @@ fn deep_encode(value: StorageValue) -> StorageValue {
                 match item {
                     StorageValue::Object(obj) => {
                         for (key, value) in obj {
-                            result.insert(format!("[{}]{}", i, key), value);
+                            result.insert(format!("[{i}]{key}"), value);
                         }
                     }
                     value => {
-                        result.insert(format!("[{}]", i), value);
+                        result.insert(format!("[{i}]"), value);
                     }
                 };
             }
@@ -213,7 +213,7 @@ fn set_static_body_from_parameters(
                 let serialized =
                     serde_json::to_vec(&arr).map_err(|e| ExecutionError::ParameterInvalid {
                         name: "body".to_string(),
-                        message: format!("Failed to serialize array: {}", e),
+                        message: format!("Failed to serialize array: {e}"),
                     })?;
                 request_builder = request_builder.body(serialized);
                 request_builder = request_builder
@@ -223,7 +223,7 @@ fn set_static_body_from_parameters(
                 let serialized =
                     serde_json::to_vec(&obj).map_err(|e| ExecutionError::ParameterInvalid {
                         name: "body".to_string(),
-                        message: format!("Failed to serialize object: {}", e),
+                        message: format!("Failed to serialize object: {e}"),
                     })?;
                 request_builder = request_builder.body(serialized);
                 request_builder = request_builder
@@ -241,7 +241,7 @@ fn set_static_body_from_parameters(
                 let serialized: String = serde_html_form::to_string(prepare_deep_encoded(obj))
                     .map_err(|e| ExecutionError::ParameterInvalid {
                         name: "form".to_string(),
-                        message: format!("Failed to serialize object: {}", e),
+                        message: format!("Failed to serialize object: {e}"),
                     })?;
                 request_builder = request_builder.body(serialized);
                 request_builder = request_builder.header(
@@ -253,7 +253,7 @@ fn set_static_body_from_parameters(
                 let serialized = serde_urlencoded::to_string(arr).map_err(|e| {
                     ExecutionError::ParameterInvalid {
                         name: "form".to_string(),
-                        message: format!("Failed to serialize array: {}", e),
+                        message: format!("Failed to serialize array: {e}"),
                     }
                 })?;
                 request_builder = request_builder.body(serialized);
@@ -268,8 +268,8 @@ fn set_static_body_from_parameters(
             s => {
                 return Err(ExecutionError::ParameterTypeMismatch {
                     name: "form".to_owned(),
-                    expected: Description::new_base_type("object"),
-                    actual: describe(s),
+                    expected: Description::new_base_type("object").into(),
+                    actual: describe(s).into(),
                 })
             }
         }
@@ -306,8 +306,9 @@ async fn bare_http_request<'a>(
                 expected: Description::new_union(vec![
                     Description::new_base_type("array"),
                     Description::new_base_type("object"),
-                ]),
-                actual: describe(s),
+                ])
+                .into(),
+                actual: describe(s).into(),
             })
         }
     }
@@ -429,8 +430,8 @@ pub async fn build_client<'a>(
         }
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: "rootCertificates".to_string(),
-            expected: Description::new_base_type("array"),
-            actual: describe(s),
+            expected: Description::new_base_type("array").into(),
+            actual: describe(s).into(),
         }),
     }?;
     let accept_invalid_certificates =

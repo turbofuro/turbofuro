@@ -156,8 +156,8 @@ pub fn as_string(s: StorageValue, name: &str) -> Result<String, ExecutionError> 
         StorageValue::String(s) => Ok(s),
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: name.to_owned(),
-            expected: Description::new_base_type("string"),
-            actual: describe(s),
+            expected: Description::new_base_type("string").into(),
+            actual: describe(s).into(),
         }),
     }
 }
@@ -180,9 +180,9 @@ pub fn as_byte_array(s: StorageValue, name: &str) -> Result<Vec<u8>, ExecutionEr
                     },
                     _ => {
                         return Err(ExecutionError::ParameterTypeMismatch {
-                            name: format!("{}[{}]", name, i),
-                            expected: Description::new_base_type("number"),
-                            actual: describe(s),
+                            name: format!("{name}[{i}]"),
+                            expected: Description::new_base_type("number").into(),
+                            actual: describe(s).into(),
                         });
                     }
                 }
@@ -196,8 +196,9 @@ pub fn as_byte_array(s: StorageValue, name: &str) -> Result<Vec<u8>, ExecutionEr
                     Description::new_base_type("array"),
                     Description::new_base_type("string"),
                 ],
-            },
-            actual: describe(s),
+            }
+            .into(),
+            actual: describe(s).into(),
         }),
     }
 }
@@ -216,8 +217,8 @@ pub fn as_string_or_array_string(
                     s => {
                         return Err(ExecutionError::ParameterTypeMismatch {
                             name: name.to_owned(),
-                            expected: Description::new_base_type("string"),
-                            actual: describe(s),
+                            expected: Description::new_base_type("string").into(),
+                            actual: describe(s).into(),
                         })
                     }
                 }
@@ -226,8 +227,8 @@ pub fn as_string_or_array_string(
         }
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: name.to_owned(),
-            expected: Description::new_base_type("string"),
-            actual: describe(s),
+            expected: Description::new_base_type("string").into(),
+            actual: describe(s).into(),
         }),
     }
 }
@@ -237,8 +238,8 @@ pub fn as_integer(s: StorageValue, name: &str) -> Result<i64, ExecutionError> {
         StorageValue::Number(f) => Ok(f as i64),
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: name.to_owned(),
-            expected: Description::new_base_type("number"),
-            actual: describe(s),
+            expected: Description::new_base_type("number").into(),
+            actual: describe(s).into(),
         }),
     }
 }
@@ -248,8 +249,8 @@ pub fn as_boolean(s: StorageValue, name: &str) -> Result<bool, ExecutionError> {
         StorageValue::Boolean(b) => Ok(b),
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: name.to_owned(),
-            expected: Description::new_base_type("boolean"),
-            actual: describe(s),
+            expected: Description::new_base_type("boolean").into(),
+            actual: describe(s).into(),
         }),
     }
 }
@@ -259,8 +260,8 @@ pub fn as_number(s: StorageValue, name: &str) -> Result<f64, ExecutionError> {
         StorageValue::Number(s) => Ok(s),
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: name.to_owned(),
-            expected: Description::new_base_type("number"),
-            actual: describe(s),
+            expected: Description::new_base_type("number").into(),
+            actual: describe(s).into(),
         }),
     }
 }
@@ -270,8 +271,8 @@ pub fn as_u64(s: StorageValue, name: &str) -> Result<u64, ExecutionError> {
         StorageValue::Number(f) => Ok(f as u64),
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: name.to_owned(),
-            expected: Description::new_base_type("number"),
-            actual: describe(s),
+            expected: Description::new_base_type("number").into(),
+            actual: describe(s).into(),
         }),
     }
 }
@@ -405,7 +406,7 @@ pub fn eval_opt_u64_param(
 ) -> Result<Option<u64>, ExecutionError> {
     let value = eval_optional_param(name, parameters, context)?;
     match value {
-        Some(value) => as_u64(value, name).map(|i| Some(i)),
+        Some(value) => as_u64(value, name).map(Some),
         None => Ok(None),
     }
 }
@@ -426,7 +427,7 @@ pub fn eval_opt_number_param(
 ) -> Result<Option<f64>, ExecutionError> {
     let value = eval_optional_param(name, parameters, context)?;
     match value {
-        Some(value) => as_number(value, name).map(|i| Some(i)),
+        Some(value) => as_number(value, name).map(Some),
         None => Ok(None),
     }
 }

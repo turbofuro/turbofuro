@@ -49,7 +49,7 @@ pub async fn accept_ws<'a>(
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to accept WebSocket by sending response to HTTP request".to_owned(),
             subject: HttpRequestToRespond::static_type().into(),
-            inner: format!("{:?}", e),
+            inner: format!("{e:?}"),
         })?;
 
     receiver.await.map_err(|e| ExecutionError::StateInvalid {

@@ -19,7 +19,7 @@ pub async fn run_function(
     let code: String = eval_string_param("code", parameters, context)?;
     let lua = Lua::new();
 
-    let value = eval_optional_param("value", parameters, &context)?
+    let value = eval_optional_param("value", parameters, context)?
         .map(|v| lua.to_value(&v))
         .transpose()
         .map_err(|_e| ExecutionError::ParameterInvalid {

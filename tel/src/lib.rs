@@ -538,32 +538,32 @@ impl Display for TelError {
                 Ok(())
             }
             TelError::ConversionError { message, from, to } => {
-                write!(f, "{}: Can't convert {} to {}", message, from, to)
+                write!(f, "{message}: Can't convert {from} to {to}")
             }
             TelError::NotIndexable { message, subject } => {
-                write!(f, "{}: {} is not indexable", message, subject)
+                write!(f, "{message}: {subject} is not indexable")
             }
             TelError::NoAttribute {
                 message,
                 subject,
                 attribute,
             } => {
-                write!(f, "{}: {} has no attribute {}", message, subject, attribute)
+                write!(f, "{message}: {subject} has no attribute {attribute}")
             }
             TelError::InvalidSelector { message } => {
-                write!(f, "Invalid selector: {}", message)
+                write!(f, "Invalid selector: {message}")
             }
             TelError::UnsupportedOperation { operation, message } => {
-                write!(f, "Unsupported operation: {}: {}", operation, message)
+                write!(f, "Unsupported operation: {operation}: {message}")
             }
             TelError::FunctionNotFound(_) => {
                 write!(f, "Function not found")
             }
             TelError::IndexOutOfBounds { index, max } => {
-                write!(f, "Index out of bounds: {} > {}", index, max)
+                write!(f, "Index out of bounds: {index} > {max}")
             }
             TelError::InvalidIndex { subject, message } => {
-                write!(f, "Invalid index: {}: {}", subject, message)
+                write!(f, "Invalid index: {subject}: {message}")
             }
             TelError::InvalidArgument {
                 index,
@@ -575,25 +575,23 @@ impl Display for TelError {
                     if let Some(actual) = actual {
                         write!(
                             f,
-                            "Invalid argument {} of {}, expected {} but got {}",
-                            index, method_name, expected, actual
+                            "Invalid argument {index} of {method_name}, expected {expected} but got {actual}"
                         )
                     } else {
                         write!(
                             f,
-                            "Invalid argument {} of {}, expected {}",
-                            index, method_name, expected
+                            "Invalid argument {index} of {method_name}, expected {expected}"
                         )
                     }
                 } else {
-                    write!(f, "Invalid argument {} of {}", index, method_name)
+                    write!(f, "Invalid argument {index} of {method_name}")
                 }
             }
             TelError::MissingArgument { index, method_name } => {
-                write!(f, "Missing argument {} of {}", index, method_name)
+                write!(f, "Missing argument {index} of {method_name}")
             }
             TelError::Unknown { message } => {
-                write!(f, "Unknown error: {}", message)
+                write!(f, "Unknown error: {message}")
             }
         }
     }
@@ -662,14 +660,14 @@ impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Token::Null => write!(f, "null"),
-            Token::Boolean(b) => write!(f, "{}", b),
-            Token::Number(n) => write!(f, "{}", n),
-            Token::String(s) => write!(f, "{}", s),
-            Token::Op(op) => write!(f, "{}", op),
-            Token::Ctrl(c) => write!(f, "{}", c),
-            Token::Identifier(s) => write!(f, "{}", s),
-            Token::EnvironmentRef(name) => write!(f, "${}", name),
-            Token::MultilineString { value, tag } => write!(f, "```{}\n{}```", tag, value),
+            Token::Boolean(b) => write!(f, "{b}"),
+            Token::Number(n) => write!(f, "{n}"),
+            Token::String(s) => write!(f, "{s}"),
+            Token::Op(op) => write!(f, "{op}"),
+            Token::Ctrl(c) => write!(f, "{c}"),
+            Token::Identifier(s) => write!(f, "{s}"),
+            Token::EnvironmentRef(name) => write!(f, "${name}"),
+            Token::MultilineString { value, tag } => write!(f, "```{tag}\n{value}```"),
         }
     }
 }
@@ -1166,7 +1164,7 @@ pub fn parse(input: &str) -> ParseResult {
                 from: span.start(),
                 to: span.end(),
                 severity: "error".to_owned(),
-                message: format!("Unclosed {}", delimiter),
+                message: format!("Unclosed {delimiter}"),
                 actions: vec![],
             },
             chumsky::error::SimpleReason::Custom(e) => TelParseError {
@@ -1202,7 +1200,7 @@ pub fn parse(input: &str) -> ParseResult {
                     from: span.start(),
                     to: span.end(),
                     severity: "error".to_owned(),
-                    message: format!("Unclosed {}", delimiter),
+                    message: format!("Unclosed {delimiter}"),
                     actions: vec![],
                 },
                 chumsky::error::SimpleReason::Custom(e) => TelParseError {
@@ -1405,10 +1403,7 @@ pub fn evaluate_value<T: Storage, E: Environment>(
                     "fromHexString" => {
                         StorageValue::new_byte_array(&hex::decode(s).map_err(|e| {
                             TelError::ConversionError {
-                                message: format!(
-                                    "Could not convert HEX string to byte array: {}",
-                                    e
-                                ),
+                                message: format!("Could not convert HEX string to byte array: {e}"),
                                 from: "string".to_owned(),
                                 to: "array".to_owned(),
                             }
@@ -1417,10 +1412,7 @@ pub fn evaluate_value<T: Storage, E: Environment>(
                     "fromBase64String" => {
                         StorageValue::new_byte_array(&STANDARD.decode(s).map_err(|e| {
                             TelError::ConversionError {
-                                message: format!(
-                                    "Could not convert HEX string to byte array: {}",
-                                    e
-                                ),
+                                message: format!("Could not convert HEX string to byte array: {e}"),
                                 from: "string".to_owned(),
                                 to: "array".to_owned(),
                             }
@@ -1763,7 +1755,7 @@ pub fn evaluate_selector(
             }
         }
         e => Err(TelError::InvalidSelector {
-            message: format!("Invalid selector containing: {:?}", e), // TODO: Better Expr visualization
+            message: format!("Invalid selector containing: {e:?}"), // TODO: Better Expr visualization
         })?,
     }
 }
@@ -1774,7 +1766,7 @@ enum ContextStorage<'a> {
 }
 
 pub fn store_value(
-    selectors: &Vec<SelectorPart>,
+    selectors: &[SelectorPart],
     storage: &mut HashMap<String, StorageValue>,
     value: StorageValue,
 ) -> Result<(), TelError> {
@@ -1802,7 +1794,7 @@ pub fn store_value(
                     }
                     ContextStorage::Array(_) => {
                         return Err(TelError::NoAttribute {
-                            message: format!("array has no attribute {}", attr),
+                            message: format!("array has no attribute {attr}"),
                             subject: "array".to_owned(),
                             attribute: attr.to_string(),
                         });
@@ -1881,7 +1873,7 @@ pub fn store_value(
                             return Err(TelError::NoAttribute {
                                 attribute: attr.to_string(),
                                 subject: "object".to_owned(),
-                                message: format!("object has no attribute {}", attr),
+                                message: format!("object has no attribute {attr}"),
                             })
                         }
                     },
@@ -1889,7 +1881,7 @@ pub fn store_value(
                         return Err(TelError::NoAttribute {
                             attribute: attr.to_string(),
                             subject: "array".to_owned(),
-                            message: format!("array has no attribute {}", attr),
+                            message: format!("array has no attribute {attr}"),
                         })
                     }
                 },
@@ -1917,7 +1909,7 @@ pub fn store_value(
                                 return Err(TelError::NoAttribute {
                                     attribute: key.to_string(),
                                     subject: "object".to_owned(),
-                                    message: format!("object has no attribute {}", key),
+                                    message: format!("object has no attribute {key}"),
                                 })
                             }
                         }
@@ -1945,7 +1937,7 @@ pub fn store_value(
                                 return Err(TelError::NoAttribute {
                                     attribute: index.to_string(),
                                     subject: "array".to_owned(),
-                                    message: format!("array has no element at index {}", index),
+                                    message: format!("array has no element at index {index}"),
                                 })
                             }
                         }

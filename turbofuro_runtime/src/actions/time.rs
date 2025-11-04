@@ -13,7 +13,6 @@ use super::store_value;
 pub async fn sleep<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
-    _step_id: &str,
 ) -> Result<(), ExecutionError> {
     let time = eval_u64_param("milliseconds", parameters, context)?;
 
@@ -25,7 +24,6 @@ pub async fn sleep<'a>(
 #[instrument(level = "trace", skip_all)]
 pub async fn get_current_time<'a>(
     context: &mut ExecutionContext<'a>,
-    _parameters: &Vec<Parameter>,
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
@@ -37,7 +35,6 @@ pub async fn get_current_time<'a>(
 #[instrument(level = "trace", skip_all)]
 pub async fn get_current_datetime<'a>(
     context: &mut ExecutionContext<'a>,
-    _parameters: &Vec<Parameter>,
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
@@ -70,13 +67,9 @@ mod tests {
         let mut context = t.get_context();
 
         let start = Utc::now().timestamp_millis();
-        sleep(
-            &mut context,
-            &vec![Parameter::tel("milliseconds", "100")],
-            "test",
-        )
-        .await
-        .unwrap();
+        sleep(&mut context, &vec![Parameter::tel("milliseconds", "100")])
+            .await
+            .unwrap();
         let end = Utc::now().timestamp_millis();
 
         assert!(end - start >= 100);
@@ -87,7 +80,7 @@ mod tests {
         let mut t = ExecutionTest::default();
         let mut context = t.get_context();
 
-        get_current_time(&mut context, &vec![], "test", Some("time"))
+        get_current_time(&mut context, "test", Some("time"))
             .await
             .unwrap();
 
@@ -101,7 +94,7 @@ mod tests {
         let mut t = ExecutionTest::default();
         let mut context = t.get_context();
 
-        get_current_datetime(&mut context, &vec![], "test", Some("time"))
+        get_current_datetime(&mut context, "test", Some("time"))
             .await
             .unwrap();
 

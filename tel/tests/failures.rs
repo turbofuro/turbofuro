@@ -14,7 +14,7 @@ fn test_failures_cases() {
         assert!(!result.errors.is_empty());
 
         println!("FAILURE TEST");
-        println!("Case: {:?}", case);
-        println!("Result: {:?}", result);
+        println!("Case: {case:?}");
+        println!("Result: {result:?}");
     }
 }

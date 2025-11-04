@@ -155,8 +155,8 @@ pub async fn query<'a>(
         StorageValue::Array(v) => Ok(v.into_iter().map(LibSqlValue).collect()),
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: "params".to_owned(),
-            actual: describe(s),
-            expected: Description::new_base_type("array"),
+            actual: describe(s).into(),
+            expected: Description::new_base_type("array").into(),
         }),
     }?;
 
@@ -221,8 +221,8 @@ pub async fn query_one<'a>(
         StorageValue::Array(v) => Ok(v.into_iter().map(LibSqlValue).collect()),
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: "params".to_owned(),
-            actual: describe(s),
-            expected: Description::new_base_type("array"),
+            actual: describe(s).into(),
+            expected: Description::new_base_type("array").into(),
         }),
     }?;
 
@@ -304,8 +304,8 @@ pub async fn execute<'a>(
         StorageValue::Array(v) => Ok(v.into_iter().map(LibSqlValue).collect()),
         s => Err(ExecutionError::ParameterTypeMismatch {
             name: "params".to_owned(),
-            actual: describe(s),
-            expected: Description::new_base_type("array"),
+            actual: describe(s).into(),
+            expected: Description::new_base_type("array").into(),
         }),
     }?;
 

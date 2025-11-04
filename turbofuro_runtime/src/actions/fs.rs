@@ -34,7 +34,7 @@ fn system_time_to_millis_since_epoch(time: SystemTime) -> f64 {
 static WATCHER_ID: AtomicU64 = AtomicU64::new(0);
 
 pub fn cancellation_name(watcher_id: u64) -> String {
-    format!("watcher_{}", watcher_id)
+    format!("watcher_{watcher_id}")
 }
 
 #[instrument(level = "trace", skip_all)]
@@ -57,8 +57,7 @@ pub async fn open_file<'a>(
             return Err(ExecutionError::ParameterInvalid {
                 name: "mode".to_owned(),
                 message: format!(
-                    "Unknown mode: {} allowed values are \"r\", \"a\", \"w\", \"x\"",
-                    mode
+                    "Unknown mode: {mode} allowed values are \"r\", \"a\", \"w\", \"x\""
                 ),
             });
         }

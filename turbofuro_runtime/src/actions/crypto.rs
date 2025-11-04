@@ -17,7 +17,6 @@ use super::store_value;
 #[instrument(level = "trace", skip_all)]
 pub async fn get_uuid_v4(
     context: &mut ExecutionContext<'_>,
-    _parameters: &Vec<Parameter>,
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {
@@ -29,7 +28,6 @@ pub async fn get_uuid_v4(
 #[instrument(level = "trace", skip_all)]
 pub async fn get_uuid_v7(
     context: &mut ExecutionContext<'_>,
-    _parameters: &Vec<Parameter>,
     step_id: &str,
     store_as: Option<&str>,
 ) -> Result<(), ExecutionError> {

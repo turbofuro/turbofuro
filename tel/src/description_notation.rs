@@ -63,12 +63,12 @@ impl std::fmt::Display for DToken {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             DToken::Null => write!(f, "null"),
-            DToken::Boolean(b) => write!(f, "{}", b),
-            DToken::Number(n) => write!(f, "{}", n),
-            DToken::String(s) => write!(f, "{}", s),
-            DToken::Op(op) => write!(f, "{}", op),
-            DToken::Ctrl(c) => write!(f, "{}", c),
-            DToken::Identifier(s) => write!(f, "{}", s),
+            DToken::Boolean(b) => write!(f, "{b}"),
+            DToken::Number(n) => write!(f, "{n}"),
+            DToken::String(s) => write!(f, "{s}"),
+            DToken::Op(op) => write!(f, "{op}"),
+            DToken::Ctrl(c) => write!(f, "{c}"),
+            DToken::Identifier(s) => write!(f, "{s}"),
         }
     }
 }
@@ -328,7 +328,7 @@ pub fn parse_description(input: &str) -> ParseResult {
                 from: span.start(),
                 to: span.end(),
                 severity: "error".to_owned(),
-                message: format!("Unclosed {}", delimiter),
+                message: format!("Unclosed {delimiter}"),
                 actions: vec![],
             },
             chumsky::error::SimpleReason::Custom(e) => TelParseError {
@@ -364,7 +364,7 @@ pub fn parse_description(input: &str) -> ParseResult {
                     from: span.start(),
                     to: span.end(),
                     severity: "error".to_owned(),
-                    message: format!("Unclosed {}", delimiter),
+                    message: format!("Unclosed {delimiter}"),
                     actions: vec![],
                 },
                 chumsky::error::SimpleReason::Custom(e) => TelParseError {
@@ -424,7 +424,7 @@ pub fn evaluate_description_notation(expr: Spanned<DExpr>) -> Result<Description
 
             match expr {
                 Description::BaseType { field_type } => {
-                    Description::new_base_type(&format!("{}.{}", field_type, attr))
+                    Description::new_base_type(&format!("{field_type}.{attr}"))
                 }
                 _ => {
                     return Err(TelError::NoAttribute {

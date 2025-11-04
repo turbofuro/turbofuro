@@ -149,7 +149,7 @@ pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {
                 native_id: native_id.to_owned(),
             },
             other => {
-                panic!("Expected function definition, got step: {:?}", other)
+                panic!("Expected function definition, got step: {other:?}")
             }
         })
         .collect_vec();
@@ -288,7 +288,7 @@ pub async fn get_compiled_module(
         .iter()
         .find(|m| m.id == id)
         .cloned()
-        .ok_or_else(|| WorkerError::ModuleVersionNotFound)
+        .ok_or(WorkerError::ModuleVersionNotFound)
 }
 
 #[async_recursion]
