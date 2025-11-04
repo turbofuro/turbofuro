@@ -8,7 +8,6 @@ pub mod convert;
 pub mod crypto;
 pub mod debug;
 pub mod fantoccini;
-pub mod form_data;
 pub mod fs;
 pub mod http_client;
 pub mod http_server;
@@ -17,7 +16,6 @@ pub mod kv;
 pub mod libsql;
 pub mod lua;
 pub mod mail;
-pub mod multipart;
 pub mod mustache;
 pub mod ollama;
 pub mod os;
@@ -29,7 +27,7 @@ pub mod sound;
 pub mod tasks;
 pub mod time;
 pub mod wasm;
-pub mod websocket;
+pub mod websocket_server;
 
 pub async fn store_value(
     store_as: Option<&str>,

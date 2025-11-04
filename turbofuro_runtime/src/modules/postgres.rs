@@ -13,10 +13,25 @@ use crate::{
     errors::ExecutionError,
     evaluations::{eval_opt_string_param, eval_optional_param_with_default, eval_string_param},
     executor::{ExecutionContext, Parameter},
-    resources::{generate_resource_id, PostgresPool, Resource},
+    resources::{generate_resource_id, Resource, ResourceId},
 };
 
 use super::store_value;
+
+pub const POSTGRES_CONNECTION_RESOURCE_TYPE: &str = "postgres_connection";
+
+#[derive(Debug)]
+pub struct PostgresPool(pub ResourceId, pub deadpool_postgres::Pool);
+
+impl Resource for PostgresPool {
+    fn static_type() -> &'static str {
+        POSTGRES_CONNECTION_RESOURCE_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.0
+    }
+}
 
 #[instrument(level = "trace", skip_all)]
 pub async fn get_connection<'a>(

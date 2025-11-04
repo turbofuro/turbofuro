@@ -1,13 +1,17 @@
-use std::{collections::HashMap, fmt::Display, sync::Arc, time::Duration};
-
 use crate::{
     actor::ActorCommand,
     evaluations::{eval_opt_string_param, eval_string_param, get_optional_handler_from_parameters},
-    resources::{generate_resource_id, Cancellation, CancellationSubject},
+    resources::{generate_resource_id, Cancellation, CancellationSubject, ResourceId},
 };
 use deadpool_redis::{Config, Runtime};
 use futures_util::StreamExt;
 use redis::FromRedisValue;
+use std::{
+    collections::HashMap,
+    fmt::{self, Debug, Display},
+    sync::Arc,
+    time::Duration,
+};
 use tel::{describe, Description, ObjectBody, StorageValue, NULL};
 use tokio::time::sleep;
 use tracing::{debug, error, instrument, warn};
@@ -16,10 +20,36 @@ use crate::{
     errors::ExecutionError,
     evaluations::eval_param,
     executor::{ExecutionContext, Global, Parameter},
-    resources::{RedisPool, Resource},
+    resources::Resource,
 };
 
 use super::store_value;
+
+pub const REDIS_CONNECTION_RESOURCE_TYPE: &str = "redis_connection";
+
+pub struct RedisPool(
+    pub ResourceId,
+    pub deadpool_redis::Pool,
+    pub RedisPubSubCoordinatorHandle,
+);
+
+impl Resource for RedisPool {
+    fn static_type() -> &'static str {
+        REDIS_CONNECTION_RESOURCE_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.0
+    }
+}
+
+impl Debug for RedisPool {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RedisPool")
+            .field("0", &"RedisPool")
+            .finish()
+    }
+}
 
 #[instrument(level = "trace", skip_all)]
 pub async fn get_connection<'a>(

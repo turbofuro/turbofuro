@@ -8,13 +8,52 @@ use crate::{
         eval_string_param, get_handlers_from_parameters,
     },
     executor::{ExecutionContext, Parameter},
-    resources::{ActorLink, ActorResources, Resource},
+    resources::{generate_resource_id, ActorResources, Resource, ResourceId},
 };
 use tel::{ObjectBody, StorageValue};
-use tokio::{sync::oneshot, time::timeout};
+use tokio::{
+    sync::{mpsc, oneshot},
+    time::timeout,
+};
 use tracing::{debug, instrument};
 
 use super::store_value;
+
+pub const ACTOR_LINK_TYPE: &str = "actor_link";
+
+#[derive(Debug, Clone)]
+pub struct ActorLink {
+    pub id: ResourceId,
+    pub sender: mpsc::Sender<ActorCommand>,
+    pub module_id: String,
+}
+
+impl ActorLink {
+    pub fn new(sender: mpsc::Sender<ActorCommand>, module_id: String) -> Self {
+        Self {
+            sender,
+            module_id,
+            id: generate_resource_id(),
+        }
+    }
+
+    pub async fn send(&self, command: ActorCommand) -> Result<(), ExecutionError> {
+        self.sender
+            .send(command)
+            .await
+            .map_err(ExecutionError::from)
+    }
+}
+
+impl Resource for ActorLink {
+    fn static_type() -> &'static str {
+        ACTOR_LINK_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.id
+    }
+}
 
 #[instrument(level = "trace", skip_all)]
 pub async fn check_actor_exists<'a>(

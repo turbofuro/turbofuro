@@ -12,6 +12,7 @@ use tel::{describe, Description, ObjectBody, StorageValue};
 use tracing::{info, instrument};
 
 use crate::{
+    modules::http_client::form_data::FormDataDraft,
     errors::ExecutionError,
     evaluations::{
         as_string, eval_opt_boolean_param, eval_opt_string_param, eval_opt_u64_param,
@@ -19,13 +20,41 @@ use crate::{
     },
     executor::{ExecutionContext, Parameter},
     http_utils::decode_text_with_encoding,
-    resources::{
-        generate_resource_id, FormDataDraft, HttpClient, HttpRequestToRespond,
-        PendingHttpResponseBody, Resource,
-    },
+    resources::{generate_resource_id, Resource, ResourceId},
 };
 
 use super::store_value;
+
+pub mod form_data;
+
+pub const HTTP_CLIENT_RESOURCE_TYPE: &str = "http_client";
+pub const PENDING_HTTP_RESPONSE_TYPE: &str = "pending_http_response";
+
+#[derive(Clone, Debug)]
+pub struct HttpClient(pub ResourceId, pub Client);
+
+impl Resource for HttpClient {
+    fn static_type() -> &'static str {
+        HTTP_CLIENT_RESOURCE_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.0
+    }
+}
+
+#[derive(Debug)]
+pub struct PendingHttpResponseBody(pub ResourceId, pub Response);
+
+impl Resource for PendingHttpResponseBody {
+    fn static_type() -> &'static str {
+        PENDING_HTTP_RESPONSE_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.0
+    }
+}
 
 static DEFAULT_TIMEOUT: u64 = 60_000;
 
@@ -317,7 +346,7 @@ async fn bare_http_request<'a>(
         .build()
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to build HTTP request".to_owned(),
-            subject: HttpRequestToRespond::static_type().into(),
+            subject: HttpClient::static_type().into(),
             inner: e.to_string(),
         })?;
 
@@ -337,7 +366,7 @@ async fn bare_http_request<'a>(
         .await
         .map_err(|e| ExecutionError::StateInvalid {
             message: "Failed to execute HTTP request".to_owned(),
-            subject: HttpRequestToRespond::static_type().into(),
+            subject: HttpClient::static_type().into(),
             inner: e.to_string(),
         }) {
         Ok(response) => response,

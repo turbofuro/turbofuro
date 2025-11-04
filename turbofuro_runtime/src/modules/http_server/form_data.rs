@@ -1,17 +1,74 @@
+use axum::body::Bytes;
+use std::collections::HashMap;
 use tel::{ObjectBody, StorageValue};
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 use tracing::instrument;
 
 use crate::{
     errors::ExecutionError,
     executor::{ExecutionContext, Parameter},
-    resources::{
-        generate_resource_id, MultipartManagerCommand, MultipartManagerFieldEvent, PendingFormData,
-        PendingFormDataField, Resource,
-    },
+    resources::{generate_resource_id, Resource, ResourceId},
 };
 
-use super::store_value;
+use crate::modules::store_value;
+
+pub const PENDING_FORM_DATA_TYPE: &str = "pending_form_data";
+pub const PENDING_FORM_DATA_FIELD_TYPE: &str = "pending_form_data_field";
+
+#[derive(Debug)]
+pub enum FormDataReaderEvent {
+    Error,
+    Empty,
+    File {
+        name: Option<String>,
+        filename: Option<String>,
+        index: usize,
+        headers: HashMap<String, String>,
+        receiver: tokio::sync::mpsc::Receiver<Result<Bytes, ExecutionError>>,
+    },
+}
+
+#[derive(Debug)]
+pub enum FormDataReaderCommand {
+    GetNext {
+        sender: oneshot::Sender<FormDataReaderEvent>,
+    },
+}
+
+#[derive(Debug)]
+pub struct PendingFormData(pub ResourceId, pub mpsc::Sender<FormDataReaderCommand>);
+
+impl PendingFormData {
+    pub fn new(sender: mpsc::Sender<FormDataReaderCommand>) -> Self {
+        Self(generate_resource_id(), sender)
+    }
+}
+
+impl Resource for PendingFormData {
+    fn static_type() -> &'static str {
+        PENDING_FORM_DATA_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.0
+    }
+}
+
+#[derive(Debug)]
+pub struct PendingFormDataField(
+    pub ResourceId,
+    pub mpsc::Receiver<Result<Bytes, ExecutionError>>,
+);
+
+impl Resource for PendingFormDataField {
+    fn static_type() -> &'static str {
+        PENDING_FORM_DATA_FIELD_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.0
+    }
+}
 
 #[instrument(level = "trace", skip_all)]
 pub async fn get_field<'a>(
@@ -25,10 +82,10 @@ pub async fn get_field<'a>(
         .use_pending_form_data()
         .ok_or_else(PendingFormData::missing)?;
 
-    let (sender, receiver) = oneshot::channel::<MultipartManagerFieldEvent>();
+    let (sender, receiver) = oneshot::channel::<FormDataReaderEvent>();
     form_data
         .1
-        .send(MultipartManagerCommand::GetNext { sender })
+        .send(FormDataReaderCommand::GetNext { sender })
         .await
         .map_err(|_| ExecutionError::StateInvalid {
             message: "Failed to send get next field command to pending form data".to_owned(),
@@ -48,17 +105,17 @@ pub async fn get_field<'a>(
         .await;
 
     let storage = match field {
-        MultipartManagerFieldEvent::Error => {
+        FormDataReaderEvent::Error => {
             let mut storage = ObjectBody::new();
             storage.insert("type".to_owned(), "error".into());
             storage
         }
-        MultipartManagerFieldEvent::Empty => {
+        FormDataReaderEvent::Empty => {
             let mut storage = ObjectBody::new();
             storage.insert("type".to_owned(), "empty".into());
             storage
         }
-        MultipartManagerFieldEvent::File {
+        FormDataReaderEvent::File {
             name,
             filename,
             receiver,

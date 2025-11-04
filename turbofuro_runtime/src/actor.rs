@@ -15,7 +15,8 @@ use tracing::trace;
 use tracing::warn;
 use uuid::Uuid;
 
-use crate::actions::alarms::cancellation_name;
+use crate::modules::actors::ActorLink;
+use crate::modules::alarms::cancellation_name;
 use crate::debug::LoggerMessage;
 use crate::errors::ExecutionError;
 use crate::executor::execute;
@@ -29,7 +30,6 @@ use crate::executor::ExecutionReport;
 use crate::executor::ExecutionStatus;
 use crate::executor::Function;
 use crate::executor::Global;
-use crate::resources::ActorLink;
 use crate::resources::ActorResources;
 
 #[derive(Debug)]

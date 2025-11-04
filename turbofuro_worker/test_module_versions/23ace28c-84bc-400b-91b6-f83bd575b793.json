@@ -59,7 +59,7 @@
       "name": "Accept WebSocket",
       "description": "In order to communicate over a WebSocket, the HTTP connection needs to be upgraded to a WebSocket. Use this action in request handler in WebSocket service to upgrade the connection to allow further communication over WebSocket.",
       "parameters": [],
-      "nativeId": "websocket/accept_ws",
+      "nativeId": "websocket_server/accept_ws",
       "exported": true,
       "annotations": [
         {
@@ -82,7 +82,7 @@
           "description": "Message to send"
         }
       ],
-      "nativeId": "websocket/send_message",
+      "nativeId": "websocket_server/send_message",
       "exported": true,
       "annotations": [
         {
@@ -98,7 +98,7 @@
       "name": "Close WebSocket",
       "description": "Sends a closing message and terminates a connection consuming WebSocket resource. If no name is provided, the scoped WebSocket will be used. If no WebSocket is found the action will fail.",
       "parameters": [],
-      "nativeId": "websocket/close",
+      "nativeId": "websocket_server/close",
       "exported": true,
       "annotations": [
         {

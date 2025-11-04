@@ -21,7 +21,7 @@
           }
         }
       ],
-      "nativeId": "websocket/accept_ws"
+      "nativeId": "websocket_server/accept_ws"
     },
     {
       "type": "defineNativeFunction",
@@ -45,7 +45,7 @@
           }
         }
       ],
-      "nativeId": "websocket/send_message",
+      "nativeId": "websocket_server/send_message",
       "annotations": [
         {
           "type": "exported"
@@ -69,7 +69,7 @@
           }
         }
       ],
-      "nativeId": "websocket/close",
+      "nativeId": "websocket_server/close",
       "annotations": [
         {
           "type": "exported"

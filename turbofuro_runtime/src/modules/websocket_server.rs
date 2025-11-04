@@ -1,13 +1,44 @@
 use axum::extract::ws::Message;
 use tel::StorageValue;
+use tokio::sync::{mpsc, oneshot};
 use tracing::instrument;
 
 use crate::{
     errors::ExecutionError,
     evaluations::{eval_param, eval_string_param, get_handlers_from_parameters},
     executor::{ExecutionContext, Parameter},
-    resources::{HttpRequestToRespond, HttpResponse, OpenWebSocket, Resource, WebSocketCommand},
+    modules::http_server::HttpRequestToRespond,
+    resources::{HttpResponse, Resource, ResourceId},
 };
+
+pub const WEBSOCKET_RESOURCE_TYPE: &str = "websocket";
+
+#[derive(Debug)]
+pub struct WebSocketCommand {
+    pub message: Message,
+    pub responder: oneshot::Sender<Result<(), ExecutionError>>,
+}
+
+impl WebSocketCommand {
+    pub fn new(message: Message) -> (Self, oneshot::Receiver<Result<(), ExecutionError>>) {
+        let (responder, receiver) = oneshot::channel();
+        let command = Self { message, responder };
+        (command, receiver)
+    }
+}
+
+#[derive(Debug)]
+pub struct OpenWebSocket(pub ResourceId, pub mpsc::Sender<WebSocketCommand>);
+
+impl Resource for OpenWebSocket {
+    fn static_type() -> &'static str {
+        WEBSOCKET_RESOURCE_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.0
+    }
+}
 
 #[instrument(level = "debug", skip_all)]
 pub async fn setup_route<'a>(

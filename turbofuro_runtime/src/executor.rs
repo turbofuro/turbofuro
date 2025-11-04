@@ -31,34 +31,6 @@ use tracing::info;
 use tracing::warn;
 use tracing::{debug, instrument};
 
-use crate::actions::actors;
-use crate::actions::alarms;
-use crate::actions::convert;
-use crate::actions::crypto;
-use crate::actions::debug;
-use crate::actions::fantoccini;
-use crate::actions::form_data;
-use crate::actions::fs;
-use crate::actions::http_client;
-use crate::actions::http_server;
-use crate::actions::image;
-use crate::actions::kv;
-use crate::actions::libsql;
-use crate::actions::lua;
-use crate::actions::mail;
-use crate::actions::multipart;
-use crate::actions::mustache;
-use crate::actions::ollama;
-use crate::actions::os;
-use crate::actions::postgres;
-use crate::actions::pubsub;
-use crate::actions::redis;
-use crate::actions::regex;
-use crate::actions::sound;
-use crate::actions::tasks;
-use crate::actions::time;
-use crate::actions::wasm;
-use crate::actions::websocket;
 use crate::debug::DebugMessage;
 use crate::debug::ExecutionLoggerHandle;
 use crate::debug::LoggerMessage;
@@ -67,6 +39,34 @@ use crate::errors::ExecutionError;
 use crate::evaluations::eval;
 use crate::evaluations::eval_description;
 use crate::evaluations::eval_selector;
+use crate::modules::actors;
+use crate::modules::alarms;
+use crate::modules::convert;
+use crate::modules::crypto;
+use crate::modules::debug;
+use crate::modules::fantoccini;
+use crate::modules::fs;
+use crate::modules::http_client;
+use crate::modules::http_client::form_data as http_client_form_data;
+use crate::modules::http_server;
+use crate::modules::http_server::form_data as http_server_form_data;
+use crate::modules::image;
+use crate::modules::kv;
+use crate::modules::libsql;
+use crate::modules::lua;
+use crate::modules::mail;
+use crate::modules::mustache;
+use crate::modules::ollama;
+use crate::modules::os;
+use crate::modules::postgres;
+use crate::modules::pubsub;
+use crate::modules::redis;
+use crate::modules::regex;
+use crate::modules::sound;
+use crate::modules::tasks;
+use crate::modules::time;
+use crate::modules::wasm;
+use crate::modules::websocket_server;
 use crate::resources::Resource;
 use crate::resources::{ActorResources, ResourceRegistry};
 
@@ -1251,12 +1251,18 @@ async fn execute_native<'a>(
         "http_client/build_client" => {
             http_client::build_client(context, parameters, step_id, store_as).await?
         }
-        "form_data/create" => form_data::create_form_data(context)?,
-        "form_data/add_stream_part" => {
-            form_data::add_stream_part_to_form_data(context, parameters, step_id, store_as).await?
+        "http_client/create_form_data" => http_client_form_data::create_form_data(context)?,
+        "http_client/add_stream_part_to_form_data" => {
+            http_client_form_data::add_stream_part_to_form_data(
+                context, parameters, step_id, store_as,
+            )
+            .await?
         }
-        "form_data/add_text_part" => {
-            form_data::add_text_part_to_form_data(context, parameters, step_id, store_as).await?
+        "http_client/add_text_part_to_form_data" => {
+            http_client_form_data::add_text_part_to_form_data(
+                context, parameters, step_id, store_as,
+            )
+            .await?
         }
         "http_server/setup_route" => {
             http_server::setup_route(context, parameters, step_id, store_as).await?
@@ -1303,9 +1309,15 @@ async fn execute_native<'a>(
         "redis/drop_connection" => {
             redis::drop_connection(context, parameters, step_id, store_as).await?
         }
-        "websocket/accept_ws" => websocket::accept_ws(context, parameters, step_id).await?,
-        "websocket/send_message" => websocket::send_message(context, parameters, step_id).await?,
-        "websocket/close" => websocket::close_websocket(context, parameters, step_id).await?,
+        "websocket_server/accept_ws" => {
+            websocket_server::accept_ws(context, parameters, step_id).await?
+        }
+        "websocket_server/send_message" => {
+            websocket_server::send_message(context, parameters, step_id).await?
+        }
+        "websocket_server/close" => {
+            websocket_server::close_websocket(context, parameters, step_id).await?
+        }
         "kv/write" => kv::write_to_store(context, parameters, step_id).await?,
         "kv/read" => kv::read_from_store(context, parameters, step_id, store_as).await?,
         "kv/delete" => kv::delete_from_store(context, parameters, step_id).await?,
@@ -1360,7 +1372,7 @@ async fn execute_native<'a>(
         }
         "debug/play_sound" => debug::play_sound(context, parameters, step_id, store_as).await?,
         "http_server/get_multipart_field" => {
-            multipart::get_field(context, parameters, step_id, store_as).await?
+            http_server_form_data::get_field(context, parameters, step_id, store_as).await?
         }
         "ollama/generate" => ollama::generate(context, parameters, step_id, store_as).await?,
         "webdriver/get_client" => {

@@ -19,7 +19,7 @@ use crate::{
         eval_param, eval_string_param, get_optional_handler_from_parameters,
     },
     executor::{ExecutionContext, Parameter},
-    resources::{generate_resource_id, Cancellation, CancellationSubject, FileHandle, Resource},
+    resources::{generate_resource_id, Cancellation, CancellationSubject, Resource, ResourceId},
 };
 
 use super::store_value;
@@ -35,6 +35,24 @@ static WATCHER_ID: AtomicU64 = AtomicU64::new(0);
 
 pub fn cancellation_name(watcher_id: u64) -> String {
     format!("watcher_{watcher_id}")
+}
+
+pub const FILE_HANDLE_TYPE: &str = "file_handle";
+
+#[derive(Debug)]
+pub struct FileHandle {
+    pub id: ResourceId,
+    pub file: tokio::fs::File,
+}
+
+impl Resource for FileHandle {
+    fn static_type() -> &'static str {
+        FILE_HANDLE_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.id
+    }
 }
 
 #[instrument(level = "trace", skip_all)]
@@ -717,7 +735,7 @@ mod tests {
         canonicalize(
             &mut context,
             &vec![
-                Parameter::tel("path", "\"src/actions/fs.rs\""),
+                Parameter::tel("path", "\"src/modules/fs.rs\""),
                 Parameter::tel("content", "\"This is a test message\""),
             ],
             "test_write",
@@ -727,6 +745,6 @@ mod tests {
         .unwrap();
 
         let path = context.storage.get("path").unwrap().to_string().unwrap();
-        assert!(path.ends_with("turbofuro_runtime/src/actions/fs.rs"));
+        assert!(path.ends_with("turbofuro_runtime/src/modules/fs.rs"));
     }
 }

@@ -1,20 +1,41 @@
 use libsql::params::IntoValue;
 use libsql::{params_from_iter, Error};
 use std::collections::HashMap;
+use std::fmt::{self, Debug};
 use tel::{describe, Description, StorageValue, NULL};
 use tracing::{debug, instrument, warn};
 use url::Url;
 
 use crate::evaluations::{eval_opt_string_param, eval_string_param};
-use crate::resources::generate_resource_id;
+use crate::resources::{generate_resource_id, ResourceId};
 use crate::{
     errors::ExecutionError,
     evaluations::eval_optional_param_with_default,
     executor::{ExecutionContext, Parameter},
-    resources::{LibSql, Resource},
+    resources::Resource,
 };
 
 use super::store_value;
+
+const LIBSQL_CONNECTION_TYPE: &str = "libsql_connection";
+
+pub struct LibSql(pub ResourceId, pub libsql::Connection);
+
+impl Resource for LibSql {
+    fn static_type() -> &'static str {
+        LIBSQL_CONNECTION_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.0
+    }
+}
+
+impl Debug for LibSql {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("LibSql").field("0", &"LibSql").finish()
+    }
+}
 
 impl From<Error> for ExecutionError {
     fn from(error: Error) -> Self {

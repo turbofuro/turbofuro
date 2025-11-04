@@ -2,8 +2,11 @@ use std::{collections::HashMap, convert::Infallible, time::Duration, vec};
 
 use axum::{
     body::Body,
-    http::response,
-    response::{sse, Response},
+    http::response::Builder,
+    response::{
+        sse::{self},
+        Response,
+    },
 };
 use axum_extra::extract::cookie::Cookie;
 use cookie::time::OffsetDateTime;
@@ -20,10 +23,65 @@ use crate::{
         get_handlers_from_parameters,
     },
     executor::{ExecutionContext, Parameter},
-    resources::{
-        generate_resource_id, HttpRequestToRespond, HttpResponse, OpenSseStream, Resource,
-    },
+    resources::{generate_resource_id, HttpResponse, Resource, ResourceId},
 };
+
+pub mod form_data;
+
+pub const HTTP_REQUEST_RESOURCE_TYPE: &str = "http_request";
+pub const PENDING_HTTP_REQUEST_TYPE: &str = "pending_http_request";
+pub const SSE_RESOURCE_TYPE: &str = "sse";
+
+#[derive(Debug)]
+pub struct PendingHttpRequestBody(pub ResourceId, pub Body);
+
+impl PendingHttpRequestBody {
+    pub fn new(body: Body) -> Self {
+        Self(generate_resource_id(), body)
+    }
+}
+
+impl Resource for PendingHttpRequestBody {
+    fn static_type() -> &'static str {
+        PENDING_HTTP_REQUEST_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.0
+    }
+}
+
+#[derive(Debug)]
+pub struct OpenSseStream(
+    pub ResourceId,
+    pub mpsc::Sender<Result<sse::Event, Infallible>>,
+);
+
+impl Resource for OpenSseStream {
+    fn static_type() -> &'static str {
+        SSE_RESOURCE_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.0
+    }
+}
+
+#[derive(Debug)]
+pub struct HttpRequestToRespond {
+    pub id: ResourceId,
+    pub response_sender: oneshot::Sender<HttpResponse>,
+}
+
+impl Resource for HttpRequestToRespond {
+    fn static_type() -> &'static str {
+        HTTP_REQUEST_RESOURCE_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.id
+    }
+}
 
 #[instrument(level = "debug", skip_all)]
 pub async fn setup_route<'a>(
@@ -73,10 +131,10 @@ pub async fn setup_streaming_route<'a>(
 }
 
 fn fill_headers_response(
-    mut response_builder: response::Builder,
+    mut response_builder: Builder,
     headers_param: StorageValue,
     cookies_param: StorageValue,
-) -> Result<response::Builder, ExecutionError> {
+) -> Result<Builder, ExecutionError> {
     match headers_param {
         StorageValue::Object(object) => {
             for (key, value) in object {
@@ -238,9 +296,9 @@ pub async fn respond_with<'a>(
 
 fn apply_cookie(
     mut cookie: HashMap<String, StorageValue>,
-    response_builder: response::Builder,
+    response_builder: Builder,
     path: &str,
-) -> Result<response::Builder, ExecutionError> {
+) -> Result<Builder, ExecutionError> {
     let mut response_builder = response_builder;
 
     let name = as_string(

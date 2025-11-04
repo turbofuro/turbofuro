@@ -76,6 +76,13 @@ impl WorkerStatus {
     }
 }
 
+// #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+// struct ResourceDefinition {
+//     pub name: String,
+//     pub description: String,
+//     pub type_: String,
+// }
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ModuleVersion {
@@ -83,6 +90,7 @@ pub struct ModuleVersion {
     pub module_id: String,
     pub instructions: Steps,
     pub imports: HashMap<String, Import>,
+    // pub resources: ResourceDefinition,
 }
 
 pub fn compile_module(module_version: &ModuleVersion) -> CompiledModule {

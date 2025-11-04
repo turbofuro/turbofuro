@@ -14,9 +14,10 @@ use tel::{ObjectBody, StorageValue};
 
 use crate::{
     errors::ExecutionError,
-    resources::{
-        ActorResources, MultipartManagerCommand, MultipartManagerFieldEvent, PendingFormData,
+    modules::http_server::form_data::{
+        FormDataReaderCommand, FormDataReaderEvent, PendingFormData,
     },
+    resources::ActorResources,
 };
 
 fn retrieve_content_type(headers: &HeaderMap) -> DetectedContentType {
@@ -282,13 +283,12 @@ pub async fn build_request_object(
                 let mut multipart = multer::Multipart::new(stream.into_data_stream(), boundary);
                 request_object.insert("multipart".to_string(), StorageValue::Boolean(true));
 
-                let (sender, mut receiver) =
-                    tokio::sync::mpsc::channel::<MultipartManagerCommand>(4);
+                let (sender, mut receiver) = tokio::sync::mpsc::channel::<FormDataReaderCommand>(4);
                 resources.add_pending_form_data(PendingFormData::new(sender));
                 tokio::spawn(async move {
                     while let Some(command) = receiver.recv().await {
                         match command {
-                            MultipartManagerCommand::GetNext {
+                            FormDataReaderCommand::GetNext {
                                 sender: field_sender,
                             } => {
                                 let field = multipart.next_field().await;
@@ -315,17 +315,13 @@ pub async fn build_request_object(
                                                 );
                                             }
 
-                                            match field_sender.send(
-                                                MultipartManagerFieldEvent::File {
-                                                    name: field.name().map(|s| s.to_owned()),
-                                                    filename: field
-                                                        .file_name()
-                                                        .map(|s| s.to_owned()),
-                                                    receiver,
-                                                    headers,
-                                                    index: field.index(),
-                                                },
-                                            ) {
+                                            match field_sender.send(FormDataReaderEvent::File {
+                                                name: field.name().map(|s| s.to_owned()),
+                                                filename: field.file_name().map(|s| s.to_owned()),
+                                                receiver,
+                                                headers,
+                                                index: field.index(),
+                                            }) {
                                                 Ok(_) => {}
                                                 Err(_) => {
                                                     break;
@@ -350,16 +346,14 @@ pub async fn build_request_object(
                                             }
                                         }
                                         None => {
-                                            match field_sender
-                                                .send(MultipartManagerFieldEvent::Empty)
-                                            {
+                                            match field_sender.send(FormDataReaderEvent::Empty) {
                                                 Ok(_) => {}
                                                 Err(_) => break,
                                             }
                                         }
                                     },
                                     Err(_e) => {
-                                        match field_sender.send(MultipartManagerFieldEvent::Error) {
+                                        match field_sender.send(FormDataReaderEvent::Error) {
                                             Ok(_) => {}
                                             Err(_) => {
                                                 break;

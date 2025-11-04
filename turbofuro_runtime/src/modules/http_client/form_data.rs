@@ -5,8 +5,29 @@ use crate::{
     errors::ExecutionError,
     evaluations::{eval_opt_string_param, eval_opt_u64_param, eval_string_param},
     executor::{ExecutionContext, Parameter},
-    resources::{generate_resource_id, FormDataDraft, HammerStream, Resource},
+    resources::{generate_resource_id, HammerStream, Resource, ResourceId},
 };
+
+pub const FORM_DATA_DRAFT_TYPE: &str = "form_data_draft";
+
+#[derive(Debug)]
+pub struct FormDataDraft(pub ResourceId, pub Form);
+
+impl FormDataDraft {
+    pub fn new(form: Form) -> Self {
+        Self(generate_resource_id(), form)
+    }
+}
+
+impl Resource for FormDataDraft {
+    fn static_type() -> &'static str {
+        FORM_DATA_DRAFT_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.0
+    }
+}
 
 #[instrument(level = "trace", skip_all)]
 pub fn create_form_data<'a>(context: &mut ExecutionContext<'a>) -> Result<(), ExecutionError> {

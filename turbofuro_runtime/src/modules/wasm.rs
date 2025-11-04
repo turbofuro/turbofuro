@@ -179,7 +179,7 @@ mod test_wasm {
         run_wasi(
             &mut context,
             &vec![
-                Parameter::tel("path", r#""./src/actions/wasm-example.wasm""#),
+                Parameter::tel("path", r#""./src/modules/wasm-example.wasm""#),
                 Parameter::tel("args", r#"["arg1", "500"]"#),
                 Parameter::tel("env", r#"{ "TEST_VAR": "Test Value" }"#),
                 Parameter::tel("input", r#""Test""#),

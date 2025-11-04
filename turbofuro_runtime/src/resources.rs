@@ -1,6 +1,5 @@
 use axum::{
-    body::{Body, BodyDataStream, Bytes},
-    extract::ws::Message,
+    body::{BodyDataStream, Bytes},
     response::{
         sse::{self},
         Response,
@@ -9,41 +8,39 @@ use axum::{
 use dashmap::DashMap;
 use futures_util::stream::Stream;
 use futures_util::{StreamExt, TryStreamExt};
-use reqwest::multipart::Form;
 use serde_derive::{Deserialize, Serialize};
 use std::{convert::Infallible, pin::Pin, sync::atomic::AtomicU64};
 use tel::StorageValue;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::io::ReaderStream;
 
-use std::{
-    collections::HashMap,
-    fmt::{self, Debug},
-    sync::Arc,
-};
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
-use crate::{
-    actions::redis::RedisPubSubCoordinatorHandle, actor::ActorCommand, errors::ExecutionError,
+pub use crate::{
+    modules::{
+        actors::ActorLink,
+        fantoccini::{WebDriverClient, WebDriverElement},
+        fs::{FileHandle, FILE_HANDLE_TYPE},
+        http_client::{
+            form_data::{FormDataDraft, FORM_DATA_DRAFT_TYPE},
+            HttpClient, PendingHttpResponseBody, HTTP_CLIENT_RESOURCE_TYPE,
+            PENDING_HTTP_RESPONSE_TYPE,
+        },
+        http_server::{
+            form_data::{PendingFormData, PendingFormDataField, PENDING_FORM_DATA_FIELD_TYPE},
+            HttpRequestToRespond, OpenSseStream, PendingHttpRequestBody,
+            HTTP_REQUEST_RESOURCE_TYPE, PENDING_HTTP_REQUEST_TYPE, SSE_RESOURCE_TYPE,
+        },
+        libsql::LibSql,
+        postgres::PostgresPool,
+        redis::RedisPool,
+        websocket_server::{OpenWebSocket, WebSocketCommand},
+    },
+    errors::ExecutionError,
 };
 
-const WEBSOCKET_RESOURCE_TYPE: &str = "websocket";
-const SSE_RESOURCE_TYPE: &str = "sse";
-const POSTGRES_CONNECTION_RESOURCE_TYPE: &str = "postgres_connection";
-const REDIS_CONNECTION_RESOURCE_TYPE: &str = "redis_connection";
-const HTTP_CLIENT_RESOURCE_TYPE: &str = "http_client";
-const HTTP_REQUEST_RESOURCE_TYPE: &str = "http_request";
-const PENDING_HTTP_RESPONSE_TYPE: &str = "pending_http_response";
-const PENDING_HTTP_REQUEST_TYPE: &str = "pending_http_request";
-const FORM_DATA_DRAFT_TYPE: &str = "form_data_draft";
-const PENDING_FORM_DATA_TYPE: &str = "pending_form_data";
-const PENDING_FORM_DATA_FIELD_TYPE: &str = "pending_form_data_field";
-const ACTOR_LINK_TYPE: &str = "actor_link";
 const CANCELLATION_TYPE: &str = "cancellation";
-const FILE_HANDLE_TYPE: &str = "file_handle";
-const LIBSQL_CONNECTION_TYPE: &str = "libsql_connection";
-const WEBDRIVER_CLIENT_TYPE: &str = "webdriver_client";
-const WEBDRIVER_ELEMENT_TYPE: &str = "webdriver_element";
 
 pub trait Resource {
     fn static_type() -> &'static str;
@@ -68,163 +65,6 @@ pub type ResourceId = u64;
 
 pub fn generate_resource_id() -> u64 {
     ID_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
-}
-
-pub struct RedisPool(
-    pub ResourceId,
-    pub deadpool_redis::Pool,
-    pub RedisPubSubCoordinatorHandle,
-);
-
-impl Resource for RedisPool {
-    fn static_type() -> &'static str {
-        REDIS_CONNECTION_RESOURCE_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.0
-    }
-}
-
-impl Debug for RedisPool {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RedisPool")
-            .field("0", &"RedisPool")
-            .finish()
-    }
-}
-
-#[derive(Debug)]
-pub struct PostgresPool(pub ResourceId, pub deadpool_postgres::Pool);
-
-impl Resource for PostgresPool {
-    fn static_type() -> &'static str {
-        POSTGRES_CONNECTION_RESOURCE_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.0
-    }
-}
-
-pub struct LibSql(pub ResourceId, pub libsql::Connection);
-
-impl Resource for LibSql {
-    fn static_type() -> &'static str {
-        LIBSQL_CONNECTION_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.0
-    }
-}
-
-impl Debug for LibSql {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("LibSql").field("0", &"LibSql").finish()
-    }
-}
-
-#[derive(Debug)]
-pub struct OpenWebSocket(pub ResourceId, pub mpsc::Sender<WebSocketCommand>);
-
-impl Resource for OpenWebSocket {
-    fn static_type() -> &'static str {
-        WEBSOCKET_RESOURCE_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.0
-    }
-}
-
-#[derive(Debug)]
-pub struct OpenSseStream(
-    pub ResourceId,
-    pub mpsc::Sender<Result<sse::Event, Infallible>>,
-);
-
-impl Resource for OpenSseStream {
-    fn static_type() -> &'static str {
-        SSE_RESOURCE_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.0
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ActorLink {
-    pub id: ResourceId,
-    pub sender: mpsc::Sender<ActorCommand>,
-    pub module_id: String,
-}
-
-impl ActorLink {
-    pub fn new(sender: mpsc::Sender<ActorCommand>, module_id: String) -> Self {
-        Self {
-            sender,
-            module_id,
-            id: generate_resource_id(),
-        }
-    }
-
-    pub async fn send(&self, command: ActorCommand) -> Result<(), ExecutionError> {
-        self.sender
-            .send(command)
-            .await
-            .map_err(ExecutionError::from)
-    }
-}
-
-impl Resource for ActorLink {
-    fn static_type() -> &'static str {
-        ACTOR_LINK_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.id
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct HttpClient(pub ResourceId, pub reqwest::Client);
-
-impl Resource for HttpClient {
-    fn static_type() -> &'static str {
-        HTTP_CLIENT_RESOURCE_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.0
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct WebDriverClient(pub ResourceId, pub fantoccini::Client);
-
-impl Resource for WebDriverClient {
-    fn static_type() -> &'static str {
-        WEBDRIVER_CLIENT_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.0
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct WebDriverElement(pub ResourceId, pub fantoccini::elements::Element);
-
-impl Resource for WebDriverElement {
-    fn static_type() -> &'static str {
-        WEBDRIVER_ELEMENT_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.0
-    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -351,36 +191,6 @@ impl WebSocketAcceptance {
     }
 }
 
-#[derive(Debug)]
-pub struct WebSocketCommand {
-    pub message: Message,
-    pub responder: oneshot::Sender<Result<(), ExecutionError>>,
-}
-
-impl WebSocketCommand {
-    pub fn new(message: Message) -> (Self, oneshot::Receiver<Result<(), ExecutionError>>) {
-        let (responder, receiver) = oneshot::channel();
-        let command = Self { message, responder };
-        (command, receiver)
-    }
-}
-
-#[derive(Debug)]
-pub struct HttpRequestToRespond {
-    pub id: ResourceId,
-    pub response_sender: oneshot::Sender<HttpResponse>,
-}
-
-impl Resource for HttpRequestToRespond {
-    fn static_type() -> &'static str {
-        HTTP_REQUEST_RESOURCE_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.id
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum CancellationSubject {
@@ -413,128 +223,6 @@ impl Resource for Cancellation {
 
     fn get_id(&self) -> ResourceId {
         self.id
-    }
-}
-
-#[derive(Debug)]
-pub struct FileHandle {
-    pub id: ResourceId,
-    pub file: tokio::fs::File,
-}
-
-impl Resource for FileHandle {
-    fn static_type() -> &'static str {
-        FILE_HANDLE_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.id
-    }
-}
-
-#[derive(Debug)]
-pub struct PendingHttpResponseBody(pub ResourceId, pub reqwest::Response);
-
-impl Resource for PendingHttpResponseBody {
-    fn static_type() -> &'static str {
-        PENDING_HTTP_RESPONSE_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.0
-    }
-}
-
-#[derive(Debug)]
-pub struct PendingHttpRequestBody(pub ResourceId, pub Body);
-
-impl PendingHttpRequestBody {
-    pub fn new(body: Body) -> Self {
-        Self(generate_resource_id(), body)
-    }
-}
-
-impl Resource for PendingHttpRequestBody {
-    fn static_type() -> &'static str {
-        PENDING_HTTP_REQUEST_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.0
-    }
-}
-
-#[derive(Debug)]
-pub struct FormDataDraft(pub ResourceId, pub Form);
-
-impl FormDataDraft {
-    pub fn new(form: Form) -> Self {
-        Self(generate_resource_id(), form)
-    }
-}
-
-impl Resource for FormDataDraft {
-    fn static_type() -> &'static str {
-        FORM_DATA_DRAFT_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.0
-    }
-}
-
-#[derive(Debug)]
-pub enum MultipartManagerFieldEvent {
-    Error,
-    Empty,
-    File {
-        name: Option<String>,
-        filename: Option<String>,
-        index: usize,
-        headers: HashMap<String, String>,
-        receiver: tokio::sync::mpsc::Receiver<Result<Bytes, ExecutionError>>,
-    },
-}
-
-#[derive(Debug)]
-pub enum MultipartManagerCommand {
-    GetNext {
-        sender: oneshot::Sender<MultipartManagerFieldEvent>,
-    },
-}
-
-#[derive(Debug)]
-pub struct PendingFormData(pub ResourceId, pub mpsc::Sender<MultipartManagerCommand>);
-
-impl PendingFormData {
-    pub fn new(sender: mpsc::Sender<MultipartManagerCommand>) -> Self {
-        Self(generate_resource_id(), sender)
-    }
-}
-
-impl Resource for PendingFormData {
-    fn static_type() -> &'static str {
-        PENDING_FORM_DATA_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.0
-    }
-}
-
-#[derive(Debug)]
-pub struct PendingFormDataField(
-    pub ResourceId,
-    pub mpsc::Receiver<Result<Bytes, ExecutionError>>,
-);
-
-impl Resource for PendingFormDataField {
-    fn static_type() -> &'static str {
-        PENDING_FORM_DATA_FIELD_TYPE
-    }
-
-    fn get_id(&self) -> ResourceId {
-        self.0
     }
 }
 

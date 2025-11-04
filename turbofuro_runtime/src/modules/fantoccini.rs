@@ -7,10 +7,39 @@ use crate::{
     errors::ExecutionError,
     evaluations::{eval_opt_string_param, eval_string_param},
     executor::{ExecutionContext, Parameter},
-    resources::{generate_resource_id, Resource, WebDriverClient, WebDriverElement},
+    resources::{generate_resource_id, Resource, ResourceId},
 };
 
 use super::store_value;
+
+pub const WEBDRIVER_CLIENT_TYPE: &str = "webdriver_client";
+pub const WEBDRIVER_ELEMENT_TYPE: &str = "webdriver_element";
+
+#[derive(Clone, Debug)]
+pub struct WebDriverClient(pub ResourceId, pub fantoccini::Client);
+
+impl Resource for WebDriverClient {
+    fn static_type() -> &'static str {
+        WEBDRIVER_CLIENT_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.0
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct WebDriverElement(pub ResourceId, pub fantoccini::elements::Element);
+
+impl Resource for WebDriverElement {
+    fn static_type() -> &'static str {
+        WEBDRIVER_ELEMENT_TYPE
+    }
+
+    fn get_id(&self) -> ResourceId {
+        self.0
+    }
+}
 
 #[instrument(level = "trace", skip_all)]
 pub async fn get_client<'a>(
