@@ -1,3 +1,11 @@
+## 0.1.30 (unreleased)
+* Add regular expression module
+* Allow trailing commas in object and array expressions
+* Add NaN, binary, octal and hex literals
+* Improve TEL functions
+* Update WASM runtime
+* Update Rust to 1.91
+
 ## 0.1.29
 * Add audience, issuer, subject parameters to JWT decode
 * Add sound module via rodio
