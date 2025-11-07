@@ -18,6 +18,7 @@ use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
 pub use crate::{
+    errors::ExecutionError,
     modules::{
         actors::ActorLink,
         fantoccini::{WebDriverClient, WebDriverElement},
@@ -37,7 +38,6 @@ pub use crate::{
         redis::RedisPool,
         websocket_server::{OpenWebSocket, WebSocketCommand},
     },
-    errors::ExecutionError,
 };
 
 const CANCELLATION_TYPE: &str = "cancellation";

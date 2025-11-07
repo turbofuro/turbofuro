@@ -12,7 +12,6 @@ use tel::{describe, Description, ObjectBody, StorageValue};
 use tracing::{info, instrument};
 
 use crate::{
-    modules::http_client::form_data::FormDataDraft,
     errors::ExecutionError,
     evaluations::{
         as_string, eval_opt_boolean_param, eval_opt_string_param, eval_opt_u64_param,
@@ -20,6 +19,7 @@ use crate::{
     },
     executor::{ExecutionContext, Parameter},
     http_utils::decode_text_with_encoding,
+    modules::http_client::form_data::FormDataDraft,
     resources::{generate_resource_id, Resource, ResourceId},
 };
 
