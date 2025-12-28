@@ -283,7 +283,7 @@ impl OperatorClient {
                             let mut flush_interval =
                                 tokio::time::interval(Duration::from_millis(200));
                             let mut keep_alive_interval =
-                                tokio::time::interval(Duration::from_secs(60));
+                                tokio::time::interval(Duration::from_secs(15));
 
                             loop {
                                 tokio::select! {
