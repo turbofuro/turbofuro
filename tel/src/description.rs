@@ -195,6 +195,14 @@ impl Description {
                     }
                     true
                 }
+                Description::Array { item_type, length } => {
+                    if let Some(length) = length {
+                        if value.len() != *length {
+                            return false;
+                        }
+                    }
+                    value.iter().all(|v| v.is_compatible(&item_type))
+                }
                 Description::BaseType { field_type } => field_type.starts_with("array"), // TODO: Emit warning if it doesn't exact match
                 Description::Union { of } => of.iter().any(|d| self.is_compatible(d)),
                 _ => false,
@@ -204,6 +212,9 @@ impl Description {
                     item_type: other_item_type,
                     ..
                 } => item_type.is_compatible(other_item_type),
+                Description::ExactArray { value } => {
+                    value.iter().all(|v| v.is_compatible(&item_type))
+                }
                 Description::BaseType { field_type } => field_type.starts_with("array"), // TODO: Emit warning if it doesn't exact match
                 Description::Union { of } => of.iter().any(|d| self.is_compatible(d)),
                 _ => false,
