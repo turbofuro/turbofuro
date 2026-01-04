@@ -413,6 +413,12 @@ static OPERATORS: Lazy<HashMap<String, Description>> = Lazy::new(|| {
 
 static METHODS: Lazy<HashMap<&'static str, Description>> = Lazy::new(|| {
     let mut map = HashMap::new();
+    map.insert("string_toCodePoints", Description::new_base_type("array"));
+    map.insert("string_fromHexString", Description::new_base_type("string"));
+    map.insert(
+        "string_fromBase64String",
+        Description::new_base_type("string"),
+    );
     map.insert("string_length", Description::new_base_type("number"));
     map.insert("string_type", Description::new_string("string".to_string()));
     map.insert("string_toString", Description::new_base_type("string"));
@@ -422,11 +428,16 @@ static METHODS: Lazy<HashMap<&'static str, Description>> = Lazy::new(|| {
     map.insert("string_toLowerCase", Description::new_base_type("string"));
     map.insert("string_trim", Description::new_base_type("string"));
     map.insert("string_isEmpty", Description::new_base_type("boolean"));
-    map.insert("string_startsWith", Description::new_base_type("boolean"));
-    map.insert("string_endsWith", Description::new_base_type("boolean"));
+    map.insert("string_replace", Description::new_base_type("string"));
     map.insert("string_stripPrefix", Description::new_base_type("string"));
     map.insert("string_stripSuffix", Description::new_base_type("string"));
-    map.insert("string_replace", Description::new_base_type("string"));
+    map.insert("string_startsWith", Description::new_base_type("boolean"));
+    map.insert("string_endsWith", Description::new_base_type("boolean"));
+    map.insert(
+        "string_stripFileExtension",
+        Description::new_base_type("string"),
+    );
+    map.insert("string_split", Description::new_base_type("array"));
     map.insert("number_toString", Description::new_base_type("string"));
     map.insert("number_type", Description::new_string("number".to_string()));
     map.insert("number_round", Description::new_base_type("number"));
@@ -459,12 +470,18 @@ static METHODS: Lazy<HashMap<&'static str, Description>> = Lazy::new(|| {
         "boolean_type",
         Description::new_string("boolean".to_string()),
     );
+    map.insert("array_toHexString", Description::new_base_type("string"));
+    map.insert("array_toBase64String", Description::new_base_type("string"));
+    map.insert("array_fromCodePoints", Description::new_base_type("string"));
     map.insert("array_type", Description::new_string("array".to_string()));
     map.insert("array_join", Description::new_base_type("string"));
     map.insert("array_contains", Description::new_base_type("boolean"));
+    map.insert("array_length", Description::new_base_type("number"));
+    map.insert("array_isEmpty", Description::new_base_type("boolean"));
     map.insert("object_type", Description::new_string("object".to_string()));
     map.insert("object_values", Description::new_base_type("array"));
     map.insert("object_keys", Description::new_base_type("array"));
+    map.insert("object_isEmpty", Description::new_base_type("boolean"));
     map.insert("null_toString", Description::new_base_type("string"));
     map.insert("null_type", Description::new_string("null".to_string()));
 

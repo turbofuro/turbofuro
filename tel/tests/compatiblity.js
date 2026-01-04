@@ -60,3 +60,5 @@ string | null
 { description: string | null, icon: string | null, label: string, theme: string | null, value: any }[] 
 [{ a: "Hello", b: 5 }, { a: null, b: 6 }]
 { a: string | null, b: number }[]
+"hello world.replace("world", "there")"
+string
