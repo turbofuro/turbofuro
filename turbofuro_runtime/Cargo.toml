@@ -1,6 +1,6 @@
 [package]
 name = "turbofuro_runtime"
-version = "0.1.24"
+version = "0.1.25"
 edition = "2021"
 license.workspace = true
 repository.workspace = true
@@ -35,7 +35,7 @@ reqwest = { version = "0.12.28", features = [
 http = "1.2.0"
 async-recursion = "1.0.0"
 serde_derive = "1.0.152"
-tel = { path = "../tel", version = "0.1.22" }
+tel = { path = "../tel", version = "0.1.25" }
 futures-util = "0.3.25"
 mime = "0.3.16"
 encoding_rs = "0.8.31"
@@ -89,7 +89,7 @@ sha2 = "0.10.8"
 hmac = "0.12.1"
 hex = "0.4.3"
 num = "0.4.3"
-ollama-rs = { git = "https://github.com/pepperoni21/ollama-rs", branch = "abort-requests" }
+ollama-rs = "0.3.3"
 fantoccini = "0.21.2"
 cap-std = "3.4.2"
 rodio = "0.20.1"

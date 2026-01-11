@@ -1,10 +1,14 @@
 [package]
 name = "omnitool"
-version = "0.1.3"
+version = "0.1.25"
 edition = "2018"
 publish = false
-repository = "https://github.com/turbofuro/turbofuro"
-license = "Apache-2.0"
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+categories.workspace = true
+homepage.workspace = true
+keywords.workspace = true
 description = "Official WASM-compatible toolkit for Turbofuro visual programming language."
 
 [lib]

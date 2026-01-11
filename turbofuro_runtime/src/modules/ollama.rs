@@ -77,7 +77,8 @@ pub async fn generate(
     };
 
     let mut request = GenerationRequest::new(model_name, prompt);
-    request = request.timeout(Duration::from_millis(timeout));
+    // TODO: Add timeout back
+    // request = request.timeout(Duration::from_millis(timeout));
     for image in images {
         request = request.add_image(image);
     }

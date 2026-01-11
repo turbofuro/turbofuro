@@ -1,4 +1,4 @@
-## 0.1.30 (unreleased)
+## 0.1.30
 * Add regular expression module
 * Allow trailing commas in object and array expressions
 * Add NaN, binary, octal and hex literals
