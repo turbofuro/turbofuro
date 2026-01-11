@@ -5,6 +5,11 @@
 * Improve TEL functions
 * Update WASM runtime
 * Update Rust to 1.91
+* Improve keep-alive for operator connection
+* Update axum and tokio
+* Omnitool: prediction improvements
+* Add support for reporting errors to the operator
+* Improve errors for module resolution
 
 ## 0.1.29
 * Add audience, issuer, subject parameters to JWT decode

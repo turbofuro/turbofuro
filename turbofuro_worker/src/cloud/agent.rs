@@ -282,10 +282,19 @@ impl CloudAgent {
                     module_version.module_id.clone(),
                 );
 
-                // TODO: Report error if the run could not be performed ie. could not resolve imported module
-                let _ = self
-                    .perform_debug_run(id, module_version, callee, parameters, debugger_handle)
+                let result = self
+                    .perform_debug_run(
+                        id.clone(),
+                        module_version,
+                        callee,
+                        parameters,
+                        debugger_handle,
+                    )
                     .await;
+
+                if let Err(err) = result {
+                    self.report_error(id, err).await;
+                }
             }
             CloudAgentMessage::EnableDebugger {
                 module_id,
@@ -542,6 +551,12 @@ impl CloudAgent {
         });
 
         return Ok(());
+    }
+
+    async fn report_error(&mut self, id: String, error: WorkerError) {
+        self.operator_client
+            .send_command(SendingCommand::ReportError { id, error })
+            .await;
     }
 }
 

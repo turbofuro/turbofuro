@@ -368,10 +368,16 @@ impl WorkerHttpServer {
                 // No-op
             }
             crate::config::Timeout::Default => {
-                router = router.layer(TimeoutLayer::new(std::time::Duration::from_secs(60)));
+                router = router.layer(TimeoutLayer::with_status_code(
+                    StatusCode::REQUEST_TIMEOUT,
+                    Duration::from_secs(60),
+                ));
             }
             crate::config::Timeout::Custom { seconds } => {
-                router = router.layer(TimeoutLayer::new(std::time::Duration::from_secs(seconds)));
+                router = router.layer(TimeoutLayer::with_status_code(
+                    StatusCode::REQUEST_TIMEOUT,
+                    std::time::Duration::from_secs(seconds),
+                ));
             }
         }
 

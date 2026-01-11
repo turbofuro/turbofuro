@@ -19,6 +19,7 @@ pub enum WorkerError {
     InvalidCloudAgentCommand { message: String },
     InvalidOperatorUrl { url: String },
     Unsupported { message: String },
+    ModuleRepositoryUnavailable,
 }
 
 impl From<pico_args::Error> for WorkerError {
@@ -76,6 +77,9 @@ impl Display for WorkerError {
             }
             WorkerError::Unsupported { message } => {
                 write!(f, "Unsupported operation: {message}")
+            }
+            WorkerError::ModuleRepositoryUnavailable => {
+                write!(f, "Module could not be fetched from repository")
             }
         }
     }

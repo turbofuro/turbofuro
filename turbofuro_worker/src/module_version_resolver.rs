@@ -3,10 +3,11 @@ use std::sync::Arc;
 use crate::{errors::WorkerError, shared::ModuleVersion};
 use async_trait::async_trait;
 use futures_util::TryFutureExt;
+use http::StatusCode;
 use moka::future::Cache;
 use reqwest::Client;
 use tokio::{fs::File, io::AsyncReadExt};
-use tracing::error;
+use tracing::{error, instrument};
 
 #[async_trait]
 pub trait ModuleVersionResolver: Send + Sync {
@@ -15,10 +16,12 @@ pub trait ModuleVersionResolver: Send + Sync {
 
 pub type SharedModuleVersionResolver = Arc<dyn ModuleVersionResolver>;
 
+#[derive(Debug)]
 pub struct FileSystemModuleVersionResolver {}
 
 #[async_trait]
 impl ModuleVersionResolver for FileSystemModuleVersionResolver {
+    #[instrument(level = "info", skip(self))]
     async fn get_module_version(&self, id: &str) -> Result<ModuleVersion, WorkerError> {
         let path = format!("test_module_versions/{id}.json");
         let mut file = File::open(path)
@@ -30,15 +33,16 @@ impl ModuleVersionResolver for FileSystemModuleVersionResolver {
             .map_err(|_| WorkerError::MalformedModuleVersion)
             .await?;
 
-        let service: ModuleVersion = serde_json::from_str(&buffer).map_err(|_| {
+        let module: ModuleVersion = serde_json::from_str(&buffer).map_err(|_| {
             error!("Failed to parse module version: {}", buffer);
             WorkerError::MalformedModuleVersion
         })?;
 
-        Ok(service)
+        Ok(module)
     }
 }
 
+#[derive(Debug)]
 pub struct CloudModuleVersionResolver {
     pub client: Client,
     pub base_url: String,
@@ -62,6 +66,7 @@ impl CloudModuleVersionResolver {
 
 #[async_trait]
 impl ModuleVersionResolver for CloudModuleVersionResolver {
+    #[instrument(level = "info", skip(self))]
     async fn get_module_version(&self, id: &str) -> Result<ModuleVersion, WorkerError> {
         if let Some(cached) = self.cache.get(id).await {
             return Ok(cached);
@@ -78,8 +83,14 @@ impl ModuleVersionResolver for CloudModuleVersionResolver {
                     "Failed to get module version id: {}, error was: {}",
                     id, err
                 );
-                WorkerError::ModuleVersionNotFound
+                WorkerError::ModuleRepositoryUnavailable
             })?;
+
+        if response.status() == StatusCode::NOT_FOUND {
+            return Err(WorkerError::ModuleVersionNotFound);
+        } else if !response.status().is_success() {
+            return Err(WorkerError::ModuleRepositoryUnavailable);
+        }
 
         let module_version: ModuleVersion = response.json().await.map_err(|err| {
             error!("Malformed module version id: {}, error was: {}", id, err);

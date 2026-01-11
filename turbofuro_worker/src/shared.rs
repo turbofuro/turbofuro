@@ -4,7 +4,7 @@ use crate::{errors::WorkerError, module_version_resolver::SharedModuleVersionRes
 use async_recursion::async_recursion;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info_span, instrument, Instrument};
+use tracing::{debug, instrument};
 use turbofuro_runtime::executor::{
     CompiledModule, Function, FunctionAnnotation, Global, Import, Step, Steps,
 };
@@ -322,12 +322,7 @@ pub async fn resolve_and_install_module(
     }
 
     debug!("Fetching module: {}", id);
-    let module_version: ModuleVersion = {
-        module_version_resolver
-            .get_module_version(id)
-            .instrument(info_span!("get_module_version"))
-            .await?
-    };
+    let module_version: ModuleVersion = { module_version_resolver.get_module_version(id).await? };
 
     install_module(module_version, global, module_version_resolver).await
 }
