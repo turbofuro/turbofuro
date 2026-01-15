@@ -1,3 +1,6 @@
+## 0.1.31 (Unreleased)
+* Add WebSocket client module
+
 ## 0.1.30
 * Add regular expression module
 * Allow trailing commas in object and array expressions

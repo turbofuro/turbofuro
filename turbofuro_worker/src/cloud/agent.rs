@@ -312,7 +312,7 @@ impl CloudAgent {
                 let module = match module_version {
                     Some(module_version) => {
                         let module = install_module(
-                            module_version,
+                            &module_version,
                             self.global.clone(),
                             self.module_version_resolver.clone(),
                         )
@@ -325,7 +325,10 @@ impl CloudAgent {
                             }
                             Err(err) => {
                                 // TODO: Report error
-                                warn!("Could not install module: {}", err);
+                                warn!(
+                                    "Could not install module {} version {}: {}",
+                                    module_version.module_id, module_version.id, err
+                                );
                                 None
                             }
                         }
@@ -514,7 +517,7 @@ impl CloudAgent {
         let module_version_resolver: Arc<dyn ModuleVersionResolver> =
             self.module_version_resolver.clone();
         let compiled_module: Arc<turbofuro_runtime::executor::CompiledModule> = install_module(
-            module_version,
+            &module_version,
             global.clone(),
             module_version_resolver.clone(),
         )

@@ -267,7 +267,7 @@ pub async fn resolve_imports(
 
 #[async_recursion]
 pub async fn install_module(
-    module_version: ModuleVersion,
+    module_version: &ModuleVersion,
     global: Arc<Global>,
     module_version_resolver: SharedModuleVersionResolver,
 ) -> Result<Arc<CompiledModule>, WorkerError> {
@@ -296,7 +296,7 @@ pub async fn get_compiled_module(
         .iter()
         .find(|m| m.id == id)
         .cloned()
-        .ok_or(WorkerError::ModuleVersionNotFound)
+        .ok_or(WorkerError::ModuleVersionNotFound { id: id.to_owned() })
 }
 
 #[async_recursion]
@@ -324,7 +324,7 @@ pub async fn resolve_and_install_module(
     debug!("Fetching module: {}", id);
     let module_version: ModuleVersion = { module_version_resolver.get_module_version(id).await? };
 
-    install_module(module_version, global, module_version_resolver).await
+    install_module(&module_version, global, module_version_resolver).await
 }
 
 #[cfg(test)]

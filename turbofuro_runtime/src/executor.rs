@@ -66,6 +66,7 @@ use crate::modules::sound;
 use crate::modules::tasks;
 use crate::modules::time;
 use crate::modules::wasm;
+use crate::modules::websocket_client;
 use crate::modules::websocket_server;
 use crate::resources::Resource;
 use crate::resources::{ActorResources, ResourceRegistry};
@@ -1317,6 +1318,15 @@ async fn execute_native<'a>(
         }
         "websocket_server/close" => {
             websocket_server::close_websocket(context, parameters, step_id).await?
+        }
+        "websocket_client/connect" => {
+            websocket_client::connect(context, parameters, step_id).await?
+        }
+        "websocket_client/send_message" => {
+            websocket_client::send_message(context, parameters, step_id).await?
+        }
+        "websocket_client/close" => {
+            websocket_client::close(context, parameters, step_id).await?
         }
         "kv/write" => kv::write_to_store(context, parameters, step_id).await?,
         "kv/read" => kv::read_from_store(context, parameters, step_id, store_as).await?,

@@ -7,7 +7,7 @@ use turbofuro_runtime::errors::ExecutionError;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "code", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum WorkerError {
-    ModuleVersionNotFound,
+    ModuleVersionNotFound { id: String },
     MalformedModuleVersion,
     EnvironmentNotFound,
     MalformedEnvironment,
@@ -50,7 +50,9 @@ impl IntoResponse for WorkerError {
 impl Display for WorkerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            WorkerError::ModuleVersionNotFound => write!(f, "Module version not found"),
+            WorkerError::ModuleVersionNotFound { id } => {
+                write!(f, "Module version not found, id {id}")
+            }
             WorkerError::MalformedModuleVersion => write!(f, "Malformed module version"),
             WorkerError::EnvironmentNotFound => write!(f, "Environment not found"),
             WorkerError::MalformedEnvironment => write!(f, "Malformed environment"),

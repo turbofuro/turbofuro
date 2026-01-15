@@ -27,6 +27,7 @@ pub mod sound;
 pub mod tasks;
 pub mod time;
 pub mod wasm;
+pub mod websocket_client;
 pub mod websocket_server;
 
 pub async fn store_value(

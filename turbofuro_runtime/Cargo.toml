@@ -62,6 +62,7 @@ jsonwebtoken = "9.3.0"
 uuid = { version = "1.6.1", features = ["serde", "v4", "v7"] }
 nanoid = "0.4.0"
 tokio-util = "0.7.13"
+tokio-tungstenite = { version = "0.28.0", features = ["native-tls", "native-tls-vendored"] }
 wasmtime = { version = "33.0.0", features = ["all-arch", "async"] }
 wasmtime-wasi = { version = "33.0.0", features = ["preview1"] }
 wasi-common = { version = "33.0.0", features = ["tokio"] }

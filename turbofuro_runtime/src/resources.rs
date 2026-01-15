@@ -36,6 +36,7 @@ pub use crate::{
         libsql::LibSql,
         postgres::PostgresPool,
         redis::RedisPool,
+        websocket_client::OpenWebSocketClient,
         websocket_server::{OpenWebSocket, WebSocketCommand},
     },
 };
@@ -202,6 +203,7 @@ pub enum CancellationSubject {
     PostgresNotificationSubscription,
     Watcher,
     Task,
+    WebSocketClient,
 }
 
 #[derive(Debug)]
@@ -245,6 +247,7 @@ pub struct StreamableResource {
 #[derive(Debug, Default)]
 pub struct ActorResources {
     websockets: Vec<OpenWebSocket>,
+    websocket_clients: Vec<OpenWebSocketClient>,
     sse_streams: Vec<OpenSseStream>,
     http_requests_to_respond: Vec<HttpRequestToRespond>,
     cancellations: Vec<Cancellation>,
@@ -294,6 +297,7 @@ impl ActorResources {
         self.http_requests_to_respond
             .append(&mut other.http_requests_to_respond);
         self.websockets.append(&mut other.websockets);
+        self.websocket_clients.append(&mut other.websocket_clients);
         self.cancellations.append(&mut other.cancellations);
         self.files.append(&mut other.files);
         self.pending_response_body
@@ -343,6 +347,38 @@ impl ActorResources {
             .iter()
             .rposition(f)
             .map(|i| self.websockets.remove(i))
+    }
+
+    pub fn add_websocket_client(&mut self, websocket_client: OpenWebSocketClient) {
+        self.websocket_clients.push(websocket_client);
+    }
+
+    pub fn use_websocket_client(&mut self) -> Option<&mut OpenWebSocketClient> {
+        self.websocket_clients.last_mut()
+    }
+
+    pub fn use_websocket_client_where<F>(&mut self, f: F) -> Option<&mut OpenWebSocketClient>
+    where
+        F: Fn(&OpenWebSocketClient) -> bool,
+    {
+        self.websocket_clients
+            .iter()
+            .rposition(f)
+            .map(|i| &mut self.websocket_clients[i])
+    }
+
+    pub fn pop_websocket_client(&mut self) -> Option<OpenWebSocketClient> {
+        self.websocket_clients.pop()
+    }
+
+    pub fn pop_websocket_client_where<F>(&mut self, f: F) -> Option<OpenWebSocketClient>
+    where
+        F: Fn(&OpenWebSocketClient) -> bool,
+    {
+        self.websocket_clients
+            .iter()
+            .rposition(f)
+            .map(|i| self.websocket_clients.remove(i))
     }
 
     pub fn add_sse_stream(&mut self, sse_stream: OpenSseStream) {

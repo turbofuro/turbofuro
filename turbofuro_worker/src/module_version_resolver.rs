@@ -25,7 +25,7 @@ impl ModuleVersionResolver for FileSystemModuleVersionResolver {
     async fn get_module_version(&self, id: &str) -> Result<ModuleVersion, WorkerError> {
         let path = format!("test_module_versions/{id}.json");
         let mut file = File::open(path)
-            .map_err(|_| WorkerError::ModuleVersionNotFound)
+            .map_err(|_| WorkerError::ModuleVersionNotFound { id: id.to_owned() })
             .await?;
 
         let mut buffer = String::new();
@@ -87,7 +87,7 @@ impl ModuleVersionResolver for CloudModuleVersionResolver {
             })?;
 
         if response.status() == StatusCode::NOT_FOUND {
-            return Err(WorkerError::ModuleVersionNotFound);
+            return Err(WorkerError::ModuleVersionNotFound { id: id.to_owned() });
         } else if !response.status().is_success() {
             return Err(WorkerError::ModuleRepositoryUnavailable);
         }

@@ -6016,6 +6016,7 @@ dependencies = [
  "tokio",
  "tokio-postgres",
  "tokio-stream",
+ "tokio-tungstenite 0.28.0",
  "tokio-util",
  "tower 0.5.2",
  "tracing",
