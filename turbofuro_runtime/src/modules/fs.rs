@@ -56,6 +56,24 @@ impl Resource for FileHandle {
 }
 
 #[instrument(level = "trace", skip_all)]
+pub async fn exists<'a>(
+    context: &mut ExecutionContext<'a>,
+    parameters: &Vec<Parameter>,
+    step_id: &str,
+    store_as: Option<&str>,
+) -> Result<(), ExecutionError> {
+    let path = eval_string_param("path", parameters, context)?;
+
+    let result = tokio::fs::try_exists(path)
+        .await
+        .map_err(ExecutionError::from)?;
+
+    store_value(store_as, context, step_id, StorageValue::Boolean(result)).await?;
+
+    Ok(())
+}
+
+#[instrument(level = "trace", skip_all)]
 pub async fn open_file<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
@@ -188,7 +206,7 @@ pub async fn write_stream<'a>(
 }
 
 #[instrument(level = "trace", skip_all)]
-pub async fn simple_read_to_string<'a>(
+pub async fn read_to_string<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     step_id: &str,
@@ -205,7 +223,7 @@ pub async fn simple_read_to_string<'a>(
 }
 
 #[instrument(level = "trace", skip_all)]
-pub async fn simple_write_string<'a>(
+pub async fn write_string<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     _step_id: &str,
@@ -225,7 +243,7 @@ pub async fn simple_write_string<'a>(
 }
 
 #[instrument(level = "trace", skip_all)]
-pub async fn simple_read_to_bytes<'a>(
+pub async fn read_to_bytes<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     step_id: &str,
@@ -248,7 +266,7 @@ pub async fn simple_read_to_bytes<'a>(
 }
 
 #[instrument(level = "trace", skip_all)]
-pub async fn simple_write_bytes<'a>(
+pub async fn write_bytes<'a>(
     context: &mut ExecutionContext<'a>,
     parameters: &Vec<Parameter>,
     _step_id: &str,
@@ -599,6 +617,8 @@ pub async fn canonicalize<'a>(
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use crate::{evaluations::eval, executor::ExecutionTest};
 
     use super::*;
@@ -608,7 +628,7 @@ mod tests {
         let mut t = ExecutionTest::default();
         let mut context = t.get_context();
 
-        simple_write_string(
+        write_string(
             &mut context,
             &vec![
                 Parameter::tel("path", "\"test.txt\""),
@@ -619,7 +639,7 @@ mod tests {
         .await
         .unwrap();
 
-        simple_read_to_string(
+        read_to_string(
             &mut context,
             &vec![Parameter::tel("path", "\"test.txt\"")],
             "test",
@@ -641,7 +661,7 @@ mod tests {
         let mut t = ExecutionTest::default();
         let mut context = t.get_context();
 
-        simple_write_string(
+        write_string(
             &mut context,
             &vec![
                 Parameter::tel("path", "\"test_a.txt\""),
@@ -746,5 +766,39 @@ mod tests {
 
         let path = context.storage.get("path").unwrap().to_string().unwrap();
         assert!(path.ends_with("turbofuro_runtime/src/modules/fs.rs"));
+    }
+
+    #[tokio::test]
+    async fn test_read_dir() {
+        let mut t = ExecutionTest::default();
+        let mut context = t.get_context();
+
+        read_dir(
+            &mut context,
+            &vec![
+                Parameter::tel("path", "\"test_dir\""),
+                Parameter::tel("recursive", "true"),
+            ],
+            "test_read_dir",
+            Some("entries"),
+        )
+        .await
+        .unwrap();
+
+        let entries = context.storage.get("entries").unwrap();
+
+        assert_eq!(entries.get_type(), "array");
+        assert_eq!(
+            json!([
+                {
+                    "name": "b.txt",
+                    "path": "test_dir/b.txt",
+                    "isDir": false,
+                    "isFile": true,
+                    "isSymlink": false
+                }
+            ]),
+            serde_json::to_value(entries).unwrap()
+        );
     }
 }

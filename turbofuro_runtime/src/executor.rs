@@ -73,7 +73,7 @@ use crate::resources::{ActorResources, ResourceRegistry};
 
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum ParameterType {
     Tel,
@@ -81,15 +81,25 @@ pub enum ParameterType {
     Description,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ParameterDefinition {
     pub name: String,
     pub description: Option<String>,
+    pub optional: bool,
     #[serde(rename = "type")]
     pub _type: ParameterType,
-    pub optional: bool,
     pub value_description: Option<String>,
+    pub handler_template: Option<FunctionTemplate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FunctionTemplate {
+    pub name: String,
+    pub parameters: Vec<ParameterDefinition>,
+    pub annotations: Vec<FunctionAnnotation>,
+    pub description: Option<String>,
+    pub output_description: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -1183,12 +1193,9 @@ async fn execute_native<'a>(
     match native_id {
         "wasm/run_wasi" => wasm::run_wasi(context, parameters, step_id, store_as).await?,
         "fs/open" => fs::open_file(context, parameters, step_id, store_as).await?,
-        // TODO: Before stable, decide how to structure the fs actions write_stream vs write_string, one is resourceful (requires open) and other is not
         "fs/write_stream" => fs::write_stream(context, step_id).await?,
-        "fs/write_string" => fs::simple_write_string(context, parameters, step_id).await?,
-        "fs/read_to_string" => {
-            fs::simple_read_to_string(context, parameters, step_id, store_as).await?
-        }
+        "fs/write_string" => fs::write_string(context, parameters, step_id).await?,
+        "fs/read_to_string" => fs::read_to_string(context, parameters, step_id, store_as).await?,
         "fs/setup_watcher" => fs::setup_watcher(context, parameters, step_id).await?,
         "fs/cancel_watcher" => fs::cancel_watcher(context, parameters, step_id).await?,
         "fs/read_dir" => fs::read_dir(context, parameters, step_id, store_as).await?,
@@ -1198,10 +1205,9 @@ async fn execute_native<'a>(
         "fs/remove_directory" => fs::remove_directory(context, parameters, step_id).await?,
         "fs/copy" => fs::copy(context, parameters, step_id).await?,
         "fs/canonicalize" => fs::canonicalize(context, parameters, step_id, store_as).await?,
-        "fs/read_to_bytes" => {
-            fs::simple_read_to_bytes(context, parameters, step_id, store_as).await?
-        }
-        "fs/write_bytes" => fs::simple_write_bytes(context, parameters, step_id).await?,
+        "fs/read_to_bytes" => fs::read_to_bytes(context, parameters, step_id, store_as).await?,
+        "fs/write_bytes" => fs::write_bytes(context, parameters, step_id).await?,
+        "fs/exists" => fs::exists(context, parameters, step_id, store_as).await?,
         "lua/run_function" => lua::run_function(context, parameters, step_id, store_as).await?,
         "alarms/set_alarm" => alarms::set_alarm(context, parameters, step_id).await?,
         "alarms/set_interval" => alarms::set_interval(context, parameters, step_id).await?,
@@ -1325,9 +1331,7 @@ async fn execute_native<'a>(
         "websocket_client/send_message" => {
             websocket_client::send_message(context, parameters, step_id).await?
         }
-        "websocket_client/close" => {
-            websocket_client::close(context, parameters, step_id).await?
-        }
+        "websocket_client/close" => websocket_client::close(context, parameters, step_id).await?,
         "kv/write" => kv::write_to_store(context, parameters, step_id).await?,
         "kv/read" => kv::read_from_store(context, parameters, step_id, store_as).await?,
         "kv/delete" => kv::delete_from_store(context, parameters, step_id).await?,

@@ -166,9 +166,12 @@ numbers[0] + numbers[1] == 3
 "image.jpg".endsWith(".jpg") == true
 "image.jpg".endsWith(".png") == false
 "hello world".replace("world", "there") == "hello there"
-"image.png".stripFileExtension() == "image"
-"image.jpg".stripFileExtension() == "image"
-"image".stripFileExtension() == "image"
+"image.png".filename() == "image.png"
+"/Test/image.png".filename() == "image.png"
+"image.png".filestem() == "image"
+"/Test/image.png".filestem() == "image"
+"image.png".replaceExtension("jpg") == "image.jpg"
+"/Test/image.png".replaceExtension("jpg") == "/Test/image.jpg"
 "abc".toCodePoints() == [97, 98, 99]
 [97, 98, 99].fromCodePoints() == "abc"
 "cześć".toCodePoints() == [99, 122, 101, 197, 155, 196, 135]

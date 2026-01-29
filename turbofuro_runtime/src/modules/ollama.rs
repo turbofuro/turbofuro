@@ -1,4 +1,4 @@
-use std::{time::Duration, vec};
+use std::vec;
 
 use ollama_rs::{
     generation::{completion::request::GenerationRequest, images::Image},
@@ -10,15 +10,13 @@ use url::Url;
 
 use crate::{
     errors::ExecutionError,
-    evaluations::{
-        eval_opt_string_param, eval_opt_u64_param, eval_optional_param, eval_string_param,
-    },
+    evaluations::{eval_opt_string_param, eval_optional_param, eval_string_param},
     executor::{ExecutionContext, Parameter},
 };
 
 use super::store_value;
 
-static DEFAULT_TIMEOUT: u64 = 60_000;
+// static DEFAULT_TIMEOUT: u64 = 60_000;
 
 #[instrument(level = "trace", skip_all)]
 pub async fn generate(
@@ -29,7 +27,7 @@ pub async fn generate(
 ) -> Result<(), ExecutionError> {
     let url = eval_opt_string_param("url", parameters, context)?
         .unwrap_or_else(|| "http://localhost:11434".to_owned());
-    let timeout = eval_opt_u64_param("timeout", parameters, context)?.unwrap_or(DEFAULT_TIMEOUT);
+    // let timeout = eval_opt_u64_param("timeout", parameters, context)?.unwrap_or(DEFAULT_TIMEOUT);
 
     let url = url
         .parse::<Url>()

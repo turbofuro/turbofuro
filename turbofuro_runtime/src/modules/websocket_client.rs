@@ -64,7 +64,7 @@ async fn handle_websocket_messages(
     global: Arc<Global>,
     actor_id: String,
     url: String,
-    mut ws_receiver: tokio_tungstenite::WebSocketStream<
+    ws_receiver: tokio_tungstenite::WebSocketStream<
         tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
     >,
     mut command_receiver: mpsc::Receiver<WebSocketClientCommand>,

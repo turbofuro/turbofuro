@@ -1519,11 +1519,40 @@ pub fn evaluate_value<T: Storage, E: Environment>(
                             });
                         }
                     }
-                    "stripFileExtension" => Path::new(&s)
+                    "filename" => Path::new(&s)
+                        .file_name()
+                        .map(|s| s.to_string_lossy().to_string())
+                        .unwrap_or(s)
+                        .into(),
+                    "filestem" => Path::new(&s)
                         .file_stem()
                         .map(|s| s.to_string_lossy().to_string())
                         .unwrap_or(s)
                         .into(),
+                    "replaceExtension" => {
+                        let arg = arguments.pop();
+                        if let Some(arg) = arg {
+                            let arg = evaluate_value(arg, storage, environment)?;
+                            let new_extension = arg.to_string()?;
+
+                            println!("new_extension: {new_extension:?}");
+                            println!("s: {s:?}");
+
+                            let value = Path::new(&s)
+                                .with_extension(new_extension)
+                                .to_string_lossy()
+                                .to_string()
+                                .into();
+
+                            println!("value: {value:?}");
+                            value
+                        } else {
+                            return Err(TelError::MissingArgument {
+                                index: 0,
+                                method_name: "replaceExtension".to_owned(),
+                            });
+                        }
+                    }
                     "split" => {
                         let arg = arguments.pop();
                         if let Some(arg) = arg {
