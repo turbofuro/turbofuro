@@ -1,182 +1,287 @@
 {
-  "handlers": {},
+  "description": "Utilities for interacting with Redis databases. Provides connection management, command execution, and pub/sub messaging capabilities for Redis operations.",
+  "icon": "https://assets.turbofuro.com/redis.svg",
+  "id": "506eb0b9-71c2-40b0-90de-90a277ebc414",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "redis_connection",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "description": "Creates Redis connection pool using provided connection string or retrieves existing one with specified name.",
+      "exported": true,
       "id": "get_connection",
       "name": "Get connection",
-      "description": "Creates Redis connection pool using provided connection string or retrieves existing one with specified name.",
+      "nativeId": "redis/get_connection",
       "parameters": [
         {
-          "name": "connectionString",
-          "type": "tel",
-          "optional": false,
           "description": "Connection string in the format of `redis://user:pass@host:port/dbname`",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "name": "connectionString",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.url"
         },
         {
-          "name": "name",
-          "type": "tel",
-          "optional": true,
           "description": "Resource name, if not provided `default` will be used",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
         }
       ],
-      "nativeId": "redis/get_connection",
-      "exported": true,
-      "annotations": [
-        {
-          "resource": "redis_connection",
-          "type": "provision",
-          "strict": true
-        }
-      ]
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "redis_connection",
+          "strict": true,
+          "type": "consumption"
+        }
+      ],
+      "description": "Disconnects and disable Redis connection.\n\nUse with caution!",
+      "exported": true,
+      "id": "4-vO5u03tGh0wVh_JSUy-",
+      "name": "Drop connection",
+      "nativeId": "redis/drop_connection",
+      "parameters": [
+        {
+          "description": "Resource name, if not provided `default` will be used",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "redis_connection",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "description": "Low level Redis action",
+      "exported": true,
       "id": "low_level",
       "name": "Low Level Command",
-      "description": "Low level Redis action",
+      "nativeId": "redis/low_level",
       "parameters": [
         {
-          "name": "command",
-          "type": "tel",
-          "optional": false,
           "description": "CMD to execute like \"GET\", \"SET\", \"DEL\", etc.",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        },
-        {
-          "name": "args",
-          "type": "tel",
+          "name": "command",
           "optional": false,
-          "description": "Array of arguments for the command like [\"key\"] or [\"key\", \"EX\", 300]",
-          "typeDef": {
-            "tag": "simple",
-            "type": "array",
-            "strict": true
-          }
+          "type": "tel",
+          "valueDescription": "string"
         },
         {
+          "description": "Array of arguments for the command like [\"key\"] or [\"key\", \"EX\", 300]",
+          "name": "args",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "array"
+        },
+        {
+          "description": "Resource name, if not provided `default` will be used",
           "name": "name",
           "optional": true,
           "type": "tel",
-          "description": "Resource name of the Redis pool that should be used for this action",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "valueDescription": "string"
         }
       ],
-      "nativeId": "redis/low_level",
-      "exported": true,
-      "annotations": [
-        {
-          "resource": "redis_connection",
-          "type": "requirement",
-          "strict": true
-        }
-      ]
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "subscribe",
-      "name": "SUBSCRIBE",
-      "description": "Subscribes to Redis channel",
-      "parameters": [
+      "annotations": [
         {
-          "name": "channel",
-          "type": "tel",
-          "optional": false,
-          "description": "Redis channel",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "type": "exported"
         },
         {
+          "resource": "redis_connection",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "description": "Subscribes to Redis channel",
+      "exported": true,
+      "id": "subscribe",
+      "name": "SUBSCRIBE",
+      "nativeId": "redis/subscribe",
+      "parameters": [
+        {
+          "description": "Redis channel",
+          "name": "channel",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Resource name of the Redis pool that should be used for this action",
           "name": "name",
           "optional": true,
           "type": "tel",
-          "description": "Resource name of the Redis pool that should be used for this action",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "valueDescription": "string"
         },
         {
-          "name": "onMessage",
           "description": "Function to be called when the actor receives a new message. If not provided onMessage event handler will be called.",
+          "handlerTemplate": {
+            "annotations": [],
+            "description": "Handles Redis PubSub message",
+            "name": "Handle Redis PubSub message",
+            "parameters": [
+              {
+                "description": "Message",
+                "name": "message",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "string"
+              },
+              {
+                "description": "Channel name",
+                "name": "channel",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "string"
+              }
+            ]
+          },
+          "name": "onMessage",
           "optional": true,
           "type": "functionRef"
         }
       ],
-      "nativeId": "redis/subscribe",
-      "exported": true,
-      "annotations": [
-        {
-          "resource": "redis_connection",
-          "type": "requirement",
-          "strict": true
-        }
-      ]
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "unsubscribe",
-      "name": "UNSUBSCRIBE",
-      "description": "Unsubscribes to Redis channel",
+      "annotations": [],
+      "body": [],
+      "description": "Handles Redis PubSub message",
+      "exported": false,
+      "id": "pIz03bC0v51WT4GBIrL7x",
+      "name": "Handle Redis PubSub message",
       "parameters": [
         {
-          "name": "channel",
-          "type": "tel",
+          "description": "Message",
+          "name": "message",
           "optional": false,
-          "description": "Redis channel",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "type": "tel",
+          "valueDescription": "string"
         },
         {
+          "description": "Channel name",
+          "name": "channel",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "redis_connection",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "description": "Unsubscribes to Redis channel",
+      "exported": true,
+      "id": "unsubscribe",
+      "name": "UNSUBSCRIBE",
+      "nativeId": "redis/unsubscribe",
+      "parameters": [
+        {
+          "description": "Redis channel",
+          "name": "channel",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Resource name of the Redis pool that should be used for this action",
           "name": "name",
           "optional": true,
           "type": "tel",
-          "description": "Resource name of the Redis pool that should be used for this action",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "valueDescription": "string"
         }
       ],
-      "nativeId": "redis/unsubscribe",
-      "exported": true,
+      "type": "defineNativeFunction"
+    },
+    {
       "annotations": [
         {
           "resource": "redis_connection",
-          "type": "requirement",
-          "strict": true
+          "strict": true,
+          "type": "requirement"
         }
-      ]
+      ],
+      "body": [
+        {
+          "callee": "local/low_level",
+          "id": "GfBWA62jJlLFVdNKS0OUh",
+          "parameters": [
+            {
+              "expression": "\"PUBLISH\"",
+              "name": "command",
+              "type": "tel"
+            },
+            {
+              "expression": "[channel, message]",
+              "name": "args",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "output",
+          "type": "call"
+        },
+        {
+          "id": "sO8eQOerydvwLS_HPAOvD",
+          "type": "return",
+          "value": "output"
+        }
+      ],
+      "description": "Posts a message to the given channel.\n\nIn a Redis Cluster clients can publish to every node. The cluster makes sure that published messages are forwarded as needed, so clients can subscribe to any channel by connecting to any one of the nodes.\n\n**Available since:**\n2.0.0    \n**Time complexity:**\nO(N+M) where N is the number of clients subscribed to the receiving channel and M is the total number of subscribed patterns (by any client).   \n**ACL categories:**\n@pubsub, @fast",
+      "exported": true,
+      "id": "wznWlqx40gQlL2iFM9QGl",
+      "name": "PUBLISH",
+      "parameters": [
+        {
+          "description": "Name of the Redis PubSub channel",
+          "name": "channel",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Message to send",
+          "name": "message",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string | number | boolean"
+        }
+      ],
+      "type": "defineFunction"
     }
   ],
-  "imports": {},
-  "description": "Redis is an in-memory data structure store, used as a distributed, in-memory key–value database, cache and message broker, with optional durability.",
   "moduleId": "6df5dedb-8e99-4124-83f2-d709bb5cf08b",
-  "id": "6df5dedb-8e99-4124-83f2-d709bb5cf08b"
+  "theme": "red"
 }

@@ -1,0 +1,116 @@
+{
+  "description": "Utilities for working with multipart form data. Enables creating form data with text fields and file attachments for HTTP requests that require multipart encoding.",
+  "icon": "https://assets.turbofuro.com/file-text.svg",
+  "id": "9b07c9a6-da6f-4f73-9fc6-8803fa4a2ef4",
+  "imports": {},
+  "instructions": [
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "form_data_draft",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "description": "Creates a form data resource that can be later consumed.",
+      "exported": true,
+      "id": "2cW1amt9Sk8nvBKGZsBoZ",
+      "name": "Create form data",
+      "nativeId": "form_data/create",
+      "parameters": [],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "form_data_draft",
+          "strict": true,
+          "type": "requirement"
+        },
+        {
+          "resource": "streamable",
+          "strict": true,
+          "type": "consumption"
+        }
+      ],
+      "description": "Adds a stream part to the form data. This function lets you add files to the form data.",
+      "exported": true,
+      "id": "7BoVx7jigcqis78k7En1-",
+      "name": "Add stream part to form data",
+      "nativeId": "form_data/add_stream_part",
+      "parameters": [
+        {
+          "description": "Name of the field to insert",
+          "name": "name",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "File name",
+          "name": "filename",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Mime type",
+          "name": "mime",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Size in bytes",
+          "name": "size",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "number"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "form_data_draft",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "description": "Adds a static text field to the form data",
+      "exported": true,
+      "id": "yQf68Tuv6zXiNg2yIaFo-",
+      "name": "Add text part to form data",
+      "nativeId": "form_data/add_text_part",
+      "parameters": [
+        {
+          "description": "Name of the field to insert",
+          "name": "name",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Text value of the field to insert",
+          "name": "value",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string | number | boolean | null"
+        }
+      ],
+      "type": "defineNativeFunction"
+    }
+  ],
+  "moduleId": "f0978405-f1c1-43d9-9d7d-ba10886521d5",
+  "theme": "gray"
+}

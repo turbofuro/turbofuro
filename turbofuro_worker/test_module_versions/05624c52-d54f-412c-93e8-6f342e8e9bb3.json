@@ -1,103 +1,495 @@
 {
-  "handlers": {},
+  "description": "Utilities for interacting with the file system. Provides functions for reading, writing, creating, deleting files and directories, as well as file watching capabilities.",
+  "icon": "https://assets.turbofuro.com/folder.svg",
+  "id": "04f51d32-213c-4595-8326-a4e12f9c0fe7",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
-      "id": "open",
-      "name": "Open file",
-      "description": "Opens a file and returns a file handle.",
-      "parameters": [
-        {
-          "name": "path",
-          "description": "Path to the file to be opened",
-          "optional": false,
-          "type": "tel",
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "string"
-          }
-        },
-        {
-          "name": "mode",
-          "optional": true,
-          "type": "tel",
-          "description": "File open mode, \"r\" by default, \"w\" to overwrite, \"a\" to append, \"x\" to create",
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "string"
-          }
-        }
-      ],
-      "nativeId": "fs/open",
-      "exported": true,
       "annotations": [
+        {
+          "type": "exported"
+        },
         {
           "resource": "file_handle",
           "strict": true,
           "type": "provision"
         }
-      ]
-    },
-    {
-      "type": "defineNativeFunction",
-      "id": "read_to_string",
-      "name": "Read file to string",
-      "description": "Opens a file and reads it to a string.",
-      "parameters": [
-        {
-          "name": "path",
-          "type": "tel",
-          "description": "Path to the file to be opened",
-          "optional": false,
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "string"
-          }
-        }
       ],
-      "nativeId": "fs/read_to_string",
+      "decorator": false,
+      "description": "Opens a file and returns a file handle.",
       "exported": true,
-      "annotations": []
-    },
-    {
-      "type": "defineNativeFunction",
-      "id": "write_string",
-      "name": "Write string to file",
-      "description": "Writes a string to a file.",
+      "id": "open",
+      "name": "Open file",
+      "nativeId": "fs/open",
       "parameters": [
         {
-          "name": "path",
-          "type": "tel",
           "description": "Path to the file to be opened",
+          "name": "path",
           "optional": false,
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "string"
-          }
+          "type": "tel",
+          "valueDescription": "string"
         },
         {
-          "name": "content",
-          "type": "tel",
+          "description": "File open mode, \"r\" by default, \"w\" to overwrite, \"a\" to append, \"x\" to create",
+          "name": "mode",
           "optional": true,
-          "description": "Selector where to save the contents",
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "string"
-          }
+          "type": "tel",
+          "valueDescription": "\"r\" | \"w\" | \"a\" | \"x\""
         }
       ],
-      "nativeId": "fs/write_string",
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "file_handle",
+          "strict": true,
+          "type": "requirement"
+        },
+        {
+          "resource": "streamable",
+          "strict": true,
+          "type": "consumption"
+        }
+      ],
+      "decorator": false,
+      "description": "Writes a readable stream to a opened file",
       "exported": true,
-      "annotations": []
+      "id": "4Ow34UNs-K7Ds3Q2Nr7gG",
+      "name": "Write stream",
+      "nativeId": "fs/write_stream",
+      "parameters": [],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Opens a file and reads it to a string.",
+      "exported": true,
+      "id": "read_to_string",
+      "name": "Read file to string",
+      "nativeId": "fs/read_to_string",
+      "outputDescription": "string",
+      "parameters": [
+        {
+          "description": "Path to the file to be opened",
+          "name": "path",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Writes a string to a file.",
+      "exported": true,
+      "id": "write_string",
+      "name": "Write string to file",
+      "nativeId": "fs/write_string",
+      "parameters": [
+        {
+          "description": "Path to the file to be opened",
+          "name": "path",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Selector where to save the contents",
+          "name": "content",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Opens a file and reads it to an array of bytes.",
+      "exported": true,
+      "id": "6To9j_IqE559pHA7crTrh",
+      "name": "Read file to bytes",
+      "nativeId": "fs/read_to_bytes",
+      "outputDescription": "array.bytes",
+      "parameters": [
+        {
+          "description": "Path to the file to be opened",
+          "name": "path",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Writes bytes to a file.",
+      "exported": true,
+      "id": "iWHx3RqINh1NLW5QCU5X0",
+      "name": "Write bytes to file",
+      "nativeId": "fs/write_bytes",
+      "parameters": [
+        {
+          "description": "Path to the file to be opened",
+          "name": "path",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Selector where to save the contents",
+          "name": "content",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "array.bytes"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "cancellation",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "decorator": false,
+      "description": "Writes a string to a file.",
+      "exported": true,
+      "id": "M3UMFEIjOPI_z8osowi6i",
+      "name": "Setup watcher",
+      "nativeId": "fs/setup_watcher",
+      "parameters": [
+        {
+          "description": "Path to watch",
+          "name": "path",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Called when an event is received",
+          "handlerTemplate": {
+            "annotations": [],
+            "description": "Handles file system event received from a watcher",
+            "name": "Handle file system event",
+            "parameters": [
+              {
+                "description": "File system event",
+                "name": "event",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "{   kind: \"file\" | \"folder\" | \"name\" | \"metadata\" | \"data\" | \"other\" | \"any\",   path: string,   type: \"create\" | \"modify\" | \"remove\" | \"access\" | \"other\" }"
+              }
+            ]
+          },
+          "name": "onMessage",
+          "optional": false,
+          "type": "functionRef"
+        },
+        {
+          "description": "Indicates whether only the provided directory or its sub-directories as well should be watched",
+          "name": "recursive",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "boolean"
+        },
+        {
+          "description": "Debounce time in milliseconds for event reconcilation. 500ms by default.",
+          "name": "debounceTime",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "number"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "cancellation",
+          "strict": true,
+          "type": "consumption"
+        }
+      ],
+      "decorator": false,
+      "description": "Writes a string to a file.",
+      "exported": true,
+      "id": "SwKxjr2WlOMKCEriYKZPj",
+      "name": "Cancel watcher",
+      "nativeId": "fs/cancel_watcher",
+      "parameters": [],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Reads directory\n\nReturns an array of directory entries like:\n```\n[\n  {\n    isDir: false,\n    isFile: true,\n    isSymlink: false,\n    name: \"data.json\",\n    path: \"./data.json\"\n  }\n]\n```",
+      "exported": true,
+      "id": "DMm_keadj1Xe42OOSFy6_",
+      "name": "Read directory",
+      "nativeId": "fs/read_dir",
+      "outputDescription": "array",
+      "parameters": [
+        {
+          "description": "Path to parent directory",
+          "name": "path",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Renames a file or directory to a new name, replacing the original file if it exists",
+      "exported": true,
+      "id": "ObgVaFhHilB-5jXps6ANK",
+      "name": "Rename",
+      "nativeId": "fs/rename",
+      "parameters": [
+        {
+          "description": "File or directory to rename",
+          "name": "from",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Destination path of the move",
+          "name": "to",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Copy file contents from source to destination.",
+      "exported": true,
+      "id": "353RXInfjU7i6HK25S3QD",
+      "name": "Copy",
+      "nativeId": "fs/copy",
+      "parameters": [
+        {
+          "description": "File to copy",
+          "name": "from",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Destination path of the copy",
+          "name": "to",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Creates a directory under given path.",
+      "exported": true,
+      "id": "Z54tmxkhRqY55UdaTorwP",
+      "name": "Create directory",
+      "nativeId": "fs/create_directory",
+      "parameters": [
+        {
+          "description": "Path to directory",
+          "name": "path",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "If true, recursively creates a directory if it is missing",
+          "name": "recursive",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "boolean"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Removes a file under given path.",
+      "exported": true,
+      "id": "dQlQDjRZfXcmSRoCV9LY3",
+      "name": "Remove file",
+      "nativeId": "fs/remove_file",
+      "parameters": [
+        {
+          "description": "Path to file to remove",
+          "name": "path",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Removes a directory under given path.",
+      "exported": true,
+      "id": "tiyOeMnrCvhNZp_nup6w0",
+      "name": "Remove directory",
+      "nativeId": "fs/remove_directory",
+      "parameters": [
+        {
+          "description": "Path to directory to remove",
+          "name": "path",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "If true, recursively removes any files or directory. Use with caution!",
+          "name": "recursive",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "boolean"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Check if a given path resolves to an entity.",
+      "exported": true,
+      "id": "fvxWNNLzIU054mAICMuQZ",
+      "name": "Exists",
+      "nativeId": "fs/exists",
+      "outputDescription": "boolean",
+      "parameters": [
+        {
+          "description": "Path to directory to remove",
+          "name": "path",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "body": [
+        {
+          "callee": "local/DMm_keadj1Xe42OOSFy6_",
+          "id": "jFDoUBwgLk8WETIi-MdAy",
+          "parameters": [
+            {
+              "expression": "\".\"",
+              "name": "path",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "dirs",
+          "type": "call"
+        }
+      ],
+      "decorator": false,
+      "description": "",
+      "exported": false,
+      "id": "y7W-3eWJfH7lPLWJzp9Xr",
+      "name": "Examples",
+      "parameters": [],
+      "type": "defineFunction"
+    },
+    {
+      "annotations": [],
+      "body": [],
+      "decorator": false,
+      "description": "Handles file system event received from a watcher",
+      "exported": false,
+      "id": "LIrJ9XsIns2AK9dAmDgEU",
+      "name": "Handle file system event",
+      "parameters": [
+        {
+          "description": "File system event",
+          "name": "event",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "{   kind: \"file\" | \"folder\" | \"name\" | \"metadata\" | \"data\" | \"other\" | \"any\",   path: string,   type: \"create\" | \"modify\" | \"remove\" | \"access\" | \"other\" }"
+        }
+      ],
+      "type": "defineFunction"
     }
   ],
-  "imports": {},
-  "description": "Blocks used to interact with the file system.",
   "moduleId": "05624c52-d54f-412c-93e8-6f342e8e9bb3",
-  "id": "05624c52-d54f-412c-93e8-6f342e8e9bb3"
+  "theme": "green"
 }

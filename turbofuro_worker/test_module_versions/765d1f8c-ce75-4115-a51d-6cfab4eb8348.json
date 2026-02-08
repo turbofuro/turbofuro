@@ -1,62 +1,320 @@
 {
-  "handlers": {},
+  "description": "Utilities for cryptographic operations. Provides functions for generating UUIDs, hashing data, HMAC signing and verification, and JWT token decoding.",
+  "icon": "https://assets.turbofuro.com/lock-simple.svg",
+  "id": "d84f9ac7-c807-449b-a86d-90e862368581",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "code": "JWT_DECODING_FAILED",
+          "type": "throws"
+        }
+      ],
+      "description": "Verifies and decodes JWT",
+      "exported": true,
       "id": "jwt_decode",
       "name": "Decode JWT",
-      "description": "Verifies and decodes JWT",
+      "nativeId": "crypto/jwt_decode",
+      "outputDescription": "object.record",
       "parameters": [
         {
+          "description": "JWT token",
           "name": "token",
           "optional": false,
           "type": "tel",
-          "description": "JWT token",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "valueDescription": "string"
         },
         {
+          "description": "Secret used to sign the token",
           "name": "secret",
           "optional": false,
-          "description": "Secret used to sign the token",
           "type": "tel",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "valueDescription": "string"
+        },
+        {
+          "description": "Hash to use",
+          "name": "hash",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "\"sha512\" | \"sha256\" | \"sha384\" | \"sha224\""
         }
       ],
-      "nativeId": "crypto/jwt_decode",
-      "exported": true,
-      "annotations": []
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Generates a random UUID v4 and saves it to the specified location. UUID is generated using secure random number generator.",
+      "exported": true,
       "id": "get_uuid_v4",
       "name": "Get UUID v4",
-      "description": "Generates a random UUID v4 and saves it to the specified location. UUID is generated using secure random number generator.",
-      "parameters": [],
       "nativeId": "crypto/get_uuid_v4",
-      "exported": true,
-      "annotations": []
+      "outputDescription": "string.uuid",
+      "parameters": [],
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Generates a random UUID v7 and saves it to the specified location. UUID is generated using secure random number generator.",
+      "exported": true,
       "id": "get_uuid_v7",
       "name": "Get UUID v7",
-      "description": "Generates a random UUID v7 and saves it to the specified location. UUID is generated using secure random number generator.",
-      "parameters": [],
       "nativeId": "crypto/get_uuid_v7",
+      "outputDescription": "string.uuid",
+      "parameters": [],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Generates an HMAC (Hash-based Message Authentication Code) for the given data using the specified key and hash algorithm. Returns the HMAC tag as a byte array.",
       "exported": true,
-      "annotations": []
+      "id": "tgNl4ABbsG1_bGPquLFay",
+      "name": "HMAC",
+      "nativeId": "crypto/hmac",
+      "outputDescription": "array.bytes",
+      "parameters": [
+        {
+          "description": "Private key to use",
+          "name": "key",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string | array.bytes"
+        },
+        {
+          "description": "Data to encode",
+          "name": "data",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string | array.bytes"
+        },
+        {
+          "description": "Hash to use",
+          "name": "hash",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "\"sha512\" | \"sha256\" | \"sha384\" | \"sha224\""
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Verifies an HMAC tag for the given data using the specified key and hash algorithm. Throws an error if the verification fails, indicating that the tag is invalid or the key/data don't match.",
+      "exported": true,
+      "id": "vF1fLieWrY99IAtYcY362",
+      "name": "Verify HMAC",
+      "nativeId": "crypto/hmac_verify",
+      "parameters": [
+        {
+          "description": "Private key to use",
+          "name": "key",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string | array.bytes"
+        },
+        {
+          "description": "Data to encode",
+          "name": "data",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string | array.bytes"
+        },
+        {
+          "description": "Tag",
+          "name": "tag",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string | array.bytes"
+        },
+        {
+          "description": "Hash to use",
+          "name": "hash",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "\"sha512\" | \"sha256\" | \"sha384\" | \"sha224\""
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Generates a random UUID v7 and saves it to the specified location. UUID is generated using secure random number generator.",
+      "exported": true,
+      "id": "ifTy54kuFu0eX_OriTKBY",
+      "name": "Generate SHA2 hash",
+      "nativeId": "crypto/sha2",
+      "outputDescription": "array.bytes",
+      "parameters": [
+        {
+          "description": "Hash to use",
+          "name": "hash",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "\"sha512\" | \"sha256\" | \"sha384\" | \"sha224\""
+        },
+        {
+          "description": "Data to encode",
+          "name": "data",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string | array.bytes"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "body": [
+        {
+          "callee": "local/get_uuid_v4",
+          "id": "kRy24NpFkbYvdzgXsHaOF",
+          "parameters": [],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/get_uuid_v7",
+          "id": "_IXfDOB8HwN7HUhSTsT3B",
+          "parameters": [],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/jwt_decode",
+          "id": "ePbq8AVgJmGnEorh36tUF",
+          "parameters": [
+            {
+              "expression": "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtZXNzYWdlIjoiSGVsbG8gV29ybGQiLCJleHAiOjQ1NTI1NTI1MjJ9.qRQDe--OzD0QanQeieeE-cJadvrPf7Gpck-fa4l78Ro\"",
+              "name": "token",
+              "type": "tel"
+            },
+            {
+              "expression": "\"secret\"",
+              "name": "secret",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/ifTy54kuFu0eX_OriTKBY",
+          "id": "3jWbsUJQA62mYHC5L0UZ0",
+          "parameters": [
+            {
+              "expression": "\"sha512\"",
+              "name": "hash",
+              "type": "tel"
+            },
+            {
+              "expression": "\"hello\"",
+              "name": "data",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "key",
+          "type": "call"
+        },
+        {
+          "id": "1g4El3-wPieNXOIEtcHZE",
+          "to": "keyhex",
+          "type": "assign",
+          "value": "key.toHexString()"
+        },
+        {
+          "callee": "local/tgNl4ABbsG1_bGPquLFay",
+          "id": "SC5nIxTzWE0HEjV4FsSyc",
+          "parameters": [
+            {
+              "expression": "\"hello\"",
+              "name": "key",
+              "type": "tel"
+            },
+            {
+              "expression": "\"wow\"",
+              "name": "data",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "tag",
+          "type": "call"
+        },
+        {
+          "callee": "local/vF1fLieWrY99IAtYcY362",
+          "id": "TVsN82IkIEYVUcBFZhbxH",
+          "parameters": [
+            {
+              "expression": "\"hello\"",
+              "name": "key",
+              "type": "tel"
+            },
+            {
+              "expression": "\"wow\"",
+              "name": "data",
+              "type": "tel"
+            },
+            {
+              "expression": "tag",
+              "name": "tag",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        },
+        {
+          "callee": "local/vF1fLieWrY99IAtYcY362",
+          "id": "9wAaMld6R-bNBXEZbcStX",
+          "parameters": [
+            {
+              "expression": "\"hello22\"",
+              "name": "key",
+              "type": "tel"
+            },
+            {
+              "expression": "\"wow\"",
+              "name": "data",
+              "type": "tel"
+            },
+            {
+              "expression": "tag",
+              "name": "tag",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        }
+      ],
+      "description": "",
+      "exported": false,
+      "id": "PzxKploa2dryPdFHprDHf",
+      "name": "Examples",
+      "parameters": [],
+      "type": "defineFunction"
     }
   ],
-  "imports": {},
-  "description": "Cryptography actions that can be used to encrypt, decrypt, sign and verify data.",
   "moduleId": "765d1f8c-ce75-4115-a51d-6cfab4eb8348",
-  "id": "765d1f8c-ce75-4115-a51d-6cfab4eb8348"
+  "theme": "gray"
 }

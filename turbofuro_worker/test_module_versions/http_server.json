@@ -1,48 +1,48 @@
 {
-  "moduleId": "test",
-  "type": "LIBRARY",
   "handlers": {},
+  "id": "http_server",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
-      "id": "respond_with",
-      "name": "Respond with",
-      "description": "Responds to the HTTP request with a given body and status.",
-      "parameters": [
-        {
-          "name": "body",
-          "description": "Response body",
-          "optional": true
-        },
-        {
-          "name": "headers",
-          "optional": true,
-          "description": "Headers map",
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "object"
-          }
-        },
-        {
-          "name": "status",
-          "description": "HTTP Status to be set, 200 by default",
-          "optional": true,
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "integer"
-          }
-        }
-      ],
-      "nativeId": "http_server/respond_with",
       "annotations": [
         {
           "type": "exported"
         }
-      ]
+      ],
+      "description": "Responds to the HTTP request with a given body and status.",
+      "id": "respond_with",
+      "name": "Respond with",
+      "nativeId": "http_server/respond_with",
+      "parameters": [
+        {
+          "description": "Response body",
+          "name": "body",
+          "optional": true
+        },
+        {
+          "description": "Headers map",
+          "name": "headers",
+          "optional": true,
+          "typeDef": {
+            "strict": true,
+            "tag": "simple",
+            "type": "object"
+          }
+        },
+        {
+          "description": "HTTP Status to be set, 200 by default",
+          "name": "status",
+          "optional": true,
+          "typeDef": {
+            "strict": true,
+            "tag": "simple",
+            "type": "integer"
+          }
+        }
+      ],
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "id": "http_server"
+  "moduleId": "test",
+  "type": "LIBRARY"
 }

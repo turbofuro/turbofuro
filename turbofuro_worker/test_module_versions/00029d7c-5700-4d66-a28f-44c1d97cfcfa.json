@@ -1,148 +1,218 @@
 {
-  "handlers": {},
+  "description": "Utilities for interacting with PostgreSQL databases. Provides connection management, query execution, and transaction handling for PostgreSQL database operations.",
+  "icon": "https://assets.turbofuro.com/postgresql.svg",
+  "id": "bf9285d5-011d-448e-8e40-0f39b3fcf8ab",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "postgres_connection",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "description": "Creates Postgres connection pool using provided connection string or retrieves existing one with specified name.",
+      "exported": true,
       "id": "get_connection",
       "name": "Get connection",
-      "description": "Creates Postgres connection pool using provided connection string or retrieves existing one with specified name.",
+      "nativeId": "postgres/get_connection",
       "parameters": [
         {
-          "name": "connectionString",
-          "type": "tel",
-          "optional": false,
           "description": "Connection string in the format of `postgres://user:pass@host:port/dbname`",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "name": "connectionString",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.url"
         },
         {
-          "name": "name",
-          "type": "tel",
-          "optional": true,
           "description": "Resource name, if not provided `default` will be used",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
         }
       ],
-      "nativeId": "postgres/get_connection",
-      "exported": true,
-      "annotations": [
-        {
-          "resource": "postgres_connection",
-          "type": "provision",
-          "strict": true
-        }
-      ]
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "postgres_connection",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "description": "Queries Postgres to retrieve one row. The result is stored in the provided storage location. If multiple rows are returned, or none at all, the action will fail.",
+      "exported": true,
       "id": "query_one",
       "name": "Query single row",
-      "description": "Queries Postgres to retrieve one row. The result is stored in the provided storage location. If multiple rows are returned, or none at all, the action will fail.",
+      "nativeId": "postgres/query_one",
       "parameters": [
         {
-          "name": "statement",
-          "type": "tel",
-          "optional": false,
           "description": "Statement to execute like \"SELECT * FROM users WHERE name = $1\"",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        },
-        {
-          "name": "params",
-          "type": "tel",
+          "name": "statement",
           "optional": false,
-          "description": "Array of parameters to be used in the statement like [\"John\"]",
-          "typeDef": {
-            "tag": "simple",
-            "type": "array",
-            "strict": true
-          }
+          "type": "tel",
+          "valueDescription": "string"
         },
         {
-          "name": "name",
+          "description": "Array of parameters to be used in the statement like [\"John\"]",
+          "name": "params",
+          "optional": false,
           "type": "tel",
+          "valueDescription": "array"
+        },
+        {
+          "description": "Resource name, if not provided `default` will be used",
+          "name": "name",
           "optional": true,
-          "description": "Resource name of the Postgres pool that should be used for this action",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "type": "tel",
+          "valueDescription": "string"
         }
       ],
-      "nativeId": "postgres/query_one",
-      "exported": true,
-      "annotations": [
-        {
-          "resource": "postgres_connection",
-          "type": "requirement",
-          "strict": true
-        }
-      ]
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "query",
-      "name": "Query",
-      "description": "Queries Postgres to retrieve multiple rows. The result is stored in the provided storage location.",
-      "parameters": [
-        {
-          "name": "statement",
-          "type": "tel",
-          "optional": false,
-          "description": "Statement to execute like \"SELECT * FROM users WHERE name = $1\"",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        },
-        {
-          "name": "params",
-          "type": "tel",
-          "optional": false,
-          "description": "Array of parameters to be used in the statement like [\"John\"]",
-          "typeDef": {
-            "tag": "simple",
-            "type": "array",
-            "strict": true
-          }
-        },
-        {
-          "name": "name",
-          "type": "tel",
-          "optional": true,
-          "description": "Resource name of the Postgres pool that should be used for this action",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        }
-      ],
-      "nativeId": "postgres/query",
-      "exported": true,
       "annotations": [
         {
+          "type": "exported"
+        },
+        {
           "resource": "postgres_connection",
-          "type": "requirement",
-          "strict": true
+          "strict": true,
+          "type": "requirement"
         }
-      ]
+      ],
+      "description": "Queries Postgres to retrieve multiple rows. The result is stored in the provided storage location.",
+      "exported": true,
+      "id": "query",
+      "name": "Query",
+      "nativeId": "postgres/query",
+      "parameters": [
+        {
+          "description": "Statement to execute like \"SELECT * FROM users WHERE name = $1\"",
+          "name": "statement",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Array of parameters to be used in the statement like [\"John\"]",
+          "name": "params",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "array"
+        },
+        {
+          "description": "Resource name, if not provided `default` will be used",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "postgres_connection",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "description": "Executes query and returns number of affected rows. This is preferred action when executing INSERT or UPDATE statements.",
+      "exported": true,
+      "id": "WlWl6kzClgldWaXz2cfRU",
+      "name": "Execute",
+      "nativeId": "postgres/execute",
+      "outputDescription": "number",
+      "parameters": [
+        {
+          "description": "Statement to execute like \"SELECT * FROM users WHERE name = $1\"",
+          "name": "statement",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Array of parameters to be used in the statement like [\"John\"]",
+          "name": "params",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "array"
+        },
+        {
+          "description": "Resource name, if not provided `default` will be used",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "postgres_connection",
+          "strict": true,
+          "type": "consumption"
+        }
+      ],
+      "description": "Disconnects and disable Postgres connection.\n\nUse with caution!",
+      "exported": true,
+      "id": "kleF4a3_BIYGw5YTVXw9i",
+      "name": "Drop connection",
+      "nativeId": "postgres/drop_connnection",
+      "parameters": [
+        {
+          "description": "Resource name, if not provided `default` will be used",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "body": [
+        {
+          "callee": "local/get_connection",
+          "id": "lhLrX4fIeOHH2FDJMILnS",
+          "parameters": [
+            {
+              "expression": "\"postgres://\"",
+              "name": "connectionString",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        }
+      ],
+      "description": "",
+      "exported": false,
+      "id": "jZ-VDkzcE-rLewylg37mZ",
+      "name": "Examples",
+      "parameters": [],
+      "type": "defineFunction"
     }
   ],
-  "imports": {},
-  "description": "PostgreSQL, also known as Postgres, is a free and open-source relational database management system emphasizing extensibility and SQL compliance.",
   "moduleId": "00029d7c-5700-4d66-a28f-44c1d97cfcfa",
-  "id": "00029d7c-5700-4d66-a28f-44c1d97cfcfa"
+  "theme": "blue"
 }

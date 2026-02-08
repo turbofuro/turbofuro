@@ -1,0 +1,356 @@
+{
+  "description": "Utilities for interacting with LibSQL databases. Provides connection management, query execution, and transaction handling for LibSQL database operations.",
+  "icon": "system://database",
+  "id": "3144f91b-1cb2-4597-8032-3747ba8b175a",
+  "imports": {},
+  "instructions": [
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "libsql_connection",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "decorator": false,
+      "description": "Creates LibSQL connection pool using provided connection string or retrieves existing one with specified name.",
+      "exported": true,
+      "id": "get_connection",
+      "name": "Get connection",
+      "nativeId": "libsql/get_connection",
+      "parameters": [
+        {
+          "description": "Connection string in the format of `postgres://user:pass@host:port/dbname`",
+          "name": "connectionString",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.url"
+        },
+        {
+          "description": "Resource name, if not provided `default` will be used",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "libsql_connection",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "decorator": false,
+      "description": "Queries LibSQL to retrieve multiple rows. The result is stored in the provided storage location.",
+      "exported": true,
+      "id": "query",
+      "name": "Query",
+      "nativeId": "libsql/query",
+      "parameters": [
+        {
+          "description": "Statement to execute like \"SELECT * FROM users WHERE name = $1\"",
+          "name": "statement",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Array of parameters to be used in the statement like [\"John\"]",
+          "name": "params",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "array"
+        },
+        {
+          "description": "Resource name, if not provided `default` will be used",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "libsql_connection",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "decorator": false,
+      "description": "Queries LibSQL to retrieve one row. The result is stored in the provided storage location. If multiple rows are returned, or none at all, the action will fail.",
+      "exported": true,
+      "id": "p8TcaN0V2jAo2kvF8Ejig",
+      "name": "Query single row",
+      "nativeId": "libsql/query_one",
+      "parameters": [
+        {
+          "description": "Statement to execute like \"SELECT * FROM users WHERE name = $1\"",
+          "name": "statement",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Array of parameters to be used in the statement like [\"John\"]",
+          "name": "params",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "array"
+        },
+        {
+          "description": "Resource name, if not provided `default` will be used",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "libsql_connection",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "decorator": false,
+      "description": "Executes query and returns number of affected rows. This is preferred action when executing INSERT or UPDATE statements.",
+      "exported": true,
+      "id": "1MvF7MV68sR0Vw8O35xAb",
+      "name": "Execute",
+      "nativeId": "libsql/execute",
+      "outputDescription": "number",
+      "parameters": [
+        {
+          "description": "Statement to execute like \"SELECT * FROM users WHERE name = $1\"",
+          "name": "statement",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Array of parameters to be used in the statement like [\"John\"]",
+          "name": "params",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "array"
+        },
+        {
+          "description": "Resource name, if not provided `default` will be used",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "libsql_connection",
+          "strict": true,
+          "type": "consumption"
+        }
+      ],
+      "decorator": false,
+      "description": "Disconnects and disable LibSQL connection.\n\nUse with caution!",
+      "exported": true,
+      "id": "kleF4a3_BIYGw5YTVXw9i",
+      "name": "Drop connection",
+      "nativeId": "libsql/drop_connection",
+      "parameters": [
+        {
+          "description": "Resource name, if not provided `default` will be used",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "body": [
+        {
+          "callee": "local/get_connection",
+          "id": "zw7tRpnufCTZkPRVT3sG_",
+          "parameters": [
+            {
+              "expression": "\"file:/Users/r/Documents/local.db\"",
+              "name": "connectionString",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        },
+        {
+          "callee": "local/query",
+          "id": "lgfW-VjaqZbW8S0d3Y3pC",
+          "parameters": [
+            {
+              "expression": "```sql\nCREATE TABLE IF NOT EXISTS projects (\n    id integer PRIMARY KEY,\n    name text NOT NULL\n)\n```",
+              "name": "statement",
+              "type": "tel"
+            },
+            {
+              "expression": "[]",
+              "name": "params",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/query",
+          "id": "k9lkXxpvEPxKZ-KuncXTM",
+          "parameters": [
+            {
+              "expression": "```sql\nSELECT * FROM projects\n```",
+              "name": "statement",
+              "type": "tel"
+            },
+            {
+              "expression": "[]",
+              "name": "params",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/query",
+          "id": "dy3IYD4OmACzOY7UGDiSi",
+          "parameters": [
+            {
+              "expression": "```sql\nINSERT INTO projects(name) VALUES (?1)\n```",
+              "name": "statement",
+              "type": "tel"
+            },
+            {
+              "expression": "[\"Hello\"]",
+              "name": "params",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/1MvF7MV68sR0Vw8O35xAb",
+          "id": "JodWgbOvr2bju1kT4p2zk",
+          "parameters": [
+            {
+              "expression": "```sql\nINSERT INTO projects(name) VALUES (?1)\n```",
+              "name": "statement",
+              "type": "tel"
+            },
+            {
+              "expression": "[\"Wow\"]",
+              "name": "params",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/query",
+          "id": "_BUxpJPsj2u3TrWFoopys",
+          "parameters": [
+            {
+              "expression": "```sql\nSELECT * FROM projects\n```",
+              "name": "statement",
+              "type": "tel"
+            },
+            {
+              "expression": "[]",
+              "name": "params",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/p8TcaN0V2jAo2kvF8Ejig",
+          "id": "yPByf_6U9qzjrRCLKGBzu",
+          "parameters": [
+            {
+              "expression": "```sql\nSELECT * FROM projects LIMIT 1\n```",
+              "name": "statement",
+              "type": "tel"
+            },
+            {
+              "expression": "[]",
+              "name": "params",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/kleF4a3_BIYGw5YTVXw9i",
+          "id": "8OhdogdXPRxTcOUS9c54q",
+          "parameters": [],
+          "type": "call"
+        },
+        {
+          "callee": "local/p8TcaN0V2jAo2kvF8Ejig",
+          "id": "85TggK9tLoia_xV02lMkG",
+          "parameters": [
+            {
+              "expression": "```sql\nSELECT * FROM projects\n```",
+              "name": "statement",
+              "type": "tel"
+            },
+            {
+              "expression": "[]",
+              "name": "params",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        }
+      ],
+      "decorator": false,
+      "description": "",
+      "exported": false,
+      "id": "68lpumXY4BuRTi1phtPNs",
+      "name": "Example",
+      "parameters": [],
+      "type": "defineFunction"
+    }
+  ],
+  "moduleId": "337fe61f-e0d3-45a5-a217-f89e171e6e0e",
+  "theme": "teal"
+}

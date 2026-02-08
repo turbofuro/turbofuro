@@ -1,139 +1,139 @@
 {
-  "moduleId": "test",
   "description": "Test module that runs a sum function",
-  "id": "sum",
-  "type": "HTTP",
-  "imports": {
-    "c2dfa57f-e73e-452a-8707-db7a451965ce": {
-      "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-      "type": "cloud"
-    }
-  },
   "handlers": {
     "onStart": "a5CL6vND6LqD4XOIaMPCO"
   },
+  "id": "sum",
+  "imports": {
+    "c2dfa57f-e73e-452a-8707-db7a451965ce": {
+      "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
+      "type": "cloud",
+      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce"
+    }
+  },
   "instructions": [
     {
-      "type": "defineFunction",
-      "version": "1.0.0",
-      "name": "Handle request",
-      "description": "Handles HTTP request.",
-      "parameters": [
-        {
-          "name": "request",
-          "description": "The incoming request object.",
-          "optional": false,
-          "type": "tel"
-        }
-      ],
       "annotations": [],
-      "id": "mm5t8FPIk5qVZsJxHhxPz",
       "body": [
         {
-          "type": "call",
-          "version": "1",
           "callee": "local/kuEVtj5go2LO-peJf1U1J",
-          "storeAs": "result",
+          "id": "tEEyvGkXXE90Ww9bNOzy_",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "5",
               "name": "a",
-              "expression": "5"
+              "type": "tel"
             },
             {
-              "type": "tel",
+              "expression": "-12",
               "name": "b",
-              "expression": "-12"
+              "type": "tel"
             }
           ],
-          "id": "tEEyvGkXXE90Ww9bNOzy_"
+          "storeAs": "result",
+          "type": "call",
+          "version": "1"
         },
         {
-          "type": "call",
-          "version": "1",
           "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+          "id": "y1O8l4T9B-yhDRdJyAkok",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "{\n  output: result\n}",
               "name": "body",
-              "expression": "{\n  output: result\n}"
+              "type": "tel"
             },
             {
-              "type": "tel",
+              "expression": "\"json\"",
               "name": "responseType",
-              "expression": "\"json\""
+              "type": "tel"
             }
           ],
-          "id": "y1O8l4T9B-yhDRdJyAkok"
+          "type": "call",
+          "version": "1"
         }
-      ]
-    },
-    {
-      "type": "defineFunction",
-      "version": "1",
-      "name": "Add",
-      "description": "Sums two numbers",
-      "annotations": [],
+      ],
+      "description": "Handles HTTP request.",
+      "id": "mm5t8FPIk5qVZsJxHhxPz",
+      "name": "Handle request",
       "parameters": [
         {
-          "name": "a",
-          "description": "",
-          "optional": false,
-          "type": "tel"
-        },
-        {
-          "name": "b",
-          "description": "",
+          "description": "The incoming request object.",
+          "name": "request",
           "optional": false,
           "type": "tel"
         }
       ],
-      "id": "kuEVtj5go2LO-peJf1U1J",
-      "body": [
-        {
-          "type": "return",
-          "version": "1",
-          "value": "a + b",
-          "id": "G-iSZFJuufRFfxIHC5Rti"
-        }
-      ]
+      "type": "defineFunction",
+      "version": "1.0.0"
     },
     {
+      "annotations": [],
+      "body": [
+        {
+          "id": "G-iSZFJuufRFfxIHC5Rti",
+          "type": "return",
+          "value": "a + b",
+          "version": "1"
+        }
+      ],
+      "description": "Sums two numbers",
+      "id": "kuEVtj5go2LO-peJf1U1J",
+      "name": "Add",
+      "parameters": [
+        {
+          "description": "",
+          "name": "a",
+          "optional": false,
+          "type": "tel"
+        },
+        {
+          "description": "",
+          "name": "b",
+          "optional": false,
+          "type": "tel"
+        }
+      ],
       "type": "defineFunction",
-      "name": "On start",
-      "description": "Initializes this module.",
-      "parameters": [],
+      "version": "1"
+    },
+    {
       "annotations": [
         {
           "type": "module_starter"
         }
       ],
-      "id": "a5CL6vND6LqD4XOIaMPCO",
       "body": [
         {
-          "type": "call",
           "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/setup_route",
+          "id": "ObDqDqaFfGHCZA0-idtFI",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "\"get\"",
               "name": "method",
-              "expression": "\"get\""
+              "type": "tel"
             },
             {
-              "type": "functionRef",
+              "id": "mm5t8FPIk5qVZsJxHhxPz",
               "name": "onHttpRequest",
-              "id": "mm5t8FPIk5qVZsJxHhxPz"
+              "type": "functionRef"
             },
             {
-              "type": "tel",
+              "expression": "\"/sum\"",
               "name": "path",
-              "expression": "\"/sum\""
+              "type": "tel"
             }
           ],
-          "id": "ObDqDqaFfGHCZA0-idtFI"
+          "type": "call"
         }
-      ]
+      ],
+      "description": "Initializes this module.",
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "name": "On start",
+      "parameters": [],
+      "type": "defineFunction"
     }
-  ]
+  ],
+  "moduleId": "test",
+  "type": "HTTP"
 }

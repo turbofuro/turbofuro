@@ -1,0 +1,83 @@
+{
+  "description": "Utilities for scheduling and managing recurring tasks. Supports continuous task execution with optional error backoff and cancellation.",
+  "icon": "https://assets.turbofuro.com/check-square-offset.svg",
+  "id": "073ecb7a-6e62-452d-999d-81e382ce3eba",
+  "imports": {
+    "37863408-1d22-4da0-9d80-032d27c448a9": {
+      "id": "37863408-1d22-4da0-9d80-032d27c448a9",
+      "type": "cloud",
+      "versionId": "f871c40d-55f1-415c-982a-945da32d47fc"
+    }
+  },
+  "instructions": [
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Run tasks continuously with optional delay backoff if error occures",
+      "exported": true,
+      "id": "NzrMXHxhf43JUWorgR7S4",
+      "name": "Run task continuously",
+      "nativeId": "tasks/run_task_continuously",
+      "parameters": [
+        {
+          "description": "Delay when tasks fails, in milliseconds, 5000 by default",
+          "name": "backoff",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "number"
+        },
+        {
+          "description": "Function to be run as a task",
+          "handlerTemplate": {
+            "annotations": [],
+            "description": "Handles a single task run",
+            "name": "Handle task run",
+            "parameters": [
+              {
+                "description": "Data passed while task was scheduled",
+                "name": "data",
+                "optional": true,
+                "type": "tel",
+                "valueDescription": "any"
+              }
+            ]
+          },
+          "name": "onRun",
+          "optional": false,
+          "type": "functionRef"
+        },
+        {
+          "description": "Data to pass to task function",
+          "name": "data",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "any"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "body": [],
+      "description": "Handles a single task run",
+      "exported": false,
+      "id": "VWl4GliI75RhPmF4sHMVA",
+      "name": "Handle task run",
+      "parameters": [
+        {
+          "description": "Data passed while task was scheduled",
+          "name": "data",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "any"
+        }
+      ],
+      "type": "defineFunction"
+    }
+  ],
+  "moduleId": "6b6de260-151c-422e-bcce-acab3dc28260",
+  "theme": "gray"
+}

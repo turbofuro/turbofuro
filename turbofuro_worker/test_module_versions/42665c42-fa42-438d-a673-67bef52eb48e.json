@@ -1,0 +1,205 @@
+{
+  "description": "Utilities for sending emails via SMTP. Supports sending both plain text and HTML emails with configurable recipients, subjects, and attachments.",
+  "icon": "https://assets.turbofuro.com/envelope.svg",
+  "id": "3b647df3-906e-4e70-9a0b-d46ff9e236e0",
+  "imports": {},
+  "instructions": [
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Sends email via SMTP relay.",
+      "exported": true,
+      "id": "y7Odj8ujX6xP1_7FNAwJI",
+      "name": "Send HTML email via SMTP",
+      "nativeId": "mail/send_smtp_html",
+      "parameters": [
+        {
+          "description": "SMTP protocol like connection string like `smtps://apikey:[YOUR_API_KEY]@smtp.sendgrid.net:465`",
+          "name": "connectionUrl",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.url"
+        },
+        {
+          "description": "The sender's email address, representing the originator of the email fe. Adam Example \\<adamexample@turbofuro.com\\>",
+          "name": "from",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "The recipient's email address or a list of email addresses to whom the email will be sent fe. Adam Example \\<adamexample@turbofuro.com\\>",
+          "name": "to",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string | string[]"
+        },
+        {
+          "description": "An optional email address used to direct responses, differing from the from address if specified.",
+          "name": "replyTo",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string | string[]"
+        },
+        {
+          "description": "The subject line of the email, providing a summary or introduction to the email's content.",
+          "name": "subject",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "The main content of the email in a HTML format",
+          "name": "html",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "The main content of the email in a plain text",
+          "name": "text",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Sends email via SMTP relay.",
+      "exported": true,
+      "id": "YpyQjX9UJOj6p_T1peY3i",
+      "name": "Send email via SMTP",
+      "nativeId": "mail/send_smtp_text",
+      "parameters": [
+        {
+          "description": "SMTP protocol like connection string like `smtps://apikey:[YOUR_API_KEY]@smtp.sendgrid.net:465`",
+          "name": "connectionUrl",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.url"
+        },
+        {
+          "description": "The sender's email address, representing the originator of the email fe. Adam Example \\<adamexample@turbofuro.com\\>",
+          "name": "from",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "The recipient's email address or a list of email addresses to whom the email will be sent fe. Adam Example \\<adamexample@turbofuro.com\\>",
+          "name": "to",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string | string[]"
+        },
+        {
+          "description": "An optional email address used to direct responses, differing from the from address if specified.",
+          "name": "replyTo",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string | string[]"
+        },
+        {
+          "description": "The subject line of the email, providing a summary or introduction to the email's content.",
+          "name": "subject",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "The main content of the email in a plain text",
+          "name": "text",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "body": [
+        {
+          "callee": "local/y7Odj8ujX6xP1_7FNAwJI",
+          "id": "L9AukLIwxVHSDgopcUdru",
+          "parameters": [
+            {
+              "expression": "\"hello@system.turbofuro.com\"",
+              "name": "from",
+              "type": "tel"
+            },
+            {
+              "expression": "\"bartosz.wisniewski@turbofuro.com\"",
+              "name": "to",
+              "type": "tel"
+            },
+            {
+              "expression": "\"Hey, this is a test email!\"",
+              "name": "subject",
+              "type": "tel"
+            },
+            {
+              "expression": "```html\n<h1>Hey</h1>\n<p>This is a text</p>\n```",
+              "name": "body",
+              "type": "tel"
+            },
+            {
+              "expression": "\"smtp.sendgrid.net\"",
+              "name": "host",
+              "type": "tel"
+            },
+            {
+              "expression": "\"apikey\"",
+              "name": "username",
+              "type": "tel"
+            },
+            {
+              "expression": "$SENDGRID_KEY",
+              "name": "password",
+              "type": "tel"
+            },
+            {
+              "expression": "result",
+              "name": "saveAs",
+              "type": "tel"
+            },
+            {
+              "expression": "\"support@turbofuro.com\"",
+              "name": "replyTo",
+              "type": "tel"
+            },
+            {
+              "expression": "$SENDGRID_SMTP",
+              "name": "connectionUrl",
+              "type": "tel"
+            },
+            {
+              "expression": "```html\n<p>\n  Hi, please <strong>ignore me</strong>\n  <a href=\"https://turbofuro.com\">Visit our page!</a>\n</p>\n```",
+              "name": "html",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        }
+      ],
+      "description": "",
+      "exported": false,
+      "id": "-1CvIAK_MeP13IYnbp4sp",
+      "name": "Examples",
+      "parameters": [],
+      "type": "defineFunction"
+    }
+  ],
+  "moduleId": "42665c42-fa42-438d-a673-67bef52eb48e",
+  "theme": "gray"
+}

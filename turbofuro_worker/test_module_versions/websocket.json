@@ -1,82 +1,82 @@
 {
-  "moduleId": "test",
-  "type": "LIBRARY",
   "handlers": {},
+  "id": "websocket",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
+      "annotations": [],
+      "description": "Upgrades HTTP connection to a WebSocket",
       "id": "accept_ws",
       "name": "Accept WebSocket",
-      "description": "Upgrades HTTP connection to a WebSocket",
-      "annotations": [],
+      "nativeId": "websocket_server/accept_ws",
       "parameters": [
         {
+          "description": "If provided created WebSocket resource will be put into local scope allowing other services to use it.",
           "name": "name",
           "optional": true,
-          "description": "If provided created WebSocket resource will be put into local scope allowing other services to use it.",
           "typeDef": {
+            "strict": true,
             "tag": "simple",
-            "type": "string",
-            "strict": true
+            "type": "string"
           }
         }
       ],
-      "nativeId": "websocket_server/accept_ws"
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Sends a message over a WebSocket",
       "id": "send_message",
       "name": "Send message",
-      "description": "Sends a message over a WebSocket",
+      "nativeId": "websocket_server/send_message",
       "parameters": [
         {
+          "description": "Message to send",
           "name": "message",
-          "optional": false,
-          "description": "Message to send"
+          "optional": false
         },
         {
+          "description": "Resource name of the WebSocket that should be used for this action",
           "name": "name",
           "optional": true,
-          "description": "Resource name of the WebSocket that should be used for this action",
           "typeDef": {
+            "strict": true,
             "tag": "simple",
-            "type": "string",
-            "strict": true
+            "type": "string"
           }
         }
       ],
-      "nativeId": "websocket_server/send_message",
-      "annotations": [
-        {
-          "type": "exported"
-        }
-      ]
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "close",
-      "name": "Close WebSocket",
-      "description": "Sends a closing message and terminates a connection",
-      "parameters": [
-        {
-          "name": "name",
-          "optional": true,
-          "description": "Resource name of the WebSocket that should be used for this action",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        }
-      ],
-      "nativeId": "websocket_server/close",
       "annotations": [
         {
           "type": "exported"
         }
-      ]
+      ],
+      "description": "Sends a closing message and terminates a connection",
+      "id": "close",
+      "name": "Close WebSocket",
+      "nativeId": "websocket_server/close",
+      "parameters": [
+        {
+          "description": "Resource name of the WebSocket that should be used for this action",
+          "name": "name",
+          "optional": true,
+          "typeDef": {
+            "strict": true,
+            "tag": "simple",
+            "type": "string"
+          }
+        }
+      ],
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "id": "websocket"
+  "moduleId": "test",
+  "type": "LIBRARY"
 }

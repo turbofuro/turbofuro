@@ -1,116 +1,328 @@
 {
-  "handlers": {},
+  "description": "Utilities for WebSocket server functionality. Enables accepting WebSocket connections, sending and receiving messages, and managing WebSocket sessions.",
+  "icon": "https://assets.turbofuro.com/plugs.svg",
+  "id": "408993e0-9784-435c-80ba-fe36c7e0005d",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Sets up a route for the HTTP server.",
+      "exported": true,
       "id": "setup_route",
       "name": "Setup route",
-      "description": "Sets up a route for the HTTP server.",
+      "nativeId": "http_server/setup_route",
       "parameters": [
         {
+          "description": "Path to match",
           "name": "path",
           "optional": true,
-          "description": "Path to match",
           "type": "tel",
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "object"
-          }
+          "valueDescription": "string"
         },
         {
+          "description": "Function to be called when the route is matched",
+          "handlerTemplate": {
+            "annotations": [
+              {
+                "resource": "http_request",
+                "strict": true,
+                "type": "consumption"
+              }
+            ],
+            "description": "Handles incoming HTTP request with automatic body parsing.\n\nThe request body is parsed based on HTTP `Content-Type` header. The parser can handle JSON payloads, URL-encoded forms, plain text, bytes and multipart form data. Note that due to buffer size limits multipart payloads are not parsed immediately, instead a pending form data resource is provided.\n\nThe function receives a resource to HTTP request that expects a response.",
+            "name": "Handle request",
+            "parameters": [
+              {
+                "description": "Request metadata",
+                "name": "request",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "{     cookies: array,     headers: object.record,     method: \"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"OPTIONS\" | \"HEAD\",     params: object.record,     query: object.record,     path: string,     version: string,     body: any }"
+              },
+              {
+                "description": "Actor state",
+                "name": "state",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "any"
+              }
+            ]
+          },
           "name": "onHttpRequest",
-          "description": "Function to be called when the route is matched",
           "optional": false,
           "type": "functionRef"
         },
         {
-          "name": "onWebSocketConnection",
           "description": "Function to be called when the WebSocket connection is established",
+          "handlerTemplate": {
+            "annotations": [],
+            "description": "Handles new WebSocket connection establishment. Called when a client successfully upgrades the HTTP connection to a WebSocket connection.",
+            "name": "Handle WebSocket connection",
+            "parameters": [
+              {
+                "description": "Actor state",
+                "name": "state",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "any"
+              }
+            ]
+          },
+          "name": "onWebSocketConnection",
           "optional": true,
           "type": "functionRef"
         },
         {
-          "name": "onWebSocketMessage",
           "description": "Function to be called when the route is matched",
+          "handlerTemplate": {
+            "annotations": [],
+            "description": "Handles incoming WebSocket messages from clients. Called when a message is received over the WebSocket connection. The function receives the message content and the current actor state.",
+            "name": "Handle WebSocket message",
+            "parameters": [
+              {
+                "description": "WebSocket message",
+                "name": "message",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "string | array | \"ping\" | \"pong\" | null"
+              },
+              {
+                "description": "Actor state",
+                "name": "state",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "any"
+              }
+            ]
+          },
+          "name": "onWebSocketMessage",
           "optional": false,
           "type": "functionRef"
         },
         {
-          "name": "onWebSocketDisconnection",
           "description": "Function to be called when the WebSocket is closed",
+          "handlerTemplate": {
+            "annotations": [],
+            "description": "Handles WebSocket disconnection events. Called when the WebSocket connection is closed, either by the client or due to an error. The function receives the disconnection reason and the current actor state.",
+            "name": "Handle WebSocket disconnection",
+            "parameters": [
+              {
+                "description": "Disconnection reason",
+                "name": "reason",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "string"
+              },
+              {
+                "description": "Actor state",
+                "name": "state",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "any"
+              }
+            ]
+          },
+          "name": "onWebSocketDisconnection",
           "optional": true,
           "type": "functionRef"
         },
         {
-          "name": "onMessage",
           "description": "Function to be called when the actor receives a new message",
+          "name": "onMessage",
+          "optional": true,
+          "type": "functionRef"
+        },
+        {
+          "description": "Function to be called when the actor receives a new request",
+          "name": "onRequest",
           "optional": true,
           "type": "functionRef"
         }
       ],
-      "nativeId": "http_server/setup_route",
-      "exported": true,
-      "annotations": []
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "accept_ws",
-      "name": "Accept WebSocket",
-      "description": "In order to communicate over a WebSocket, the HTTP connection needs to be upgraded to a WebSocket. Use this action in request handler in WebSocket service to upgrade the connection to allow further communication over WebSocket.",
-      "parameters": [],
-      "nativeId": "websocket_server/accept_ws",
-      "exported": true,
       "annotations": [
         {
           "resource": "http_request",
           "strict": true,
           "type": "consumption"
         }
-      ]
-    },
-    {
-      "type": "defineNativeFunction",
-      "id": "send_message",
-      "name": "Send message",
-      "description": "Sends a message over a WebSocket. If no name is provided, the scoped WebSocket will be used. If no WebSocket is found the action will fail.",
+      ],
+      "body": [],
+      "decorator": false,
+      "description": "Handles incoming HTTP request with automatic body parsing.\n\nThe request body is parsed based on HTTP `Content-Type` header. The parser can handle JSON payloads, URL-encoded forms, plain text, bytes and multipart form data. Note that due to buffer size limits multipart payloads are not parsed immediately, instead a pending form data resource is provided.\n\nThe function receives a resource to HTTP request that expects a response.",
+      "exported": false,
+      "id": "a_rbw7ONge3Eot8br_4LP",
+      "name": "Handle request",
       "parameters": [
         {
-          "type": "tel",
-          "name": "message",
+          "description": "Request metadata",
+          "name": "request",
           "optional": false,
-          "description": "Message to send"
+          "type": "tel",
+          "valueDescription": "{     cookies: array,     headers: object.record,     method: \"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"OPTIONS\" | \"HEAD\",     params: object.record,     query: object.record,     path: string,     version: string,     body: any }"
+        },
+        {
+          "description": "Actor state",
+          "name": "state",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "any"
         }
       ],
-      "nativeId": "websocket_server/send_message",
-      "exported": true,
+      "type": "defineFunction"
+    },
+    {
+      "annotations": [],
+      "body": [],
+      "decorator": false,
+      "description": "",
+      "exported": false,
+      "id": "yeMk_0ZuKNGm8VCe65FAC",
+      "name": "Handle WebSocket message",
+      "parameters": [
+        {
+          "description": "WebSocket message",
+          "name": "message",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string | array | \"ping\" | \"pong\" | null"
+        },
+        {
+          "description": "Actor state",
+          "name": "state",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "any"
+        }
+      ],
+      "type": "defineFunction"
+    },
+    {
+      "annotations": [],
+      "body": [],
+      "decorator": false,
+      "description": "",
+      "exported": false,
+      "id": "Jo0o3tT9sbw0HHJpTaoj4",
+      "name": "Handle WebSocket connection",
+      "parameters": [
+        {
+          "description": "Actor state",
+          "name": "state",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "any"
+        }
+      ],
+      "type": "defineFunction"
+    },
+    {
+      "annotations": [],
+      "body": [],
+      "decorator": false,
+      "description": "",
+      "exported": false,
+      "id": "crEA3mBd1_8aAoK7tk6Hv",
+      "name": "Handle WebSocket disconnection",
+      "parameters": [
+        {
+          "description": "Disconnection reason",
+          "name": "reason",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Actor state",
+          "name": "state",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "any"
+        }
+      ],
+      "type": "defineFunction"
+    },
+    {
       "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "websocket",
+          "strict": true,
+          "type": "provision"
+        },
+        {
+          "resource": "http_request",
+          "strict": true,
+          "type": "consumption"
+        }
+      ],
+      "decorator": false,
+      "description": "In order to communicate over a WebSocket, the HTTP connection needs to be upgraded to a WebSocket. Use this action in request handler in WebSocket service to upgrade the connection to allow further communication over WebSocket.",
+      "exported": true,
+      "id": "accept_ws",
+      "name": "Accept WebSocket",
+      "nativeId": "websocket_server/accept_ws",
+      "parameters": [],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
         {
           "resource": "websocket",
           "strict": true,
           "type": "requirement"
         }
-      ]
+      ],
+      "decorator": false,
+      "description": "Sends a message over a WebSocket. If no name is provided, the scoped WebSocket will be used. If no WebSocket is found the action will fail.",
+      "exported": true,
+      "id": "send_message",
+      "name": "Send message",
+      "nativeId": "websocket_server/send_message",
+      "parameters": [
+        {
+          "description": "Message to send, automatically converts to JSON if an object or array is provided",
+          "name": "message",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "any"
+        }
+      ],
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "close",
-      "name": "Close WebSocket",
-      "description": "Sends a closing message and terminates a connection consuming WebSocket resource. If no name is provided, the scoped WebSocket will be used. If no WebSocket is found the action will fail.",
-      "parameters": [],
-      "nativeId": "websocket_server/close",
-      "exported": true,
       "annotations": [
+        {
+          "type": "exported"
+        },
         {
           "resource": "websocket",
           "strict": true,
           "type": "consumption"
         }
-      ]
+      ],
+      "decorator": false,
+      "description": "Sends a closing message and terminates a connection consuming WebSocket resource. If no name is provided, the scoped WebSocket will be used. If no WebSocket is found the action will fail.",
+      "exported": true,
+      "id": "close",
+      "name": "Close WebSocket",
+      "nativeId": "websocket_server/close",
+      "parameters": [],
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "description": "WebSocket is a computer communications protocol, providing full-duplex communication channels over a single TCP connection.",
   "moduleId": "23ace28c-84bc-400b-91b6-f83bd575b793",
-  "id": "23ace28c-84bc-400b-91b6-f83bd575b793"
+  "theme": "gray"
 }

@@ -1,127 +1,127 @@
 {
-  "moduleId": "test",
-  "type": "LIBRARY",
   "handlers": {},
+  "id": "postgres",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Establishes connection to Postgres",
       "id": "get_connection",
       "name": "Get connection",
-      "description": "Establishes connection to Postgres",
+      "nativeId": "postgres/get_connection",
       "parameters": [
         {
+          "description": "Connection string in the format of `postgres://user:pass@host:port/dbname`",
           "name": "connectionString",
           "optional": false,
-          "description": "Connection string in the format of `postgres://user:pass@host:port/dbname`",
           "typeDef": {
+            "strict": true,
             "tag": "simple",
-            "type": "string",
-            "strict": true
+            "type": "string"
           }
         },
         {
+          "description": "Resource name, if not provided `default` will be used",
           "name": "name",
           "optional": true,
-          "description": "Resource name, if not provided `default` will be used",
           "typeDef": {
+            "strict": true,
             "tag": "simple",
-            "type": "string",
-            "strict": true
+            "type": "string"
           }
         }
       ],
-      "nativeId": "postgres/get_connection",
-      "annotations": [
-        {
-          "type": "exported"
-        }
-      ]
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
+      "description": "Queries one row",
+      "exported": true,
       "id": "query_one",
       "name": "Query single row",
-      "description": "Queries one row",
+      "nativeId": "postgres/query_one",
       "parameters": [
         {
+          "description": "Statement to execute like \"SELECT * FROM users WHERE name = $1\"",
           "name": "statement",
           "optional": false,
-          "description": "Statement to execute like \"SELECT * FROM users WHERE name = $1\"",
           "typeDef": {
+            "strict": true,
             "tag": "simple",
-            "type": "string",
-            "strict": true
+            "type": "string"
           }
         },
         {
+          "description": "Array of parameters to be used in the statement like [\"John\"]",
           "name": "params",
           "optional": false,
-          "description": "Array of parameters to be used in the statement like [\"John\"]",
           "typeDef": {
+            "strict": true,
             "tag": "simple",
-            "type": "array",
-            "strict": true
+            "type": "array"
           }
         },
         {
+          "description": "Resource name of the Postgres pool that should be used for this action",
           "name": "name",
           "optional": true,
-          "description": "Resource name of the Postgres pool that should be used for this action",
           "typeDef": {
+            "strict": true,
             "tag": "simple",
-            "type": "string",
-            "strict": true
+            "type": "string"
           }
         }
       ],
-      "nativeId": "postgres/query_one",
-      "exported": true
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "query",
-      "name": "Query",
-      "description": "Queries multiple rows",
-      "parameters": [
-        {
-          "name": "statement",
-          "optional": false,
-          "description": "Statement to execute like \"SELECT * FROM users WHERE name = $1\"",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        },
-        {
-          "name": "params",
-          "optional": false,
-          "description": "Array of parameters to be used in the statement like [\"John\"]",
-          "typeDef": {
-            "tag": "simple",
-            "type": "array",
-            "strict": true
-          }
-        },
-        {
-          "name": "name",
-          "optional": true,
-          "description": "Resource name of the Postgres pool that should be used for this action",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        }
-      ],
-      "nativeId": "postgres/query",
       "annotations": [
         {
           "type": "exported"
         }
-      ]
+      ],
+      "description": "Queries multiple rows",
+      "id": "query",
+      "name": "Query",
+      "nativeId": "postgres/query",
+      "parameters": [
+        {
+          "description": "Statement to execute like \"SELECT * FROM users WHERE name = $1\"",
+          "name": "statement",
+          "optional": false,
+          "typeDef": {
+            "strict": true,
+            "tag": "simple",
+            "type": "string"
+          }
+        },
+        {
+          "description": "Array of parameters to be used in the statement like [\"John\"]",
+          "name": "params",
+          "optional": false,
+          "typeDef": {
+            "strict": true,
+            "tag": "simple",
+            "type": "array"
+          }
+        },
+        {
+          "description": "Resource name of the Postgres pool that should be used for this action",
+          "name": "name",
+          "optional": true,
+          "typeDef": {
+            "strict": true,
+            "tag": "simple",
+            "type": "string"
+          }
+        }
+      ],
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "id": "postgres"
+  "moduleId": "test",
+  "type": "LIBRARY"
 }

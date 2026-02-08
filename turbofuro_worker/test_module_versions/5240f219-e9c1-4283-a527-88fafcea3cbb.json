@@ -1,0 +1,40 @@
+{
+  "description": "Utilities for rendering Mustache templates. Mustache is a logic-less templating system that enables dynamic content generation from templates and data.",
+  "icon": "https://assets.turbofuro.com/mustache.png",
+  "id": "678d37be-bea2-4e12-943a-c6f66fc916af",
+  "imports": {},
+  "instructions": [
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Renders a template into a string.\n\n\nA typical Mustache template:\n```\nHello {{name}}\nYou have just won {{value}} dollars!\n{{#in_ca}}\nWell, {{taxed_value}} dollars, after taxes.\n{{/in_ca}}\n```\n\nGiven the following storage value:\n```javascript\n{\n  \"name\": \"Chris\",\n  \"value\": 10000,\n  \"taxed_value\": 10000 - (10000 * 0.4),\n  \"in_ca\": true\n}\n```\nWill produce the following:\n```\nHello Chris\nYou have just won 10000 dollars!\nWell, 6000.0 dollars, after taxes.\n```\n\nSee [manual](https://mustache.github.io/mustache.5.html) for details how to use all templating features.",
+      "exported": true,
+      "id": "zubWmWQ7PgMaRqmgRc466",
+      "name": "Render template",
+      "nativeId": "mustache/render_template",
+      "outputDescription": "string",
+      "parameters": [
+        {
+          "description": "Mustache template as a string",
+          "name": "template",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Data for the template",
+          "name": "data",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "any"
+        }
+      ],
+      "type": "defineNativeFunction"
+    }
+  ],
+  "moduleId": "5240f219-e9c1-4283-a527-88fafcea3cbb",
+  "theme": "gray"
+}

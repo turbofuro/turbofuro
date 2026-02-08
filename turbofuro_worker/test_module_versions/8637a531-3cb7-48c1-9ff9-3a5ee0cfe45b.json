@@ -1,99 +1,138 @@
 {
-  "handlers": {},
+  "description": "Utilities for publish-subscribe messaging between actors. Enables decoupled communication where publishers and subscribers don't need direct knowledge of each other.",
+  "icon": "https://assets.turbofuro.com/broadcast.svg",
+  "id": "6c9f06a9-3cac-4d4d-89fe-cff2026ee74d",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Publishes a message to a channel. Does nothing if there are no subscribers to the channel.",
+      "exported": true,
       "id": "publish",
       "name": "Publish to a channel",
-      "description": "",
+      "nativeId": "pubsub/publish",
       "parameters": [
         {
+          "description": "Channel to publish to",
           "name": "channel",
           "optional": false,
-          "description": "Channel to publish to",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          },
-          "type": "tel"
+          "type": "tel",
+          "valueDescription": "string"
         },
         {
+          "description": "Value to publish",
           "name": "value",
           "optional": false,
-          "description": "Value to publish",
-          "type": "tel"
+          "type": "tel",
+          "valueDescription": "any"
         }
       ],
-      "nativeId": "pubsub/publish",
-      "exported": true,
-      "annotations": []
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "subscribe",
-      "name": "Subscribe to a channel",
-      "description": "",
-      "parameters": [
+      "annotations": [
         {
-          "name": "channel",
-          "optional": false,
-          "description": "Channel to publish to",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          },
-          "type": "tel"
+          "type": "exported"
         },
         {
-          "name": "onMessage",
-          "optional": true,
-          "description": "Function to be called when a message is received. If not provided onMessage event handler will be called.",
-          "type": "functionRef"
+          "resource": "cancellation",
+          "strict": true,
+          "type": "provision"
         }
       ],
-      "nativeId": "pubsub/subscribe",
+      "description": "Subscribes to a specified channel.",
       "exported": true,
-      "annotations": [
-        {
-          "resource": "cancellation",
-          "type": "provision",
-          "strict": true
-        }
-      ]
-    },
-    {
-      "type": "defineNativeFunction",
-      "id": "unsubscribe",
-      "name": "Unsubscribe",
-      "description": "Unsubscribes from specified channel or all channels if the channel parameter is not specified. Once unsubscribed the actor will no longer receive messages from the channel.",
+      "id": "subscribe",
+      "name": "Subscribe to a channel",
+      "nativeId": "pubsub/subscribe",
       "parameters": [
         {
+          "description": "Channel to publish to",
           "name": "channel",
-          "optional": true,
-          "description": "Channel to unsubscribe from. If not specified, all channels will be unsubscribed.",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Function to be called when a message is received. If not provided onMessage event handler will be called.",
+          "handlerTemplate": {
+            "annotations": [],
+            "description": "Handles incoming PubSub message",
+            "name": "Handle PubSub message",
+            "parameters": [
+              {
+                "description": "Received message",
+                "name": "message",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "any"
+              }
+            ]
           },
-          "type": "tel"
+          "name": "onMessage",
+          "optional": true,
+          "type": "functionRef"
+        },
+        {
+          "description": "Contextual data. This will be later passed as context parameter in the handler",
+          "name": "context",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "any"
         }
       ],
-      "nativeId": "pubsub/unsubscribe",
-      "exported": true,
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "body": [],
+      "description": "Handles incoming PubSub message",
+      "exported": false,
+      "id": "S_4jVzf4_fMFZKCVR-Km2",
+      "name": "Handle PubSub message",
+      "parameters": [
+        {
+          "description": "Received message",
+          "name": "message",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "any"
+        }
+      ],
+      "type": "defineFunction"
+    },
+    {
       "annotations": [
         {
+          "type": "exported"
+        },
+        {
           "resource": "cancellation",
-          "type": "consumption",
-          "strict": true
+          "strict": true,
+          "type": "consumption"
         }
-      ]
+      ],
+      "description": "Unsubscribes from specified channel or all channels if the channel parameter is not specified. Once unsubscribed the actor will no longer receive messages from the channel.",
+      "exported": true,
+      "id": "unsubscribe",
+      "name": "Unsubscribe",
+      "nativeId": "pubsub/unsubscribe",
+      "parameters": [
+        {
+          "description": "Channel to publish to",
+          "name": "channel",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "description": "Turbofuro Worker has a built-in publish-subscribe messaging pattern which allow actors to share data between themselves without having to know about each other. This is useful for decoupling actors from each other.",
   "moduleId": "8637a531-3cb7-48c1-9ff9-3a5ee0cfe45b",
-  "id": "8637a531-3cb7-48c1-9ff9-3a5ee0cfe45b"
+  "theme": "fuchsia"
 }

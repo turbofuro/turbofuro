@@ -1,5 +1,7 @@
 ## 0.1.31 (Unreleased)
 * Add WebSocket client module
+* Renamed string/stripFileExtension -> string/replaceExtension, added string/filename and string/filestem
+* Add standard library modules
 
 ## 0.1.30
 * Add regular expression module

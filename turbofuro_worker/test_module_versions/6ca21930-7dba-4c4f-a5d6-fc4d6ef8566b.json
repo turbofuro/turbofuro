@@ -1,0 +1,93 @@
+{
+  "description": "Utilities for processing and manipulating images. Supports resizing, cropping, filtering, format conversion, and various image transformations.",
+  "icon": "system://images",
+  "id": "687c6fb4-96d7-4182-9e2b-d1ee263d7b9b",
+  "imports": {},
+  "instructions": [
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Converts an image ",
+      "exported": true,
+      "id": "ijUgfeTuyTYYXbH-IcKyg",
+      "name": "Convert image",
+      "nativeId": "image/convert",
+      "parameters": [
+        {
+          "description": "File path source file",
+          "name": "source",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.path"
+        },
+        {
+          "description": "File path to destination file",
+          "name": "destination",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.path"
+        },
+        {
+          "description": "List of actions to perform",
+          "name": "actions",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "array"
+        },
+        {
+          "description": "Output config",
+          "name": "output",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "object"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "body": [
+        {
+          "callee": "local/ijUgfeTuyTYYXbH-IcKyg",
+          "id": "9sVtcTWvBdEXw81Pjn8QB",
+          "parameters": [
+            {
+              "expression": "\"misc/test.jpg\"",
+              "name": "source",
+              "type": "tel"
+            },
+            {
+              "expression": "\"misc/test2.jpg\"",
+              "name": "destination",
+              "type": "tel"
+            },
+            {
+              "expression": "[{\n  type: \"resize\",\n  width: 200,\n  height: 200,\n  filter: \"gaussian\"\n}]",
+              "name": "actions",
+              "type": "tel"
+            },
+            {
+              "expression": "{\n  type: \"jpeg\",\n  quality: 50\n}",
+              "name": "output",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        }
+      ],
+      "decorator": false,
+      "description": "",
+      "exported": false,
+      "id": "Pmt2L8lsypZPzYEOoZ-8Y",
+      "name": "Example",
+      "parameters": [],
+      "type": "defineFunction"
+    }
+  ],
+  "moduleId": "6ca21930-7dba-4c4f-a5d6-fc4d6ef8566b",
+  "theme": "pink"
+}

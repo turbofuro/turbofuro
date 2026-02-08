@@ -1,101 +1,101 @@
 {
-  "moduleId": "test",
   "id": "conditional",
-  "type": "HTTP",
   "imports": {
     "c2dfa57f-e73e-452a-8707-db7a451965ce": {
       "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-      "type": "cloud"
+      "type": "cloud",
+      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce"
     }
   },
   "instructions": [
     {
-      "id": "0",
-      "type": "defineFunction",
-      "name": "Handle HTTP request",
-      "version": "1.0.0",
-      "parameters": [],
       "annotations": [],
       "body": [
         {
-          "type": "if",
-          "id": "1",
           "condition": "request.query.name == \"John\"",
+          "id": "1",
           "then": [
             {
-              "type": "call",
-              "id": "1a",
               "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+              "id": "1a",
               "parameters": [
                 {
-                  "type": "tel",
+                  "expression": "{ msg: \"Hello John!\" }",
                   "name": "body",
-                  "expression": "{ msg: \"Hello John!\" }"
+                  "type": "tel"
                 }
               ],
+              "type": "call",
               "version": "0.0.1"
             },
             {
-              "type": "return",
               "id": "1b",
-              "value": "",
               "parameters": [],
+              "type": "return",
+              "value": "",
               "version": "0.0.1"
             }
           ],
+          "type": "if",
           "version": "0.0.1"
         },
         {
-          "type": "call",
-          "id": "2",
           "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+          "id": "2",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "{ msg: \"Hello Stranger!\" }",
               "name": "body",
-              "expression": "{ msg: \"Hello Stranger!\" }"
+              "type": "tel"
             }
           ],
+          "type": "call",
           "version": "0.0.1"
         }
-      ]
+      ],
+      "id": "0",
+      "name": "Handle HTTP request",
+      "parameters": [],
+      "type": "defineFunction",
+      "version": "1.0.0"
     },
     {
-      "type": "defineFunction",
-      "name": "On start",
-      "description": "Initializes this module.",
-      "parameters": [],
       "annotations": [
         {
           "type": "module_starter"
         }
       ],
-      "id": "a5CL6vND6LqD4XOIaMPCO",
       "body": [
         {
-          "type": "call",
           "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/setup_route",
+          "id": "ObDqDqaFfGHCZA0-idtFI",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "\"get\"",
               "name": "method",
-              "expression": "\"get\""
+              "type": "tel"
             },
             {
-              "type": "functionRef",
+              "id": "0",
               "name": "onHttpRequest",
-              "id": "0"
+              "type": "functionRef"
             },
             {
-              "type": "tel",
+              "expression": "\"/conditional\"",
               "name": "path",
-              "expression": "\"/conditional\""
+              "type": "tel"
             }
           ],
-          "id": "ObDqDqaFfGHCZA0-idtFI"
+          "type": "call"
         }
-      ]
+      ],
+      "description": "Initializes this module.",
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "name": "On start",
+      "parameters": [],
+      "type": "defineFunction"
     }
-  ]
+  ],
+  "moduleId": "test",
+  "type": "HTTP"
 }

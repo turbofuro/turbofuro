@@ -1,0 +1,556 @@
+{
+  "description": "Utilities for interactive debugging. Provides functions for requesting user input, displaying results, showing notifications, and playing sounds during debug sessions.",
+  "icon": "https://assets.turbofuro.com/bug.svg",
+  "id": "7308c8f5-4c95-4a71-9fde-127ea1108c97",
+  "imports": {},
+  "instructions": [
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Requests input from any user",
+      "exported": true,
+      "id": "Bt5qLLbAAz7IVJTRICifD",
+      "name": "Ask for input",
+      "nativeId": "debug/ask_for_input",
+      "outputDescription": "any",
+      "parameters": [
+        {
+          "description": "Text to show inside the window. Supports Markdown.",
+          "name": "text",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Label for the input field",
+          "name": "label",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Placeholder of the input",
+          "name": "placeholder",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Title for the window",
+          "name": "title",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Current value",
+          "name": "value",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "any"
+        },
+        {
+          "description": "Variant of the window",
+          "name": "variant",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "\"success\" | \"info\" | \"warning\" | \"error\""
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Requests a value from any user",
+      "exported": true,
+      "id": "ZgM4cAzs0rSPIA1eUZ6Gc",
+      "name": "Ask for value",
+      "nativeId": "debug/ask_for_value",
+      "outputDescription": "any",
+      "parameters": [
+        {
+          "description": "Text to show inside the window. Supports Markdown.",
+          "name": "text",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Label for the input field",
+          "name": "label",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Placeholder of the input",
+          "name": "placeholder",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Title for the window",
+          "name": "title",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Current value",
+          "name": "value",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "any"
+        },
+        {
+          "description": "Variant of the window",
+          "name": "variant",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "\"success\" | \"info\" | \"warning\" | \"error\""
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Requests from user to select a single or multiple values from provided list of options.\n\nWhen `mode` is set to ",
+      "exported": true,
+      "id": "drbGsHVFrPySNeRX8W87x",
+      "name": "Ask to choose",
+      "nativeId": "debug/ask_to_choose",
+      "outputDescription": "any",
+      "parameters": [
+        {
+          "description": "Text to show inside the window. Supports Markdown.",
+          "name": "text",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Title for the window",
+          "name": "title",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Currently selected value or an array of selected values",
+          "name": "value",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "any"
+        },
+        {
+          "description": "List of options with labels and optional theme, icon and description",
+          "name": "options",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "{\n  label: string,\n  value: any,\n  theme: string | null,\n  description: string | null,\n  icon: string | null\n}[]"
+        },
+        {
+          "description": "Mode of the request",
+          "name": "mode",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "\"radio\" | \"select\" | \"multiple\""
+        },
+        {
+          "description": "Variant of the window",
+          "name": "variant",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "\"success\" | \"info\" | \"warning\" | \"error\""
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Requests from user for confirmation in a Yes/No or Ok/Cancel format",
+      "exported": true,
+      "id": "z-YG8z1faeTYLHEshLp1F",
+      "name": "Ask for confirmation",
+      "nativeId": "debug/ask_for_confirmation",
+      "outputDescription": "boolean",
+      "parameters": [
+        {
+          "description": "Text to show inside the window. Supports Markdown.",
+          "name": "text",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Title for the window",
+          "name": "title",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Mode of the request",
+          "name": "mode",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "\"confirm\" | \"yes/no\""
+        },
+        {
+          "description": "Variant of the window",
+          "name": "variant",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "\"success\" | \"info\" | \"warning\" | \"error\""
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Presents storage value to the user",
+      "exported": true,
+      "id": "B4CgMihKm9pdbCjZN5jN7",
+      "name": "Show result",
+      "nativeId": "debug/show_result",
+      "parameters": [
+        {
+          "description": "Value to show",
+          "name": "value",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "any"
+        },
+        {
+          "description": "Tiltle for the window",
+          "name": "title",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Variant for the result",
+          "name": "variant",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "\"success\" | \"info\" | \"warning\" | \"error\""
+        },
+        {
+          "description": "Text to show inside the window. Supports Markdown.",
+          "name": "text",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Shows a standard notification to users",
+      "exported": true,
+      "id": "9a8MOYT-v1Nu9fOO4m-Ql",
+      "name": "Show notification",
+      "nativeId": "debug/show_notification",
+      "parameters": [
+        {
+          "description": "Text of the notification",
+          "name": "text",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Variant of the notification ",
+          "name": "variant",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "\"info\" | \"error\" | \"warning\" | \"success\""
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Plays sound to users",
+      "exported": true,
+      "id": "qG48rGFp2YPbevY03AE57",
+      "name": "Play sound",
+      "nativeId": "debug/play_sound",
+      "parameters": [
+        {
+          "description": "Name of the sound to play",
+          "name": "sound",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "\"boing\" | \"bought\" | \"bowomp\" | \"tada\" | \"pop\""
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "body": [
+        {
+          "callee": "local/B4CgMihKm9pdbCjZN5jN7",
+          "id": "bIxJaZIDrEhR3XdTnqTXS",
+          "parameters": [
+            {
+              "expression": "{\n  a: 4,\n  id: 4025252,\n  data: \"geoegoge\"\n}",
+              "name": "value",
+              "type": "tel"
+            },
+            {
+              "expression": "\"Object\"",
+              "name": "title",
+              "type": "tel"
+            },
+            {
+              "expression": "\"warning\"",
+              "name": "variant",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        },
+        {
+          "callee": "local/B4CgMihKm9pdbCjZN5jN7",
+          "id": "bEP1A22APg6k8-SVcuBgX",
+          "parameters": [
+            {
+              "expression": "\"Hello world\"",
+              "name": "value",
+              "type": "tel"
+            },
+            {
+              "expression": "\"Title\"",
+              "name": "title",
+              "type": "tel"
+            },
+            {
+              "expression": "\"error\"",
+              "name": "variant",
+              "type": "tel"
+            },
+            {
+              "expression": "\"Oh no an error has occured\"",
+              "name": "text",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        },
+        {
+          "callee": "local/B4CgMihKm9pdbCjZN5jN7",
+          "id": "OAPi9HXyGoeWkcq7wLt40",
+          "parameters": [
+            {
+              "expression": "\"Just text\"",
+              "name": "title",
+              "type": "tel"
+            },
+            {
+              "expression": "\"Hello\"",
+              "name": "text",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        },
+        {
+          "callee": "local/Bt5qLLbAAz7IVJTRICifD",
+          "id": "uLFf9DGVZG_Zl97iAu3yF",
+          "parameters": [
+            {
+              "expression": "\"Hello world. This is a message to ask for input.\"",
+              "name": "text",
+              "type": "tel"
+            },
+            {
+              "expression": "\"Enter name\"",
+              "name": "title",
+              "type": "tel"
+            },
+            {
+              "expression": "\"Ronin\"",
+              "name": "value",
+              "type": "tel"
+            },
+            {
+              "expression": "\"success\"",
+              "name": "variant",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/z-YG8z1faeTYLHEshLp1F",
+          "id": "m7INm8T_J_T-g1qrQNSn1",
+          "parameters": [
+            {
+              "expression": "\"Would you like a cup of tea\"",
+              "name": "text",
+              "type": "tel"
+            },
+            {
+              "expression": "\"Offer\"",
+              "name": "title",
+              "type": "tel"
+            },
+            {
+              "expression": "\"yes/no\"",
+              "name": "mode",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/z-YG8z1faeTYLHEshLp1F",
+          "id": "jHit5fmhwXSX4yyXfIZfq",
+          "parameters": [
+            {
+              "expression": "\"Would you like a cup of tea\"",
+              "name": "text",
+              "type": "tel"
+            },
+            {
+              "expression": "\"Offer\"",
+              "name": "title",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/ZgM4cAzs0rSPIA1eUZ6Gc",
+          "id": "pSfSb4zRsuNW7RHskeRLZ",
+          "parameters": [
+            {
+              "expression": "```\nProvide TEL value for the images\n\nUse format [img](https://assets.turbofuro.com/scroll.svg)\n\n## Wow\nLorem ipsum dolor sit amet, per no tota corrumpit intellegam, ex per quas nostrud corrumpit. Ea alii sale interesset sed, ut graece liberavisse nam. Repudiare incorrupte an vim, est ei case facete indoctum. Ei dicit doming partiendo per, ei detraxit quaerendum liberavisse vim, omnes rationibus ei cum. Ut mei explicari comprehensam definitionem.\n\n```",
+              "name": "text",
+              "type": "tel"
+            },
+            {
+              "expression": "\"GOOOOW\"",
+              "name": "title",
+              "type": "tel"
+            },
+            {
+              "expression": "{\n  a: 4\n}",
+              "name": "value",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/drbGsHVFrPySNeRX8W87x",
+          "id": "tSi6oIOFYeIvvG7A4Ntij",
+          "parameters": [
+            {
+              "expression": "```\n## Hello\nInsert data\n```",
+              "name": "text",
+              "type": "tel"
+            },
+            {
+              "expression": "[\n  {\n    label: \"One\",\n    value: 1\n  },\n  {\n    label: \"Two\",\n    value: 2\n  },\n  {\n    label: \"Three\",\n    value: 3\n  }\n]",
+              "name": "options",
+              "type": "tel"
+            },
+            {
+              "expression": "\"Hello\"",
+              "name": "title",
+              "type": "tel"
+            },
+            {
+              "expression": "\"multiple\"",
+              "name": "mode",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/9a8MOYT-v1Nu9fOO4m-Ql",
+          "id": "Kp0ojOmZiTEWGOo_h4dbT",
+          "parameters": [
+            {
+              "expression": "\"What's up?\"",
+              "name": "text",
+              "type": "tel"
+            },
+            {
+              "expression": "\"info\"",
+              "name": "variant",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        },
+        {
+          "body": [
+            {
+              "callee": "local/qG48rGFp2YPbevY03AE57",
+              "id": "5qt5OAfk692fbzuYz2nZ8",
+              "parameters": [
+                {
+                  "expression": "\"boing\"",
+                  "name": "sound",
+                  "type": "tel"
+                }
+              ],
+              "type": "call"
+            }
+          ],
+          "id": "qY5HrELEYTHhmTrd6R7jq",
+          "item": "item",
+          "items": "[1, 2, 3, 4, 5]",
+          "type": "forEach"
+        }
+      ],
+      "description": "",
+      "exported": false,
+      "id": "qhelvKEMIa9iBtRgDYC-R",
+      "name": "Examples",
+      "parameters": [],
+      "type": "defineFunction"
+    }
+  ],
+  "moduleId": "9e99a2dc-8db8-47c0-a89c-17f64d4121dc",
+  "theme": "yellow"
+}

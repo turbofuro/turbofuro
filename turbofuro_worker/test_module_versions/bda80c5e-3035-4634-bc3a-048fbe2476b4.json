@@ -1,145 +1,277 @@
 {
-  "handlers": {},
+  "description": "Utilities for scheduling function execution. Supports setting alarms, intervals, and cron jobs to execute functions at specified times or on schedules.",
+  "icon": "https://assets.turbofuro.com/alarm.svg",
+  "id": "1f9722f0-4341-42f4-8d72-797ffed4bfb3",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "cancellation",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "description": "Sets an alarm. If the alarm with the same name already exists, it will be overwritten.",
+      "exported": true,
       "id": "set_alarm",
       "name": "Set alarm",
-      "description": "Sets an alarm. If the alarm with the same name already exists, it will be overwritten.",
+      "nativeId": "alarms/set_alarm",
       "parameters": [
         {
+          "description": "Milliseconds to wait before calling the alarm handler.",
           "name": "timeout",
           "optional": false,
-          "description": "Milliseconds to wait before calling the alarm handler.",
           "type": "tel",
-          "typeDef": {
-            "tag": "simple",
-            "type": "integer",
-            "strict": true
-          }
+          "valueDescription": "number"
         },
         {
+          "description": "Data to be passed to the alarm handler. If not provided, the alarm handler will be called without any arguments.",
           "name": "data",
           "optional": true,
           "type": "tel",
-          "description": "Data to be passed to the alarm handler. If not provided, the alarm handler will be called without any arguments."
+          "valueDescription": "any"
         },
         {
-          "type": "functionRef",
+          "description": "Function to be called when the alarm is triggered. If not provided a onMessage handler will be called instead",
+          "handlerTemplate": {
+            "annotations": [],
+            "description": "Handles alarm timeout events. Called when the alarm is triggered after the specified timeout period. The function receives the current actor state and any data that was passed when setting the alarm.",
+            "name": "Handle alarm timeout",
+            "parameters": [
+              {
+                "description": "Actor state",
+                "name": "state",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "any"
+              },
+              {
+                "description": "Alarm included data",
+                "name": "message",
+                "optional": true,
+                "type": "tel",
+                "valueDescription": "any"
+              }
+            ]
+          },
           "name": "onTimeout",
           "optional": true,
-          "description": "Function to be called when the alarm is triggered. If not provided a onMessage handler will be called instead"
+          "type": "functionRef"
         }
       ],
-      "nativeId": "alarms/set_alarm",
-      "exported": true,
-      "annotations": [
-        {
-          "resource": "cancellation",
-          "strict": true,
-          "type": "provision"
-        }
-      ]
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "set_interval",
-      "name": "Set interval",
-      "description": "Sets an interval alarm.",
+      "annotations": [],
+      "body": [],
+      "description": "",
+      "exported": false,
+      "id": "uGq-kjH64hshMjjrjMiol",
+      "name": "Handle alarm timeout",
       "parameters": [
         {
-          "name": "interval",
-          "type": "tel",
+          "description": "Actor state",
+          "name": "state",
           "optional": false,
-          "description": "Milliseconds between alarm handler calls.",
-          "typeDef": {
-            "tag": "simple",
-            "type": "integer",
-            "strict": true
-          }
-        },
-        {
           "type": "tel",
-          "name": "data",
-          "optional": true,
-          "description": "Data to be passed to the alarm handler. If not provided, the alarm handler will be called without any arguments."
+          "valueDescription": "any"
         },
         {
-          "type": "functionRef",
-          "name": "onTimeout",
+          "description": "Alarm included data",
+          "name": "message",
           "optional": true,
-          "description": "Function to be called when the alarm is triggered. If not provided a onMessage handler will be called instead"
+          "type": "tel",
+          "valueDescription": "any"
         }
       ],
-      "nativeId": "alarms/set_interval",
-      "exported": true,
+      "type": "defineFunction"
+    },
+    {
+      "annotations": [],
+      "body": [],
+      "description": "",
+      "exported": false,
+      "id": "dWEq87AjrUpYNQRlj1dLy",
+      "name": "Handle on schedule",
+      "parameters": [
+        {
+          "description": "Actor state",
+          "name": "state",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "any"
+        },
+        {
+          "description": "Alarm included data",
+          "name": "message",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "any"
+        }
+      ],
+      "type": "defineFunction"
+    },
+    {
       "annotations": [
+        {
+          "type": "exported"
+        },
         {
           "resource": "cancellation",
           "strict": true,
           "type": "provision"
         }
-      ]
+      ],
+      "description": "Sets an interval alarm.",
+      "exported": true,
+      "id": "set_interval",
+      "name": "Set interval",
+      "nativeId": "alarms/set_interval",
+      "parameters": [
+        {
+          "description": "Milliseconds between alarm handler calls.",
+          "name": "interval",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "number"
+        },
+        {
+          "description": "Data to be passed to the alarm handler. If not provided, the alarm handler will be called without any arguments.",
+          "name": "data",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "any"
+        },
+        {
+          "description": "Function to be called when the alarm is triggered. If not provided a onMessage handler will be called instead",
+          "handlerTemplate": {
+            "annotations": [
+              {
+                "type": "exported"
+              },
+              {
+                "resource": "cancellation",
+                "strict": true,
+                "type": "provision"
+              }
+            ],
+            "description": "Sets an interval alarm.",
+            "name": "Set interval",
+            "parameters": [
+              {
+                "description": "Milliseconds between alarm handler calls.",
+                "name": "interval",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "number"
+              },
+              {
+                "description": "Data to be passed to the alarm handler. If not provided, the alarm handler will be called without any arguments.",
+                "name": "data",
+                "optional": true,
+                "type": "tel",
+                "valueDescription": "any"
+              },
+              {
+                "description": "Function to be called when the alarm is triggered. If not provided a onMessage handler will be called instead",
+                "name": "onTimeout",
+                "optional": true,
+                "type": "functionRef"
+              }
+            ]
+          },
+          "name": "onTimeout",
+          "optional": true,
+          "type": "functionRef"
+        }
+      ],
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "cancel",
-      "name": "Cancel alarm",
-      "description": "Cancels an alarm.",
-      "parameters": [],
-      "nativeId": "alarms/cancel",
-      "exported": true,
       "annotations": [
+        {
+          "type": "exported"
+        },
         {
           "resource": "cancellation",
           "strict": true,
           "type": "consumption"
         }
-      ]
+      ],
+      "description": "Cancels an alarm.",
+      "exported": true,
+      "id": "cancel",
+      "name": "Cancel alarm",
+      "nativeId": "alarms/cancel",
+      "parameters": [],
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "setup_cronjob",
-      "name": "Setup cronjob",
-      "description": "Sets up a cronjob.",
-      "parameters": [
-        {
-          "name": "schedule",
-          "optional": false,
-          "description": "Cron expression",
-          "type": "tel",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        },
-        {
-          "type": "functionRef",
-          "name": "onSchedule",
-          "optional": false,
-          "description": "Function to be called as a task at the scheduled time. Note that the actual time of execution may be delayed."
-        },
-        {
-          "name": "data",
-          "optional": true,
-          "type": "tel",
-          "description": "Data to be passed to the cronjob handler. If not provided, the alarm handler will be called without any arguments."
-        }
-      ],
-      "nativeId": "alarms/setup_cronjob",
-      "exported": true,
       "annotations": [
+        {
+          "type": "exported"
+        },
         {
           "resource": "cancellation",
           "strict": true,
           "type": "provision"
         }
-      ]
+      ],
+      "description": "Sets up a cronjob.",
+      "exported": true,
+      "id": "setup_cronjob",
+      "name": "Setup cronjob",
+      "nativeId": "alarms/setup_cronjob",
+      "parameters": [
+        {
+          "description": "Cron expression",
+          "name": "schedule",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Function to be called as a task at the scheduled time. Note that the actual time of execution may be delayed.",
+          "handlerTemplate": {
+            "annotations": [],
+            "description": "Handles cron job schedule execution. Called when the cron schedule matches the current time. The function receives the current actor state and any data that was passed when setting up the cron job.",
+            "name": "Handle on schedule",
+            "parameters": [
+              {
+                "description": "Actor state",
+                "name": "state",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "any"
+              },
+              {
+                "description": "Alarm included data",
+                "name": "message",
+                "optional": true,
+                "type": "tel",
+                "valueDescription": "any"
+              }
+            ]
+          },
+          "name": "onSchedule",
+          "optional": false,
+          "type": "functionRef"
+        },
+        {
+          "description": "Data to be passed to the cronjob handler. If not provided, the alarm handler will be called without any arguments.",
+          "name": "data",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "any"
+        }
+      ],
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "description": "Alarms are used to schedule execution of a function at a specified time.",
   "moduleId": "bda80c5e-3035-4634-bc3a-048fbe2476b4",
-  "id": "bda80c5e-3035-4634-bc3a-048fbe2476b4"
+  "theme": "gray"
 }

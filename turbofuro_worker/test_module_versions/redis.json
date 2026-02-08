@@ -1,87 +1,87 @@
 {
-  "moduleId": "test",
-  "type": "LIBRARY",
   "handlers": {},
+  "id": "redis",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Establishes connection to Redis",
       "id": "get_connection",
       "name": "Get connection",
-      "description": "Establishes connection to Redis",
+      "nativeId": "redis/get_connection",
       "parameters": [
         {
+          "description": "Connection string in the format of `redis://user:pass@host:port/dbname`",
           "name": "connectionString",
           "optional": false,
-          "description": "Connection string in the format of `redis://user:pass@host:port/dbname`",
           "typeDef": {
+            "strict": true,
             "tag": "simple",
-            "type": "string",
-            "strict": true
+            "type": "string"
           }
         },
         {
+          "description": "Resource name, if not provided `default` will be used",
           "name": "name",
           "optional": true,
-          "description": "Resource name, if not provided `default` will be used",
           "typeDef": {
+            "strict": true,
             "tag": "simple",
-            "type": "string",
-            "strict": true
+            "type": "string"
           }
         }
       ],
-      "nativeId": "redis/get_connection",
-      "annotations": [
-        {
-          "type": "exported"
-        }
-      ]
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "low_level",
-      "name": "Low Level Command",
-      "description": "Executes arbitrary Redis command",
-      "parameters": [
-        {
-          "name": "command",
-          "optional": false,
-          "description": "CMD to execute like \"GET\", \"SET\", \"DEL\", etc.",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        },
-        {
-          "name": "args",
-          "optional": false,
-          "description": "Array of arguments for the command like [\"key\"] or [\"key\", \"EX\", 300]",
-          "typeDef": {
-            "tag": "simple",
-            "type": "array",
-            "strict": true
-          }
-        },
-        {
-          "name": "name",
-          "optional": true,
-          "description": "Resource name of the Redis pool that should be used for this action",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        }
-      ],
-      "nativeId": "redis/low_level",
       "annotations": [
         {
           "type": "exported"
         }
-      ]
+      ],
+      "description": "Executes arbitrary Redis command",
+      "id": "low_level",
+      "name": "Low Level Command",
+      "nativeId": "redis/low_level",
+      "parameters": [
+        {
+          "description": "CMD to execute like \"GET\", \"SET\", \"DEL\", etc.",
+          "name": "command",
+          "optional": false,
+          "typeDef": {
+            "strict": true,
+            "tag": "simple",
+            "type": "string"
+          }
+        },
+        {
+          "description": "Array of arguments for the command like [\"key\"] or [\"key\", \"EX\", 300]",
+          "name": "args",
+          "optional": false,
+          "typeDef": {
+            "strict": true,
+            "tag": "simple",
+            "type": "array"
+          }
+        },
+        {
+          "description": "Resource name of the Redis pool that should be used for this action",
+          "name": "name",
+          "optional": true,
+          "typeDef": {
+            "strict": true,
+            "tag": "simple",
+            "type": "string"
+          }
+        }
+      ],
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "id": "redis"
+  "moduleId": "test",
+  "type": "LIBRARY"
 }

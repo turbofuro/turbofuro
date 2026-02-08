@@ -434,9 +434,11 @@ static METHODS: Lazy<HashMap<&'static str, Description>> = Lazy::new(|| {
     map.insert("string_startsWith", Description::new_base_type("boolean"));
     map.insert("string_endsWith", Description::new_base_type("boolean"));
     map.insert(
-        "string_stripFileExtension",
-        Description::new_base_type("string"),
+        "replaceExtension",
+        Description::new_base_type("string.path"),
     );
+    map.insert("string_filename", Description::new_base_type("string"));
+    map.insert("string_filestem", Description::new_base_type("string.path"));
     map.insert("string_split", Description::new_base_type("array"));
     map.insert("number_toString", Description::new_base_type("string"));
     map.insert("number_type", Description::new_string("number".to_string()));

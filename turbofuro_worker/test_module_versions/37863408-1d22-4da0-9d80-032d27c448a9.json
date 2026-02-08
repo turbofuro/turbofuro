@@ -1,99 +1,482 @@
 {
-  "handlers": {},
+  "description": "Utilities for making HTTP and HTTPS requests. Provides functions for sending requests, handling responses, managing custom clients, and working with streams and form data.",
+  "icon": "https://assets.turbofuro.com/globe.svg",
+  "id": "e4328089-b08f-43c5-8eb0-c158816962dd",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
-      "id": "request",
-      "name": "Send HTTP request",
-      "description": "Sends HTTP or HTTPS request to a given URL. Method, data and additional headers can be specified.",
-      "parameters": [
+      "annotations": [
         {
-          "name": "method",
-          "optional": false,
-          "description": "HTTP method to use, e.g. 'GET', 'POST', 'PUT', etc.",
-          "type": "tel",
-          "typeDef": {
-            "tag": "one_of",
-            "options": [
-              {
-                "label": "GET",
-                "value": "GET"
-              },
-              {
-                "label": "POST",
-                "value": "POST"
-              },
-              {
-                "label": "PUT",
-                "value": "PUT"
-              },
-              {
-                "label": "PATCH",
-                "value": "PATCH"
-              },
-              {
-                "label": "DELETE",
-                "value": "DELETE"
-              },
-              {
-                "label": "HEAD",
-                "value": "HEAD"
-              },
-              {
-                "label": "OPTIONS",
-                "value": "OPTIONS"
-              }
-            ],
-            "strict": true
-          }
+          "type": "exported"
         },
         {
-          "name": "url",
-          "optional": false,
-          "description": "URL to send the request to, e.g. 'https://example.com'",
-          "type": "tel",
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "string"
-          }
-        },
-        {
-          "name": "headers",
-          "optional": true,
-          "description": "Headers map",
-          "type": "tel",
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "object"
-          }
-        },
-        {
-          "name": "query",
-          "optional": true,
-          "description": "Query params to append to the URL",
-          "type": "tel",
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "object"
-          }
-        },
-        {
-          "name": "body",
-          "optional": true,
-          "description": "Request body",
-          "type": "tel"
+          "resource": "pending_http_response",
+          "strict": true,
+          "type": "provision"
         }
       ],
-      "nativeId": "http_client/request",
+      "description": "Sends HTTP or HTTPS request to a given URL. Method, data and additional headers can be specified. This function returns a response object.",
       "exported": true,
-      "annotations": []
+      "id": "request",
+      "name": "Send HTTP request",
+      "nativeId": "http_client/request",
+      "parameters": [
+        {
+          "description": "HTTP method to use",
+          "name": "method",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "\"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"HEAD\" | \"OPTIONS\" | \"TRACE\""
+        },
+        {
+          "description": "URL to send the request to, e.g. 'https://example.com'",
+          "name": "url",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.url"
+        },
+        {
+          "description": "Headers map",
+          "name": "headers",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record"
+        },
+        {
+          "description": "Query params to append to the URL",
+          "name": "query",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record"
+        },
+        {
+          "description": "Request body",
+          "name": "body",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "any"
+        },
+        {
+          "description": "Form that will be serialized as `application/x-www-urlencoded`. Can't be used with body parameter.",
+          "name": "form",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record | array"
+        },
+        {
+          "description": "Name of the HTTP client to use. If none a default worker client will be used.",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Flag whether the function should throw when server returns status indicating error (4XX or 5XX). True by default.",
+          "name": "throwOnHttpError",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "boolean"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "pending_http_response",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "description": "Sends HTTP or HTTPS request to a given URL. Method, data and additional headers can be specified. This function returns a response object.",
+      "exported": true,
+      "id": "mRG4qHsYO_UMkS-SZTtQo",
+      "name": "Send HTTP request with stream",
+      "nativeId": "http_client/request_with_stream",
+      "parameters": [
+        {
+          "description": "HTTP method to use",
+          "name": "method",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "\"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"HEAD\" | \"OPTIONS\" | \"TRACE\""
+        },
+        {
+          "description": "URL to send the request to, e.g. 'https://example.com'",
+          "name": "url",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.url"
+        },
+        {
+          "description": "Headers map",
+          "name": "headers",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record"
+        },
+        {
+          "description": "Query params to append to the URL",
+          "name": "query",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record"
+        },
+        {
+          "description": "Name of the HTTP client to use. If none a default worker client will be used.",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Flag whether the function should throw when server returns status indicating error (4XX or 5XX). True by default.",
+          "name": "throwOnHttpError",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "boolean"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "form_data_draft",
+          "strict": true,
+          "type": "consumption"
+        },
+        {
+          "resource": "pending_http_response",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "description": "Sends HTTP or HTTPS request to a given URL. Method, data and additional headers can be specified. This function returns a response object.",
+      "exported": true,
+      "id": "bEoXOUsn2x3pij9HZKDEf",
+      "name": "Send HTTP request with form data",
+      "nativeId": "http_client/request_with_form_data",
+      "parameters": [
+        {
+          "description": "HTTP method to use",
+          "name": "method",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "\"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"HEAD\" | \"OPTIONS\" | \"TRACE\""
+        },
+        {
+          "description": "URL to send the request to, e.g. 'https://example.com'",
+          "name": "url",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.url"
+        },
+        {
+          "description": "Headers map",
+          "name": "headers",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record"
+        },
+        {
+          "description": "Query params to append to the URL",
+          "name": "query",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record"
+        },
+        {
+          "description": "Name of the HTTP client to use. If none a default worker client will be used.",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Flag whether the function should throw when server returns status indicating error (4XX or 5XX). True by default.",
+          "name": "throwOnHttpError",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "boolean"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "pending_http_response",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "description": "Sends HTTP or HTTPS request to a given URL. Method, data and additional headers can be specified. This function returns a response object.",
+      "exported": true,
+      "id": "3tS1O-ppMaiRc99MQOb_O",
+      "name": "Stream HTTP request",
+      "nativeId": "http_client/stream_request",
+      "parameters": [
+        {
+          "description": "HTTP method to use",
+          "name": "method",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "\"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"HEAD\" | \"OPTIONS\" | \"TRACE\""
+        },
+        {
+          "description": "URL to send the request to, e.g. 'https://example.com'",
+          "name": "url",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.url"
+        },
+        {
+          "description": "Headers map",
+          "name": "headers",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record"
+        },
+        {
+          "description": "Query params to append to the URL",
+          "name": "query",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record"
+        },
+        {
+          "description": "Request body",
+          "name": "body",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "any"
+        },
+        {
+          "description": "Form that will be serialized as `application/x-www-urlencoded`. Can't be used with body parameter.",
+          "name": "form",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record | array"
+        },
+        {
+          "description": "Name of the HTTP client to use. If none a default worker client will be used.",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Flag whether the function should throw when server returns status indicating error (4XX or 5XX). True by default.",
+          "name": "throwOnHttpError",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "boolean"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "pending_http_response",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "description": "Sends HTTP or HTTPS request to a given URL. Method, data and additional headers can be specified. This function returns a response object.",
+      "exported": true,
+      "id": "RXfVZryPU7ZQF6mN_TPpS",
+      "name": "Stream HTTP request with stream",
+      "nativeId": "http_client/stream_request_with_stream",
+      "parameters": [
+        {
+          "description": "HTTP method to use",
+          "name": "method",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "\"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"HEAD\" | \"OPTIONS\" | \"TRACE\""
+        },
+        {
+          "description": "URL to send the request to, e.g. 'https://example.com'",
+          "name": "url",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.url"
+        },
+        {
+          "description": "Headers map",
+          "name": "headers",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record"
+        },
+        {
+          "description": "Query params to append to the URL",
+          "name": "query",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record"
+        },
+        {
+          "description": "Name of the HTTP client to use. If none a default worker client will be used.",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Flag whether the function should throw when server returns status indicating error (4XX or 5XX). True by default.",
+          "name": "throwOnHttpError",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "boolean"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "form_data_draft",
+          "strict": true,
+          "type": "consumption"
+        },
+        {
+          "resource": "pending_http_response",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "description": "Sends HTTP or HTTPS request to a given URL. Method, data and additional headers can be specified. This function returns a response object.",
+      "exported": true,
+      "id": "F1eOSSrflu1BjkI8bV2VF",
+      "name": "Stream HTTP request with form data",
+      "nativeId": "http_client/stream_request_with_form_data",
+      "parameters": [
+        {
+          "description": "HTTP method to use",
+          "name": "method",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "\"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"HEAD\" | \"OPTIONS\" | \"TRACE\""
+        },
+        {
+          "description": "URL to send the request to, e.g. 'https://example.com'",
+          "name": "url",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.url"
+        },
+        {
+          "description": "Headers map",
+          "name": "headers",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record"
+        },
+        {
+          "description": "Query params to append to the URL",
+          "name": "query",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record"
+        },
+        {
+          "description": "Name of the HTTP client to use. If none a default worker client will be used.",
+          "name": "name",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Flag whether the function should throw when server returns status indicating error (4XX or 5XX). True by default.",
+          "name": "throwOnHttpError",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "boolean"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "http_client",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "description": "Builds a customized HTTP client",
+      "exported": true,
+      "id": "n1JBAC2XM4xFzEFbAyp2P",
+      "name": "Build HTTP client",
+      "nativeId": "http_client/build_client",
+      "parameters": [
+        {
+          "description": "Name for the customized client",
+          "name": "name",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Custom root PEM certificates",
+          "name": "rootCertificates",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string | string[]"
+        },
+        {
+          "description": "Timeout",
+          "name": "timeout",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "number"
+        },
+        {
+          "description": "Danger! This will make this client accept any certificate. Use as a last resort.",
+          "name": "acceptInvalidCertificates",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "boolean"
+        },
+        {
+          "description": "User agent header to be used for this client",
+          "name": "userAgent",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Flag whether the function should throw when server returns status indicating error (4XX or 5XX). True by default.",
+          "name": "throwOnHttpError",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "boolean"
+        }
+      ],
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "description": "The HTTP Client Functions are a collection of tools designed to facilitate the creation, sending, and management of HTTP requests and responses in a client-server architecture. These functions are essential for web-based applications and services, enabling them to communicate over the internet using the Hypertext Transfer Protocol (HTTP). ",
   "moduleId": "37863408-1d22-4da0-9d80-032d27c448a9",
-  "id": "37863408-1d22-4da0-9d80-032d27c448a9"
+  "theme": "gray"
 }

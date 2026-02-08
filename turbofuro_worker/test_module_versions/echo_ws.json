@@ -1,111 +1,111 @@
 {
-  "moduleId": "echo_ws",
-  "id": "echo_ws",
-  "imports": {
-    "23ace28c-84bc-400b-91b6-f83bd575b793": {
-      "type": "cloud",
-      "id": "23ace28c-84bc-400b-91b6-f83bd575b793",
-      "versionId": "23ace28c-84bc-400b-91b6-f83bd575b793"
-    }
-  },
-  "type": "WEB_SOCKET",
   "handlers": {
     "onStart": "a5CL6vND6LqD4XOIaMPCO"
   },
+  "id": "echo_ws",
+  "imports": {
+    "23ace28c-84bc-400b-91b6-f83bd575b793": {
+      "id": "23ace28c-84bc-400b-91b6-f83bd575b793",
+      "type": "cloud",
+      "versionId": "23ace28c-84bc-400b-91b6-f83bd575b793"
+    }
+  },
   "instructions": [
     {
-      "type": "defineFunction",
-      "name": "Handle HTTP request",
-      "description": "Handles HTTP request.",
       "annotations": [],
-      "parameters": [
-        {
-          "type": "tel",
-          "name": "request",
-          "description": "The HTTP request object",
-          "optional": false
-        }
-      ],
-      "id": "Xjk2dP1YC_2-FW76IlD-q",
       "body": [
         {
-          "type": "call",
           "callee": "import/23ace28c-84bc-400b-91b6-f83bd575b793/accept_ws",
+          "id": "7D88zQyq0gk-zGe81sLZL",
           "parameters": [],
-          "id": "7D88zQyq0gk-zGe81sLZL"
+          "type": "call"
         }
-      ]
+      ],
+      "description": "Handles HTTP request.",
+      "id": "Xjk2dP1YC_2-FW76IlD-q",
+      "name": "Handle HTTP request",
+      "parameters": [
+        {
+          "description": "The HTTP request object",
+          "name": "request",
+          "optional": false,
+          "type": "tel"
+        }
+      ],
+      "type": "defineFunction"
     },
     {
-      "type": "defineFunction",
-      "name": "Handle WebSocket message",
-      "description": "Handles incoming WebSocket message from the client.",
       "annotations": [],
-      "parameters": [
-        {
-          "type": "tel",
-          "name": "state",
-          "description": "The state object",
-          "optional": false
-        },
-        {
-          "type": "tel",
-          "name": "message",
-          "description": "The WebSocket message",
-          "optional": false
-        }
-      ],
-      "id": "Vg-QVu8_R_hNK8i4zQ8Lw",
       "body": [
         {
-          "type": "call",
           "callee": "import/23ace28c-84bc-400b-91b6-f83bd575b793/send_message",
+          "id": "jrnYXqqWYc5gkWZtZ3-RC",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "message",
               "name": "message",
-              "expression": "message"
+              "type": "tel"
             }
           ],
-          "id": "jrnYXqqWYc5gkWZtZ3-RC"
+          "type": "call"
         }
-      ]
+      ],
+      "description": "Handles incoming WebSocket message from the client.",
+      "id": "Vg-QVu8_R_hNK8i4zQ8Lw",
+      "name": "Handle WebSocket message",
+      "parameters": [
+        {
+          "description": "The state object",
+          "name": "state",
+          "optional": false,
+          "type": "tel"
+        },
+        {
+          "description": "The WebSocket message",
+          "name": "message",
+          "optional": false,
+          "type": "tel"
+        }
+      ],
+      "type": "defineFunction"
     },
     {
-      "type": "defineFunction",
-      "name": "On start",
-      "description": "Initializes this module.",
-      "parameters": [],
       "annotations": [
         {
           "type": "module_starter"
         }
       ],
-      "id": "a5CL6vND6LqD4XOIaMPCO",
       "body": [
         {
-          "type": "call",
           "callee": "import/23ace28c-84bc-400b-91b6-f83bd575b793/setup_route",
+          "id": "ObDqDqaFfGHCZA0-idtFI",
           "parameters": [
             {
-              "type": "functionRef",
+              "id": "Xjk2dP1YC_2-FW76IlD-q",
               "name": "onHttpRequest",
-              "id": "Xjk2dP1YC_2-FW76IlD-q"
+              "type": "functionRef"
             },
             {
-              "type": "functionRef",
+              "id": "Vg-QVu8_R_hNK8i4zQ8Lw",
               "name": "onWebSocketMessage",
-              "id": "Vg-QVu8_R_hNK8i4zQ8Lw"
+              "type": "functionRef"
             },
             {
-              "type": "tel",
+              "expression": "\"/echo_ws\"",
               "name": "path",
-              "expression": "\"/echo_ws\""
+              "type": "tel"
             }
           ],
-          "id": "ObDqDqaFfGHCZA0-idtFI"
+          "type": "call"
         }
-      ]
+      ],
+      "description": "Initializes this module.",
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "name": "On start",
+      "parameters": [],
+      "type": "defineFunction"
     }
-  ]
+  ],
+  "moduleId": "echo_ws",
+  "type": "WEB_SOCKET"
 }

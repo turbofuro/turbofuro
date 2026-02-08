@@ -1,42 +1,62 @@
 {
-  "handlers": {},
+  "description": "Utilities for time and date operations. Provides functions for getting current time, date and time information, and sleeping for specified durations.",
+  "icon": "https://assets.turbofuro.com/clock.svg",
+  "id": "0f4cbdfb-f560-4cc1-8330-925273155c12",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
-      "id": "sleep",
-      "name": "Sleep",
-      "description": "Sleep for a specified amount of time.",
-      "parameters": [
+      "annotations": [
         {
-          "name": "milliseconds",
-          "optional": false,
-          "description": "Milliseconds to sleep, must be a positive integer.",
-          "type": "tel"
+          "type": "exported"
         }
       ],
+      "description": "Sleep for a specified amount of time.",
+      "exported": true,
+      "id": "sleep",
+      "name": "Sleep",
       "nativeId": "time/sleep",
-      "annotations": [
+      "parameters": [
         {
-          "type": "exported"
+          "description": "Milliseconds to sleep, must be a positive integer.",
+          "name": "milliseconds",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "number"
         }
-      ]
+      ],
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "get_current_time",
-      "name": "Get current time",
-      "description": "Gets the current time.",
-      "parameters": [],
-      "nativeId": "time/get_current_time",
       "annotations": [
         {
           "type": "exported"
         }
-      ]
+      ],
+      "description": "Gets the current time expressed as number of milliseconds since January 1, 1970 (UTC).\nThis is also sometimes referred as unix timestamp.",
+      "exported": true,
+      "id": "get_current_time",
+      "name": "Get current time",
+      "nativeId": "time/get_current_time",
+      "outputDescription": "number",
+      "parameters": [],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Gets the current UTC date and time as an object:\n```tel\n{\n  day: 10,    // 1 - 31\n  hour: 9,    // 0 - 23\n  minute: 4,  // 0 - 59\n  month: 9,   // 1 - 12\n  second: 47, // 0 - 59\n  weekday: 1, // 0 is Monday, 1 Tuesday and so on...\n  year: 2024\n}\n```",
+      "exported": true,
+      "id": "V23bNNUz3sVo3rtCM3CbG",
+      "name": "Get current date and time",
+      "nativeId": "time/get_current_datetime",
+      "outputDescription": "object",
+      "parameters": [],
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "description": "Time related functions.",
   "moduleId": "f4fe017a-301d-4c00-9a0b-dd269a275dcb",
-  "id": "f4fe017a-301d-4c00-9a0b-dd269a275dcb"
+  "theme": "gray"
 }

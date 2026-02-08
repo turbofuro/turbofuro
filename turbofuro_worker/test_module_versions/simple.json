@@ -1,95 +1,95 @@
 {
-  "moduleId": "test",
-  "id": "simple",
-  "type": "HTTP",
-  "imports": {
-    "c2dfa57f-e73e-452a-8707-db7a451965ce": {
-      "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-      "type": "cloud"
-    }
-  },
   "handlers": {
     "onStart": "a5CL6vND6LqD4XOIaMPCO"
   },
+  "id": "simple",
+  "imports": {
+    "c2dfa57f-e73e-452a-8707-db7a451965ce": {
+      "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
+      "type": "cloud",
+      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce"
+    }
+  },
   "instructions": [
     {
-      "id": "0",
-      "type": "defineFunction",
-      "name": "Handle HTTP request",
-      "version": "1.0.0",
-      "parameters": [],
       "annotations": [],
       "body": [
         {
-          "type": "assign",
           "id": "3",
-          "value": "{ count: 1 }",
-          "to": "x"
+          "to": "x",
+          "type": "assign",
+          "value": "{ count: 1 }"
         },
         {
-          "type": "while",
-          "id": "4",
-          "condition": "x.count < 10",
           "body": [
             {
-              "type": "assign",
               "id": "4a",
-              "value": "{ \"count\": x.count + 1 }",
-              "to": "x"
-            }
-          ]
-        },
-        {
-          "type": "call",
-          "id": "5",
-          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
-          "parameters": [
-            {
-              "type": "tel",
-              "name": "body",
-              "expression": "\"Hello World!\""
+              "to": "x",
+              "type": "assign",
+              "value": "{ \"count\": x.count + 1 }"
             }
           ],
+          "condition": "x.count < 10",
+          "id": "4",
+          "type": "while"
+        },
+        {
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+          "id": "5",
+          "parameters": [
+            {
+              "expression": "\"Hello World!\"",
+              "name": "body",
+              "type": "tel"
+            }
+          ],
+          "type": "call",
           "version": "0.0.1"
         }
-      ]
+      ],
+      "id": "0",
+      "name": "Handle HTTP request",
+      "parameters": [],
+      "type": "defineFunction",
+      "version": "1.0.0"
     },
     {
-      "type": "defineFunction",
-      "name": "On start",
-      "description": "Initializes this module.",
-      "parameters": [],
       "annotations": [
         {
           "type": "module_starter"
         }
       ],
-      "id": "a5CL6vND6LqD4XOIaMPCO",
       "body": [
         {
-          "type": "call",
           "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/setup_route",
+          "id": "ObDqDqaFfGHCZA0-idtFI",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "\"get\"",
               "name": "method",
-              "expression": "\"get\""
+              "type": "tel"
             },
             {
-              "type": "functionRef",
+              "id": "0",
               "name": "onHttpRequest",
-              "id": "0"
+              "type": "functionRef"
             },
             {
-              "type": "tel",
+              "expression": "\"/simple\"",
               "name": "path",
-              "expression": "\"/simple\""
+              "type": "tel"
             }
           ],
-          "id": "ObDqDqaFfGHCZA0-idtFI"
+          "type": "call"
         }
-      ]
+      ],
+      "description": "Initializes this module.",
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "name": "On start",
+      "parameters": [],
+      "type": "defineFunction"
     }
-  ]
+  ],
+  "moduleId": "test",
+  "type": "HTTP"
 }

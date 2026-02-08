@@ -1,159 +1,256 @@
 {
-  "handlers": {},
+  "description": "Utilities for building HTTP servers. Provides functions for setting up routes, handling requests, sending responses, managing streams, and working with multipart form data.",
+  "icon": "https://assets.turbofuro.com/globe.svg",
+  "id": "955d07f4-b7c7-49ef-8d39-308208ff0404",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
-      "id": "setup_route",
-      "name": "Setup route",
-      "description": "Sets up a route for the HTTP server.",
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "type": "actor_creator"
+        }
+      ],
+      "description": "Sets up a route for the HTTP server that is not automatically parsing the body, instead a proper resource is created.",
+      "exported": true,
+      "id": "LdXozRRv0UIPIqFhHuHmO",
+      "name": "Setup streaming route",
+      "nativeId": "http_server/setup_streaming_route",
       "parameters": [
         {
+          "description": "HTTP method to use",
           "name": "method",
-          "description": "HTTP method to use, e.g. GET, POST, PUT, etc.",
           "optional": true,
           "type": "tel",
-          "typeDef": {
-            "tag": "one_of",
-            "options": [
-              {
-                "label": "GET",
-                "value": "GET"
-              },
-              {
-                "label": "POST",
-                "value": "POST"
-              },
-              {
-                "label": "PUT",
-                "value": "PUT"
-              },
-              {
-                "label": "PATCH",
-                "value": "PATCH"
-              },
-              {
-                "label": "DELETE",
-                "value": "DELETE"
-              },
-              {
-                "label": "HEAD",
-                "value": "HEAD"
-              },
-              {
-                "label": "OPTIONS",
-                "value": "OPTIONS"
-              }
-            ],
-            "strict": true
-          }
+          "valueDescription": "\"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"HEAD\" | \"OPTIONS\" | \"TRACE\""
         },
         {
+          "description": "Path to match",
           "name": "path",
           "optional": true,
-          "description": "Path to match",
           "type": "tel",
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "object"
-          }
+          "valueDescription": "string"
         },
         {
-          "name": "onHttpRequest",
           "description": "Function to be called when the route is matched",
+          "handlerTemplate": {
+            "annotations": [
+              {
+                "resource": "pending_http_request",
+                "strict": true,
+                "type": "consumption"
+              },
+              {
+                "resource": "http_request",
+                "strict": true,
+                "type": "consumption"
+              }
+            ],
+            "description": "Handles incoming HTTP request without parsing the request body.\n\nThe function receives a streamable resource for pending HTTP request body and a resource to HTTP request that expects a response.",
+            "name": "Handle streaming request",
+            "parameters": [
+              {
+                "description": "Request metadata",
+                "name": "request",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "{     cookies: array,     headers: object.record,     method: \"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"OPTIONS\" | \"HEAD\",     params: object.record,     query: object.record,     path: string,     version: string }"
+              }
+            ]
+          },
+          "name": "onHttpRequest",
           "optional": false,
           "type": "functionRef"
         },
         {
-          "name": "onMessage",
           "description": "Function to be called when the actor receives a new message",
+          "name": "onMessage",
+          "optional": true,
+          "type": "functionRef"
+        },
+        {
+          "description": "Function to be called when the actor receives a new request",
+          "name": "onRequest",
           "optional": true,
           "type": "functionRef"
         }
       ],
-      "nativeId": "http_server/setup_route",
-      "exported": true,
-      "annotations": []
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "resource": "pending_http_request",
+          "strict": true,
+          "type": "consumption"
+        },
+        {
+          "resource": "http_request",
+          "strict": true,
+          "type": "consumption"
+        }
+      ],
+      "body": [],
+      "description": "Handles incoming HTTP request without parsing the request body.\n\nThe function receives a streamable resource for pending HTTP request body and a resource to HTTP request that expects a response.",
+      "exported": false,
+      "id": "K25EIJ-P6xVVO7ZVamEqg",
+      "name": "Handle streaming request",
+      "parameters": [
+        {
+          "description": "Request metadata",
+          "name": "request",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "{     cookies: array,     headers: object.record,     method: \"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"OPTIONS\" | \"HEAD\",     params: object.record,     query: object.record,     path: string,     version: string }"
+        }
+      ],
+      "type": "defineFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "type": "actor_creator"
+        }
+      ],
+      "description": "Sets up a route for the HTTP server. The route will automatically parse headers, path and body. Note that there is a payload size limit.",
+      "exported": true,
+      "id": "setup_route",
+      "name": "Setup route",
+      "nativeId": "http_server/setup_route",
+      "parameters": [
+        {
+          "description": "HTTP method to use",
+          "name": "method",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "\"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"HEAD\" | \"OPTIONS\" | \"TRACE\""
+        },
+        {
+          "description": "Path to match",
+          "name": "path",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Function to be called when the route is matched",
+          "handlerTemplate": {
+            "annotations": [
+              {
+                "resource": "http_request",
+                "strict": true,
+                "type": "consumption"
+              }
+            ],
+            "description": "Handles incoming HTTP request with automatic body parsing.\n\nThe request body is parsed based on HTTP `Content-Type` header. The parser can handle JSON payloads, URL-encoded forms, plain text, bytes and multipart form data. Note that due to buffer size limits multipart payloads are not parsed immediately, instead a pending form data resource is provided.\n\nThe function receives a resource to HTTP request that expects a response.",
+            "name": "Handle request",
+            "parameters": [
+              {
+                "description": "Request metadata",
+                "name": "request",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "{     cookies: array,     headers: object.record,     method: \"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"OPTIONS\" | \"HEAD\",     params: object.record,     query: object.record,     path: string,     version: string,     body: any }"
+              }
+            ]
+          },
+          "name": "onHttpRequest",
+          "optional": false,
+          "type": "functionRef"
+        },
+        {
+          "description": "Function to be called when the actor receives a new message",
+          "name": "onMessage",
+          "optional": true,
+          "type": "functionRef"
+        },
+        {
+          "description": "Function to be called when the actor receives a new request",
+          "name": "onRequest",
+          "optional": true,
+          "type": "functionRef"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "resource": "http_request",
+          "strict": true,
+          "type": "consumption"
+        }
+      ],
+      "body": [],
+      "description": "Handles incoming HTTP request with automatic body parsing.\n\nThe request body is parsed based on HTTP `Content-Type` header. The parser can handle JSON payloads, URL-encoded forms, plain text, bytes and multipart form data. Note that due to buffer size limits multipart payloads are not parsed immediately, instead a pending form data resource is provided.\n\nThe function receives a resource to HTTP request that expects a response.",
+      "exported": false,
+      "id": "a_rbw7ONge3Eot8br_4LP",
+      "name": "Handle request",
+      "parameters": [
+        {
+          "description": "Request metadata",
+          "name": "request",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "{     cookies: array,     headers: object.record,     method: \"GET\" | \"POST\" | \"PUT\" | \"DELETE\" | \"PATCH\" | \"OPTIONS\" | \"HEAD\",     params: object.record,     query: object.record,     path: string,     version: string,     body: any }"
+        }
+      ],
+      "type": "defineFunction"
+    },
+    {
+      "annotations": [
+        {
+          "resource": "http_request",
+          "strict": true,
+          "type": "consumption"
+        }
+      ],
+      "description": "Responds to the HTTP request with a given body and status.",
+      "exported": true,
       "id": "respond_with",
       "name": "Respond with",
-      "description": "Responds to the HTTP request with a given body and status.",
+      "nativeId": "http_server/respond_with",
       "parameters": [
         {
-          "name": "body",
           "description": "Response body",
+          "name": "body",
           "optional": true,
-          "type": "tel"
+          "type": "tel",
+          "valueDescription": "any"
         },
         {
+          "description": "Headers map",
           "name": "headers",
           "optional": true,
-          "description": "Headers map",
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "object"
-          },
-          "type": "tel"
+          "type": "tel",
+          "valueDescription": "object.record"
         },
         {
-          "name": "status",
           "description": "HTTP Status to be set, 200 by default",
+          "name": "status",
           "optional": true,
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "integer"
-          },
-          "type": "tel"
+          "type": "tel",
+          "valueDescription": "number"
+        },
+        {
+          "description": "Cookie(s) to set",
+          "name": "cookies",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object | array"
         }
       ],
-      "nativeId": "http_server/respond_with",
-      "exported": true,
-      "annotations": [
-        {
-          "resource": "http_request",
-          "strict": true,
-          "type": "consumption"
-        }
-      ]
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "respond_with_file_stream",
-      "name": "Respond with file stream",
-      "description": "Responds to the HTTP request with by streaming a file. This function is useful for serving large files as it does not load the entire file into memory.",
-      "parameters": [
-        {
-          "name": "headers",
-          "optional": true,
-          "description": "Headers map",
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "object"
-          },
-          "type": "tel"
-        },
-        {
-          "name": "status",
-          "description": "HTTP Status to be set, 200 by default",
-          "optional": true,
-          "typeDef": {
-            "tag": "simple",
-            "strict": true,
-            "type": "integer"
-          },
-          "type": "tel"
-        }
-      ],
-      "nativeId": "http_server/respond_with_file_stream",
-      "exported": true,
       "annotations": [
         {
-          "resource": "file_handle",
+          "resource": "streamable",
           "strict": true,
           "type": "consumption"
         },
@@ -162,11 +259,122 @@
           "strict": true,
           "type": "consumption"
         }
-      ]
+      ],
+      "description": "Responds to the HTTP request with a stream. \n\nThis function is useful for serving large files or proxying, as it does not load the entire payload into the memory.",
+      "exported": true,
+      "id": "wrnzlF1foFTVci5Iw2Fha",
+      "name": "Respond with stream",
+      "nativeId": "http_server/respond_with_stream",
+      "parameters": [
+        {
+          "description": "Headers map",
+          "name": "headers",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record"
+        },
+        {
+          "description": "HTTP Status to use in the response",
+          "name": "status",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "number"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "resource": "sse",
+          "strict": true,
+          "type": "provision"
+        },
+        {
+          "resource": "http_request",
+          "strict": true,
+          "type": "consumption"
+        }
+      ],
+      "description": "Responds to the HTTP request with a server-sent event stream. \n\n[MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events)",
+      "exported": true,
+      "id": "FDlVEeiPOfnu2KzCCby75",
+      "name": "Respond with server-sent event stream",
+      "nativeId": "http_server/respond_with_sse_stream",
+      "parameters": [
+        {
+          "description": "Time between each keep alive event, 60s by default",
+          "name": "keepAlive",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "number"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "resource": "sse",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "description": "Sends a server-sent event to an opened stream",
+      "exported": true,
+      "id": "vX-Az7c_cSNMg8SB8_EKd",
+      "name": "Send server-sent event",
+      "nativeId": "http_server/send_sse",
+      "parameters": [
+        {
+          "description": "Event to send, objects and array are automatically converted to JSON",
+          "name": "event",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "any"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "resource": "sse",
+          "strict": true,
+          "type": "consumption"
+        }
+      ],
+      "description": "Sends a server-sent event to an opened stream",
+      "exported": true,
+      "id": "TpJwtAkogwQfw1Qq-d2kx",
+      "name": "Close server-sent stream",
+      "nativeId": "http_server/close_sse_stream",
+      "parameters": [],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "resource": "pending_form_data_field",
+          "strict": true,
+          "type": "provision"
+        },
+        {
+          "resource": "pending_form_data",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "description": "Gets multipart field without reading the input.\n\nThe part content is provided via a streamable resource.\n\nThis function does however store a metadata like:\n```\n{\n  filename: \"awesome.png\",\n  headers: {\n    \"content-disposition\": \"form-data; name=\"file\"; filename=\"awesome.png\"\",\n    \"content-type\": \"image/png\"\n  },\n  index: 0,\n  name: \"file\",\n  type: \"file\"\n}\n```",
+      "exported": true,
+      "id": "izRnH6W03yyXA_YL9avkT",
+      "name": "Get multipart field",
+      "nativeId": "http_server/get_multipart_field",
+      "outputDescription": "object.record",
+      "parameters": [],
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "description": "The HTTP Server Functions encompass a suite of capabilities essential for building and managing a robust and efficient HTTP server. These functions are integral to the server-side of web applications, enabling them to accept, process, and respond to HTTP requests from clients.",
   "moduleId": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-  "id": "c2dfa57f-e73e-452a-8707-db7a451965ce"
+  "theme": "gray"
 }

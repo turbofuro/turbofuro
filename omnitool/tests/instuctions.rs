@@ -11,7 +11,6 @@ fn test_analyzes_1() {
         &instructions,
         declarations,
         vec!["QrI_n3HQuk-LXcGD_u3yz".to_owned()],
-        None,
     );
 
     assert_eq!(result.len(), 12);
@@ -49,7 +48,7 @@ fn test_analyzes_2() {
     let declarations: Vec<FunctionDeclaration> =
         serde_json::from_str(include_str!("declarations2.json")).unwrap();
 
-    let result = analyze_instructions(&instructions, declarations, vec![], None);
+    let result = analyze_instructions(&instructions, declarations, vec![]);
 
     assert_eq!(result.len(), 6);
     for step in result {
@@ -89,7 +88,7 @@ fn test_analyzes_3() {
     let declarations: Vec<FunctionDeclaration> =
         serde_json::from_str(include_str!("declarations3.json")).unwrap();
 
-    let result = analyze_instructions(&instructions, declarations, vec![], None);
+    let result = analyze_instructions(&instructions, declarations, vec![]);
 
     assert_eq!(result.len(), 8);
     for step in result {

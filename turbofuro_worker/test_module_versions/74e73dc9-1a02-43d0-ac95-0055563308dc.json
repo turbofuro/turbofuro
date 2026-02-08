@@ -1,0 +1,170 @@
+{
+  "description": "Utilities for audio playback and sound generation. Supports playing audio files and generating raw audio signals with customizable frequency, duration, and waveform functions.",
+  "icon": "system://broadcast",
+  "id": "382bc992-f1e9-4b23-b0b9-8b0e467f9ae6",
+  "imports": {},
+  "instructions": [
+    {
+      "annotations": [],
+      "decorator": false,
+      "description": "Plays a sound from a file",
+      "exported": true,
+      "id": "qDVPy3VSqMhtvjo-3OVuW",
+      "name": "Play sound",
+      "nativeId": "sound/play_sound",
+      "parameters": [
+        {
+          "description": "Path to file with sound. mp3, wav, vorbis, flac files are supported.",
+          "name": "path",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Volume to use. 1.0 is default.",
+          "name": "volume",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "number"
+        },
+        {
+          "description": "Speed to use, this will effect pitch. 1.0 is default.",
+          "name": "speed",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "number"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "decorator": false,
+      "description": "Plays a raw generated signal",
+      "exported": true,
+      "id": "k7lrTL2YaKdImpR4yIhbm",
+      "name": "Play signal",
+      "nativeId": "sound/play_signal",
+      "parameters": [
+        {
+          "description": "Volume to use. 1.0 is default.",
+          "name": "volume",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "number"
+        },
+        {
+          "description": "Frequency in Hz",
+          "name": "frequency",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "number"
+        },
+        {
+          "description": "Duration of the sound in milliseconds",
+          "name": "duration",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "number"
+        },
+        {
+          "description": "Function to use for signal generation. Sine by default",
+          "name": "function",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "\"sine\" | \"triangle\" | \"square\" | \"saw\""
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "module_starter"
+        }
+      ],
+      "body": [
+        {
+          "callee": "local/qDVPy3VSqMhtvjo-3OVuW",
+          "id": "bB8Hneu_AGO5MJXjVL0U5",
+          "parameters": [
+            {
+              "expression": "\"beep1.mp3\"",
+              "name": "path",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        },
+        {
+          "callee": "local/qDVPy3VSqMhtvjo-3OVuW",
+          "id": "0p-8NGjLDDa-FdgC6lp0V",
+          "parameters": [
+            {
+              "expression": "\"beep1.mp3\"",
+              "name": "path",
+              "type": "tel"
+            },
+            {
+              "expression": "0.1",
+              "name": "volume",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        },
+        {
+          "callee": "local/qDVPy3VSqMhtvjo-3OVuW",
+          "id": "YQk6aASNJj8-ZgPUPHsrh",
+          "parameters": [
+            {
+              "expression": "\"beep1.mp3\"",
+              "name": "path",
+              "type": "tel"
+            },
+            {
+              "expression": "2",
+              "name": "speed",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        },
+        {
+          "body": [
+            {
+              "callee": "local/k7lrTL2YaKdImpR4yIhbm",
+              "id": "HTcfpDgQbrJFSlKToGBVJ",
+              "parameters": [
+                {
+                  "expression": "f",
+                  "name": "frequency",
+                  "type": "tel"
+                },
+                {
+                  "expression": "1000",
+                  "name": "duration",
+                  "type": "tel"
+                }
+              ],
+              "type": "call"
+            }
+          ],
+          "id": "a-lT6OewPQY03UKBzUZSu",
+          "item": "f",
+          "items": "[30, 50, 200, 400, 800, 16000, 40000]",
+          "type": "forEach"
+        }
+      ],
+      "decorator": false,
+      "description": "",
+      "exported": false,
+      "id": "n_Misy75hAfm-bj-OLcEz",
+      "name": "My function",
+      "parameters": [],
+      "type": "defineFunction"
+    }
+  ],
+  "moduleId": "74e73dc9-1a02-43d0-ac95-0055563308dc",
+  "theme": "violet"
+}

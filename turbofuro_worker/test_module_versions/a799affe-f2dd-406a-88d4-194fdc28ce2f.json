@@ -1,0 +1,313 @@
+{
+  "description": "Utilities for working with regular expressions to match, find, replace, and capture patterns in strings.",
+  "icon": "system://code",
+  "id": "edcf2a6f-4a09-47cf-acc5-c04d07d54aa4",
+  "imports": {},
+  "instructions": [
+    {
+      "annotations": [],
+      "decorator": false,
+      "description": "Checks if value matches given regular expression",
+      "exported": true,
+      "id": "H2wb-MBL0YdWKz-FPZCpW",
+      "name": "Matches",
+      "nativeId": "regex/matches",
+      "parameters": [
+        {
+          "description": "Regular expression",
+          "name": "expression",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Value to test",
+          "name": "value",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "decorator": false,
+      "description": "Finds all matches in value using given regular expression",
+      "exported": true,
+      "id": "StpnoEx9kvNaY9UxAximr",
+      "name": "Find all",
+      "nativeId": "regex/find_all",
+      "parameters": [
+        {
+          "description": "Regular expression",
+          "name": "expression",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Value to test",
+          "name": "value",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "decorator": false,
+      "description": "Finds first match in value using given regular expression",
+      "exported": true,
+      "id": "UM1Q0b9I38TXU23EB3ISI",
+      "name": "Find first",
+      "nativeId": "regex/find_first",
+      "parameters": [
+        {
+          "description": "Regular expression",
+          "name": "expression",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Value to test",
+          "name": "value",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "decorator": false,
+      "description": "Replaces first match in a value given regular expression with a replacement string",
+      "exported": true,
+      "id": "Wbt4tp55HuvB_tTU6sr3E",
+      "name": "Replace",
+      "nativeId": "regex/replace",
+      "parameters": [
+        {
+          "description": "Regular expression",
+          "name": "expression",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Value to test",
+          "name": "value",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Replacement",
+          "name": "replacement",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "decorator": false,
+      "description": "Replaces all matches in a value given regular expression with a replacement string",
+      "exported": true,
+      "id": "iTonlJmXJrX-p4y9rbz83",
+      "name": "Replace all",
+      "nativeId": "regex/replace_all",
+      "parameters": [
+        {
+          "description": "Regular expression",
+          "name": "expression",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Value to test",
+          "name": "value",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Replacement",
+          "name": "replacement",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "decorator": false,
+      "description": "Captures first match in a value given regular expression. The capture returns all groups, where first one is the whole match.",
+      "exported": true,
+      "id": "kxAwX6XnU7pT4SAakF5Ga",
+      "name": "Capture",
+      "nativeId": "regex/replace",
+      "parameters": [
+        {
+          "description": "Regular expression",
+          "name": "expression",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Value to test",
+          "name": "value",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "decorator": false,
+      "description": "Captures all matches in a value given regular expression. The capture returns all groups, where first one is the whole match.",
+      "exported": true,
+      "id": "zLGKN0p_3UbYHkjy8fGK3",
+      "name": "Capture all",
+      "nativeId": "regex/capture_all",
+      "parameters": [
+        {
+          "description": "Regular expression",
+          "name": "expression",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Value to test",
+          "name": "value",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "body": [
+        {
+          "callee": "local/H2wb-MBL0YdWKz-FPZCpW",
+          "id": "mASRAU89TFa_29h5N44sl",
+          "parameters": [
+            {
+              "expression": "\"^hello world$\"",
+              "name": "expression",
+              "type": "tel"
+            },
+            {
+              "expression": "\"hello world\"",
+              "name": "value",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/H2wb-MBL0YdWKz-FPZCpW",
+          "id": "9SK5HnfhXkTanXRsV0KmR",
+          "parameters": [
+            {
+              "expression": "\"^hello world$\"",
+              "name": "expression",
+              "type": "tel"
+            },
+            {
+              "expression": "\"hello world gfgg\"",
+              "name": "value",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/iTonlJmXJrX-p4y9rbz83",
+          "id": "1w_MJ1-a47K3c2LlzalSf",
+          "parameters": [
+            {
+              "expression": "\"world\"",
+              "name": "expression",
+              "type": "tel"
+            },
+            {
+              "expression": "\"hello world\"",
+              "name": "value",
+              "type": "tel"
+            },
+            {
+              "expression": "\"turbofuro\"",
+              "name": "replacement",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/StpnoEx9kvNaY9UxAximr",
+          "id": "60jWvo3FbJ4lgSsmzpkdG",
+          "parameters": [
+            {
+              "expression": "\"\\\\w+\"",
+              "name": "expression",
+              "type": "tel"
+            },
+            {
+              "expression": "\"find all    words    here\"",
+              "name": "value",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/zLGKN0p_3UbYHkjy8fGK3",
+          "id": "iOmL55NymBxW7y8h1e_rP",
+          "parameters": [
+            {
+              "expression": "\"\\\\b[aA]\\\\w*\\\\b\"",
+              "name": "expression",
+              "type": "tel"
+            },
+            {
+              "expression": "\"find all words starting with letter A lub a like Alphabet\"",
+              "name": "value",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        }
+      ],
+      "decorator": false,
+      "description": "",
+      "exported": false,
+      "id": "Ou-T_zM5aGD0G59yXFqD7",
+      "name": "Test",
+      "parameters": [],
+      "type": "defineFunction"
+    }
+  ],
+  "moduleId": "a799affe-f2dd-406a-88d4-194fdc28ce2f",
+  "theme": "lime"
+}

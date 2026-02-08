@@ -1,0 +1,44 @@
+{
+  "description": "Utilities for interacting with Ollama servers. Provides a wrapper for generating text completions using Ollama language models.",
+  "icon": "system://robot",
+  "id": "611d1ae4-02de-4d94-8296-cb1b52a5d9d1",
+  "imports": {},
+  "instructions": [
+    {
+      "annotations": [],
+      "decorator": false,
+      "description": "Generates completion using one the Ollama models,",
+      "exported": true,
+      "id": "X_5Nj2qpvrhYVllxzG_3b",
+      "name": "Generate completion",
+      "nativeId": "ollama/generate",
+      "outputDescription": "string",
+      "parameters": [
+        {
+          "description": "Model to use",
+          "name": "model",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Prompt",
+          "name": "prompt",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Array of base64 encoded images",
+          "name": "images",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "array"
+        }
+      ],
+      "type": "defineNativeFunction"
+    }
+  ],
+  "moduleId": "11e207ba-0ed9-40fa-ab48-835cf6f5c08c",
+  "theme": "gray"
+}

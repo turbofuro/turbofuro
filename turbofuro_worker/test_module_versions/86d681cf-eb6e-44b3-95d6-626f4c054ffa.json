@@ -1,97 +1,146 @@
 {
-  "handlers": {},
+  "description": "Utilities for interacting with the operating system and environment. Provides functions for running shell commands and reading or setting environment variables.",
+  "icon": "https://assets.turbofuro.com/terminal-window.svg",
+  "id": "6b5ec8fa-9569-4a26-909d-4aad5218b119",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Runs a command returning the status, standard output and standard error.",
+      "exported": true,
       "id": "run_command",
       "name": "Run command",
-      "description": "",
+      "nativeId": "os/run_command",
+      "outputDescription": "{\n  status: number,\n  stderr: string,\n  stdout: string\n}",
       "parameters": [
         {
-          "type": "tel",
+          "description": "Program to run",
           "name": "program",
           "optional": false,
-          "description": "Program to run",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "type": "tel",
+          "valueDescription": "string"
         },
         {
-          "type": "tel",
+          "description": "Arguments to pass to the program",
           "name": "args",
           "optional": true,
-          "description": "Arguments to pass to the program",
-          "typeDef": {
-            "tag": "simple",
-            "type": "array",
-            "strict": true
-          }
+          "type": "tel",
+          "valueDescription": "array"
         }
       ],
-      "nativeId": "os/run_command",
-      "exported": true,
-      "annotations": []
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Reads environment variable from the shell.",
+      "exported": true,
       "id": "read_environment_variable",
       "name": "Read system environment variable",
-      "description": "",
+      "nativeId": "os/read_environment_variable",
+      "outputDescription": "string | null",
       "parameters": [
         {
-          "type": "tel",
+          "description": "Name of the environment variable to read",
           "name": "key",
           "optional": false,
-          "description": "Name of the environment variable to read",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "type": "tel",
+          "valueDescription": "string"
         }
       ],
-      "nativeId": "os/read_environment_variable",
-      "exported": true,
-      "annotations": []
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "set_environment_variable",
-      "name": "Set system environment variable",
-      "description": "",
-      "parameters": [
+      "annotations": [
         {
-          "type": "tel",
-          "name": "key",
-          "optional": false,
-          "description": "Name of the environment variable to read",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        },
-        {
-          "type": "tel",
-          "name": "value",
-          "optional": false,
-          "description": "Value to set for the environment variable",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "type": "exported"
         }
       ],
-      "nativeId": "os/set_environment_variable",
+      "description": "Sets environment variable for the current process.\n\nNote that this change will not be persistent if the worker or system is restarted.",
       "exported": true,
-      "annotations": []
+      "id": "set_environment_variable",
+      "name": "Set system environment variable",
+      "nativeId": "os/set_environment_variable",
+      "parameters": [
+        {
+          "description": "Name of the environment variable to read",
+          "name": "key",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Value to set for the environment variable",
+          "name": "value",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "body": [
+        {
+          "callee": "local/read_environment_variable",
+          "id": "YBgqNLSWfArt_m3CHU_zR",
+          "parameters": [
+            {
+              "expression": "\"NOTIHNG\"",
+              "name": "key",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        },
+        {
+          "callee": "local/set_environment_variable",
+          "id": "fLGl3SIqXIqA15UhtdYPU",
+          "parameters": [
+            {
+              "expression": "\"HELLO\"",
+              "name": "key",
+              "type": "tel"
+            },
+            {
+              "expression": "\"5\"",
+              "name": "value",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        },
+        {
+          "callee": "local/run_command",
+          "id": "clfUrqfqAPIJfi7CMNB8Y",
+          "parameters": [
+            {
+              "expression": "\"ls\"",
+              "name": "program",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        }
+      ],
+      "description": "",
+      "exported": false,
+      "id": "XUF3Zi9Sum_LeN_45pppr",
+      "name": "Examples",
+      "parameters": [],
+      "type": "defineFunction"
     }
   ],
-  "imports": {},
-  "description": "Utilities for interacting with the operating system and the environment",
   "moduleId": "86d681cf-eb6e-44b3-95d6-626f4c054ffa",
-  "id": "86d681cf-eb6e-44b3-95d6-626f4c054ffa"
+  "theme": "gray"
 }

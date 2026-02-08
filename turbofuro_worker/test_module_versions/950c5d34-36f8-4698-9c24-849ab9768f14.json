@@ -1,64 +1,53 @@
 {
-  "handlers": {},
+  "description": "Utilities for running WebAssembly modules. Supports executing WASI-compatible WebAssembly modules with configurable arguments, environment variables, and input/output handling.",
+  "icon": "https://assets.turbofuro.com/wa_logo.svg",
+  "id": "993b687f-19ef-444a-a54a-a9dc6ac1e568",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
-      "id": "run_wasi",
-      "name": "Run WASI",
-      "description": "",
-      "parameters": [
+      "annotations": [
         {
-          "name": "path",
-          "optional": false,
-          "description": "Path to WASI module.",
-          "type": "tel",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        },
-        {
-          "name": "args",
-          "optional": true,
-          "description": "Arguments to pass to WASI module.",
-          "type": "tel",
-          "typeDef": {
-            "tag": "simple",
-            "type": "array",
-            "strict": true
-          }
-        },
-        {
-          "name": "input",
-          "optional": true,
-          "description": "Standard input to pass to WASI module.",
-          "type": "tel",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        },
-        {
-          "name": "env",
-          "optional": true,
-          "description": "Environment variables to pass to WASI module.",
-          "type": "tel",
-          "typeDef": {
-            "tag": "simple",
-            "type": "array",
-            "strict": true
-          }
+          "type": "exported"
         }
       ],
-      "nativeId": "wasm/run_wasi",
+      "description": "Loads and runs a WASI module. The module must be available at the given path. This function is returning standard output from the WASI module execution.",
       "exported": true,
-      "annotations": []
+      "id": "run_wasi",
+      "name": "Run WASI",
+      "nativeId": "wasm/run_wasi",
+      "parameters": [
+        {
+          "description": "Path to WASI module.",
+          "name": "path",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Arguments to pass to WASI module.",
+          "name": "args",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "array"
+        },
+        {
+          "description": "Standard input to pass to WASI module.",
+          "name": "input",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Environment variables to pass to WASI module.",
+          "name": "env",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object.record"
+        }
+      ],
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "description": "WebAssembly is a new type of code that can be run in modern web browsers — it is a low-level assembly-like language with a compact binary format that runs with near-native performance and provides languages such as C/C++ and Rust with a compilation target so that they can run on the web.",
   "moduleId": "950c5d34-36f8-4698-9c24-849ab9768f14",
-  "id": "950c5d34-36f8-4698-9c24-849ab9768f14"
+  "theme": "indigo"
 }

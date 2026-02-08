@@ -1,75 +1,75 @@
 {
-  "moduleId": "test",
-  "id": "echo",
   "debug": false,
-  "version": "alpha",
-  "type": "HTTP",
+  "id": "echo",
   "imports": {
     "c2dfa57f-e73e-452a-8707-db7a451965ce": {
       "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-      "type": "cloud"
+      "type": "cloud",
+      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce"
     }
   },
   "instructions": [
     {
-      "id": "0",
-      "type": "defineFunction",
-      "name": "Handle HTTP request",
-      "version": "1.0.0",
-      "parameters": [],
       "annotations": [],
       "body": [
         {
-          "type": "call",
-          "id": "1",
           "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+          "id": "1",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "request",
               "name": "body",
-              "expression": "request"
+              "type": "tel"
             }
           ],
+          "type": "call",
           "version": "0.0.1"
         }
-      ]
+      ],
+      "id": "0",
+      "name": "Handle HTTP request",
+      "parameters": [],
+      "type": "defineFunction",
+      "version": "1.0.0"
     },
     {
-      "type": "defineFunction",
-      "name": "On start",
-      "description": "Initializes this module.",
-      "parameters": [],
       "annotations": [
         {
           "type": "module_starter"
         }
       ],
-      "id": "a5CL6vND6LqD4XOIaMPCO",
       "body": [
         {
-          "type": "call",
           "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/setup_route",
+          "id": "ObDqDqaFfGHCZA0-idtFI",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "\"get\"",
               "name": "method",
-              "expression": "\"get\""
+              "type": "tel"
             },
             {
-              "type": "functionRef",
+              "id": "0",
               "name": "onHttpRequest",
-              "id": "0"
+              "type": "functionRef"
             },
             {
-              "type": "tel",
+              "expression": "\"/echo\"",
               "name": "path",
-              "expression": "\"/echo\""
+              "type": "tel"
             }
           ],
-          "id": "ObDqDqaFfGHCZA0-idtFI"
+          "type": "call"
         }
-      ]
+      ],
+      "description": "Initializes this module.",
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "name": "On start",
+      "parameters": [],
+      "type": "defineFunction"
     }
-  ]
+  ],
+  "moduleId": "test",
+  "type": "HTTP",
+  "version": "alpha"
 }

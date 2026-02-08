@@ -1,43 +1,43 @@
 {
-  "moduleId": "test",
-  "type": "LIBRARY",
   "handlers": {},
+  "id": "crypto",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
-      "id": "jwt_decode",
-      "name": "Decode JWT",
-      "description": "Verifies and decodes JWT",
-      "parameters": [
-        {
-          "name": "token",
-          "optional": false,
-          "description": "JWT token",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        },
-        {
-          "name": "secret",
-          "optional": false,
-          "description": "Secret used to sign the token",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
-        }
-      ],
-      "nativeId": "crypto/jwt_decode",
       "annotations": [
         {
           "type": "exported"
         }
-      ]
+      ],
+      "description": "Verifies and decodes JWT",
+      "id": "jwt_decode",
+      "name": "Decode JWT",
+      "nativeId": "crypto/jwt_decode",
+      "parameters": [
+        {
+          "description": "JWT token",
+          "name": "token",
+          "optional": false,
+          "typeDef": {
+            "strict": true,
+            "tag": "simple",
+            "type": "string"
+          }
+        },
+        {
+          "description": "Secret used to sign the token",
+          "name": "secret",
+          "optional": false,
+          "typeDef": {
+            "strict": true,
+            "tag": "simple",
+            "type": "string"
+          }
+        }
+      ],
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "id": "crypto"
+  "moduleId": "test",
+  "type": "LIBRARY"
 }

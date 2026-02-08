@@ -1,20 +1,24 @@
 {
-  "moduleId": "test",
-  "type": "LIBRARY",
   "handlers": {},
+  "id": "http_client",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Sends HTTPS request to a given URL.",
       "id": "request",
       "name": "Send HTTP request",
-      "description": "Sends HTTPS request to a given URL.",
+      "nativeId": "http_client/request",
       "parameters": [
         {
+          "description": "HTTP method to use, e.g. 'GET', 'POST', 'PUT', etc.",
           "name": "method",
           "optional": false,
-          "description": "HTTP method to use, e.g. 'GET', 'POST', 'PUT', etc.",
           "typeDef": {
-            "tag": "one_of",
             "options": [
               {
                 "label": "GET",
@@ -45,53 +49,49 @@
                 "value": "OPTIONS"
               }
             ],
-            "strict": true
+            "strict": true,
+            "tag": "one_of"
           }
         },
         {
+          "description": "URL to send the request to, e.g. 'https://example.com'",
           "name": "url",
           "optional": false,
-          "description": "URL to send the request to, e.g. 'https://example.com'",
           "typeDef": {
-            "tag": "simple",
             "strict": true,
+            "tag": "simple",
             "type": "string"
           }
         },
         {
+          "description": "Headers map",
           "name": "headers",
           "optional": true,
-          "description": "Headers map",
           "typeDef": {
-            "tag": "simple",
             "strict": true,
+            "tag": "simple",
             "type": "object"
           }
         },
         {
+          "description": "Query params to append to the URL",
           "name": "query",
           "optional": true,
-          "description": "Query params to append to the URL",
           "typeDef": {
-            "tag": "simple",
             "strict": true,
+            "tag": "simple",
             "type": "object"
           }
         },
         {
+          "description": "Request body",
           "name": "body",
-          "optional": true,
-          "description": "Request body"
+          "optional": true
         }
       ],
-      "nativeId": "http_client/request",
-      "annotations": [
-        {
-          "type": "exported"
-        }
-      ]
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "id": "http_client"
+  "moduleId": "test",
+  "type": "LIBRARY"
 }

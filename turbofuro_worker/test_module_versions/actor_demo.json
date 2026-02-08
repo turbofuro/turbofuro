@@ -1,208 +1,208 @@
 {
-  "moduleId": "test",
   "id": "actor_demo",
   "imports": {
-    "echo_actor": {
-      "id": "echo_actor",
-      "versionId": "echo_actor",
-      "type": "cloud"
-    },
     "77236997-0f20-4141-a21c-7f0e88191999": {
       "id": "77236997-0f20-4141-a21c-7f0e88191999",
-      "versionId": "77236997-0f20-4141-a21c-7f0e88191999",
-      "type": "cloud"
-    },
-    "c2dfa57f-e73e-452a-8707-db7a451965ce": {
-      "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-      "type": "cloud"
+      "type": "cloud",
+      "versionId": "77236997-0f20-4141-a21c-7f0e88191999"
     },
     "a816bac0-336e-4f5c-be43-db999b3e08da": {
       "id": "a816bac0-336e-4f5c-be43-db999b3e08da",
-      "versionId": "a816bac0-336e-4f5c-be43-db999b3e08da",
-      "type": "cloud"
+      "type": "cloud",
+      "versionId": "a816bac0-336e-4f5c-be43-db999b3e08da"
+    },
+    "c2dfa57f-e73e-452a-8707-db7a451965ce": {
+      "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
+      "type": "cloud",
+      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce"
+    },
+    "echo_actor": {
+      "id": "echo_actor",
+      "type": "cloud",
+      "versionId": "echo_actor"
     }
   },
   "instructions": [
     {
-      "type": "defineFunction",
-      "version": "1.0.0",
-      "name": "Handle message",
-      "description": "Handles actor message",
       "annotations": [],
-      "parameters": [
-        {
-          "type": "tel",
-          "name": "message",
-          "description": "The incoming message object.",
-          "optional": false
-        }
-      ],
-      "id": "lQn52Y-VCNV5ymfTEgK8_",
       "body": [
         {
-          "type": "call",
-          "version": "1",
           "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+          "id": "Y1qQeqqah6DNsg1xrX6G-",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "{\n  \"data\": message.data\n}",
               "name": "body",
-              "expression": "{\n  \"data\": message.data\n}"
+              "type": "tel"
             },
             {
-              "type": "tel",
+              "expression": "{\n  \"Content-Type\": \"application/json\"\n}",
               "name": "headers",
-              "expression": "{\n  \"Content-Type\": \"application/json\"\n}"
+              "type": "tel"
             }
           ],
-          "id": "Y1qQeqqah6DNsg1xrX6G-"
-        }
-      ]
-    },
-    {
-      "type": "defineFunction",
-      "version": "1.0.0",
-      "name": "Handle request",
-      "description": "Handles HTTP request.",
-      "parameters": [
-        {
-          "type": "tel",
-          "name": "request",
-          "description": "The incoming request object.",
-          "optional": false
+          "type": "call",
+          "version": "1"
         }
       ],
-      "id": "_xr1Fnvgfh9uYPk4rNJKe",
+      "description": "Handles actor message",
+      "id": "lQn52Y-VCNV5ymfTEgK8_",
+      "name": "Handle message",
+      "parameters": [
+        {
+          "description": "The incoming message object.",
+          "name": "message",
+          "optional": false,
+          "type": "tel"
+        }
+      ],
+      "type": "defineFunction",
+      "version": "1.0.0"
+    },
+    {
       "annotations": [],
       "body": [
         {
-          "type": "call",
-          "version": "1",
           "callee": "import/a816bac0-336e-4f5c-be43-db999b3e08da/read",
-          "storeAs": "actor",
+          "id": "h4pUkMePR2UekzBhqwz1_",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "\"actor\"",
               "name": "key",
-              "expression": "\"actor\""
+              "type": "tel"
             }
           ],
-          "id": "h4pUkMePR2UekzBhqwz1_"
+          "storeAs": "actor",
+          "type": "call",
+          "version": "1"
         },
         {
-          "type": "if",
-          "version": "1",
           "condition": "actor == null",
+          "else": [],
           "id": "5h-Q4PJKVr34cQmELSHxM",
           "then": [
             {
-              "type": "call",
-              "version": "1",
               "callee": "import/echo_actor/23O3mwbiJw7TPnNOWBORS",
+              "id": "Niem1ybwxftpvyEEYamc8",
               "parameters": [
                 {
-                  "type": "tel",
+                  "expression": "request.query.name",
                   "name": "state",
-                  "expression": "request.query.name"
+                  "type": "tel"
                 }
               ],
-              "id": "Niem1ybwxftpvyEEYamc8"
+              "type": "call",
+              "version": "1"
             },
             {
-              "type": "call",
-              "version": "1",
               "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+              "id": "aTYXJZhctz3pMN1lwOOHF",
               "parameters": [
                 {
-                  "type": "tel",
+                  "expression": "{\n  \"message\": \"created\"\n}",
                   "name": "body",
-                  "expression": "{\n  \"message\": \"created\"\n}"
+                  "type": "tel"
                 },
                 {
-                  "type": "tel",
+                  "expression": "{\n  \"Content-Type\": \"application/json\"\n}",
                   "name": "headers",
-                  "expression": "{\n  \"Content-Type\": \"application/json\"\n}"
+                  "type": "tel"
                 }
               ],
-              "id": "aTYXJZhctz3pMN1lwOOHF"
+              "type": "call",
+              "version": "1"
             },
             {
+              "id": "Yfe7pkMGJi0YJ1LCH7cS2",
               "type": "return",
-              "version": "1",
-              "id": "Yfe7pkMGJi0YJ1LCH7cS2"
+              "version": "1"
             }
           ],
-          "else": []
+          "type": "if",
+          "version": "1"
         },
         {
-          "type": "call",
-          "version": "1",
           "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/get_actor_id",
-          "storeAs": "actorId",
+          "id": "eH0PeOwb1Yk2FZ_x-iP_R",
           "parameters": [],
-          "id": "eH0PeOwb1Yk2FZ_x-iP_R"
+          "storeAs": "actorId",
+          "type": "call",
+          "version": "1"
         },
         {
-          "type": "call",
-          "version": "1",
-          "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/send",
+          "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/send_command",
+          "id": "liBQ-jyadf56AOEol2Hof",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "actor",
               "name": "id",
-              "expression": "actor"
+              "type": "tel"
             },
             {
-              "type": "tel",
+              "expression": "{\n  respond_to: actorId,\n  data: request.query.name\n}",
               "name": "message",
-              "expression": "{\n  respond_to: actorId,\n  data: request.query.name\n}"
+              "type": "tel"
             }
           ],
-          "id": "liBQ-jyadf56AOEol2Hof"
+          "type": "call",
+          "version": "1"
         }
-      ]
+      ],
+      "description": "Handles HTTP request.",
+      "id": "_xr1Fnvgfh9uYPk4rNJKe",
+      "name": "Handle request",
+      "parameters": [
+        {
+          "description": "The incoming request object.",
+          "name": "request",
+          "optional": false,
+          "type": "tel"
+        }
+      ],
+      "type": "defineFunction",
+      "version": "1.0.0"
     },
     {
-      "type": "defineFunction",
-      "name": "On start",
-      "description": "Initializes this module.",
-      "parameters": [],
       "annotations": [
         {
           "type": "module_starter"
         }
       ],
-      "id": "a5CL6vND6LqD4XOIaMPCO",
       "body": [
         {
-          "type": "call",
           "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/setup_route",
+          "id": "ObDqDqaFfGHCZA0-idtFI",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "\"get\"",
               "name": "method",
-              "expression": "\"get\""
+              "type": "tel"
             },
             {
-              "type": "functionRef",
+              "id": "_xr1Fnvgfh9uYPk4rNJKe",
               "name": "onHttpRequest",
-              "id": "_xr1Fnvgfh9uYPk4rNJKe"
+              "type": "functionRef"
             },
             {
-              "type": "functionRef",
+              "id": "lQn52Y-VCNV5ymfTEgK8_",
               "name": "onMessage",
-              "id": "lQn52Y-VCNV5ymfTEgK8_"
+              "type": "functionRef"
             },
             {
-              "type": "tel",
+              "expression": "\"/actor\"",
               "name": "path",
-              "expression": "\"/actor\""
+              "type": "tel"
             }
           ],
-          "id": "ObDqDqaFfGHCZA0-idtFI"
+          "type": "call"
         }
-      ]
+      ],
+      "description": "Initializes this module.",
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "name": "On start",
+      "parameters": [],
+      "type": "defineFunction"
     }
-  ]
+  ],
+  "moduleId": "test"
 }

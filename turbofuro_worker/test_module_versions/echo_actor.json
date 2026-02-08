@@ -1,126 +1,126 @@
 {
-  "moduleId": "test",
+  "handlers": {},
   "id": "echo_actor",
   "imports": {
     "77236997-0f20-4141-a21c-7f0e88191999": {
       "id": "77236997-0f20-4141-a21c-7f0e88191999",
-      "versionId": "77236997-0f20-4141-a21c-7f0e88191999",
-      "type": "cloud"
+      "type": "cloud",
+      "versionId": "77236997-0f20-4141-a21c-7f0e88191999"
     },
     "a816bac0-336e-4f5c-be43-db999b3e08da": {
       "id": "a816bac0-336e-4f5c-be43-db999b3e08da",
-      "versionId": "a816bac0-336e-4f5c-be43-db999b3e08da",
-      "type": "cloud"
+      "type": "cloud",
+      "versionId": "a816bac0-336e-4f5c-be43-db999b3e08da"
     }
   },
-  "handlers": {},
   "instructions": [
     {
-      "type": "defineFunction",
-      "version": "1",
-      "name": "Handle message",
-      "description": "Handles message from another actor.",
       "annotations": [],
-      "parameters": [
-        {
-          "type": "tel",
-          "name": "state",
-          "description": "The state object.",
-          "optional": false
-        },
-        {
-          "type": "tel",
-          "name": "message",
-          "description": "Message",
-          "optional": false
-        }
-      ],
-      "id": "dXT1mhSZ-_haV_ZG_ITFK",
       "body": [
         {
-          "type": "call",
-          "version": "1",
-          "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/send",
+          "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/send_command",
+          "id": "kb5pAq7kWAubFK5vQ6RVP",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "message.respond_to",
               "name": "id",
-              "expression": "message.respond_to"
+              "type": "tel"
             },
             {
-              "type": "tel",
+              "expression": "{ data: state }",
               "name": "message",
-              "expression": "{ data: state }"
+              "type": "tel"
             }
           ],
-          "id": "kb5pAq7kWAubFK5vQ6RVP"
+          "type": "call",
+          "version": "1"
         },
         {
-          "type": "assign",
-          "value": "message.data",
+          "id": "VQGZxEQSEl5wGaphvhAuD",
           "to": "state",
-          "id": "VQGZxEQSEl5wGaphvhAuD"
+          "type": "assign",
+          "value": "message.data"
         }
-      ]
+      ],
+      "description": "Handles message from another actor.",
+      "id": "dXT1mhSZ-_haV_ZG_ITFK",
+      "name": "Handle message",
+      "parameters": [
+        {
+          "description": "The state object.",
+          "name": "state",
+          "optional": false,
+          "type": "tel"
+        },
+        {
+          "description": "Message",
+          "name": "message",
+          "optional": false,
+          "type": "tel"
+        }
+      ],
+      "type": "defineFunction",
+      "version": "1"
     },
     {
-      "type": "defineFunction",
-      "version": "1",
-      "name": "Spawn me",
-      "description": "",
       "annotations": [
         {
           "type": "exported"
         }
       ],
-      "parameters": [
-        {
-          "type": "tel",
-          "name": "state",
-          "description": "",
-          "optional": false
-        }
-      ],
-      "id": "23O3mwbiJw7TPnNOWBORS",
       "body": [
         {
-          "type": "call",
-          "version": "1",
           "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/spawn",
+          "id": "cfaiPeHIXWrDHx-VMrbCj",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "state",
               "name": "state",
-              "expression": "state"
+              "type": "tel"
             },
             {
-              "type": "functionRef",
+              "id": "dXT1mhSZ-_haV_ZG_ITFK",
               "name": "onMessage",
-              "id": "dXT1mhSZ-_haV_ZG_ITFK"
+              "type": "functionRef"
             }
           ],
-          "id": "cfaiPeHIXWrDHx-VMrbCj",
-          "storeAs": "actorId"
+          "storeAs": "actorId",
+          "type": "call",
+          "version": "1"
         },
         {
-          "type": "call",
-          "version": "1",
           "callee": "import/a816bac0-336e-4f5c-be43-db999b3e08da/write",
+          "id": "lIVZCd10xLMJxcsI_QV56",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "\"actor\"",
               "name": "key",
-              "expression": "\"actor\""
+              "type": "tel"
             },
             {
-              "type": "tel",
+              "expression": "actorId",
               "name": "value",
-              "expression": "actorId"
+              "type": "tel"
             }
           ],
-          "id": "lIVZCd10xLMJxcsI_QV56"
+          "type": "call",
+          "version": "1"
         }
-      ]
+      ],
+      "description": "",
+      "id": "23O3mwbiJw7TPnNOWBORS",
+      "name": "Spawn me",
+      "parameters": [
+        {
+          "description": "",
+          "name": "state",
+          "optional": false,
+          "type": "tel"
+        }
+      ],
+      "type": "defineFunction",
+      "version": "1"
     }
-  ]
+  ],
+  "moduleId": "test"
 }

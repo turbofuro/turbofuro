@@ -1,0 +1,65 @@
+{
+  "description": "Utilities for executing Lua code. Provides an embedded Lua interpreter for running Lua functions and scripts within Turbofuro workflows.",
+  "icon": "https://assets.turbofuro.com/lua.png",
+  "id": "219800f5-d12e-4842-a866-598dc97fe190",
+  "imports": {},
+  "instructions": [
+    {
+      "annotations": [],
+      "description": "Runs a Lua functions and retrieves result\n\nSee that this code does when you call it with a value\n```lua\nfunction (data)\n    return data\nend\n```",
+      "exported": true,
+      "id": "KpVA8J7gIQQaLQeFhpY5Z",
+      "name": "Run function",
+      "nativeId": "lua/run_function",
+      "outputDescription": "any",
+      "parameters": [
+        {
+          "description": "Lua code",
+          "name": "code",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Value to pass to the function",
+          "name": "value",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "any"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "body": [
+        {
+          "callee": "local/KpVA8J7gIQQaLQeFhpY5Z",
+          "id": "OE8pEkuA5BojfU0glsRjc",
+          "parameters": [
+            {
+              "expression": "```lua\nfunction (data)\n    return data\nend\n```",
+              "name": "code",
+              "type": "tel"
+            },
+            {
+              "expression": "{\n  hello: \"world\",\n  id: 5,\n  list: [1, 2, 3]\n}",
+              "name": "value",
+              "type": "tel"
+            }
+          ],
+          "storeAs": "result",
+          "type": "call"
+        }
+      ],
+      "description": "",
+      "exported": false,
+      "id": "o4jWmbGD9J7SmZBYbcLjW",
+      "name": "Examples",
+      "parameters": [],
+      "type": "defineFunction"
+    }
+  ],
+  "moduleId": "c908ae2c-75e2-4a18-b256-f5069c5aaa12",
+  "theme": "indigo"
+}

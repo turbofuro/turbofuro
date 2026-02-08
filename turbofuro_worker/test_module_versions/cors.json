@@ -1,79 +1,79 @@
 {
-  "moduleId": "test",
   "id": "cors",
   "imports": {
     "c2dfa57f-e73e-452a-8707-db7a451965ce": {
       "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-      "type": "cloud"
+      "type": "cloud",
+      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce"
     }
   },
-  "type": "HTTP",
   "instructions": [
     {
-      "type": "defineFunction",
-      "version": "1.0.0",
-      "name": "Handle request",
-      "parameters": [
+      "body": [
         {
-          "type": "tel",
-          "name": "request",
-          "description": "The incoming request object.",
-          "optional": false
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+          "id": "haZSkrIuFXCaG_VaeuGIw",
+          "parameters": [
+            {
+              "expression": "{\n  \"Access-Control-Allow-Origin\": \"*\"\n}",
+              "name": "headers",
+              "type": "tel"
+            }
+          ],
+          "type": "call",
+          "version": "1"
         }
       ],
       "id": "lmHrkCW5m7UskINDhkPlJ",
-      "body": [
+      "name": "Handle request",
+      "parameters": [
         {
-          "type": "call",
-          "version": "1",
-          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
-          "parameters": [
-            {
-              "type": "tel",
-              "name": "headers",
-              "expression": "{\n  \"Access-Control-Allow-Origin\": \"*\"\n}"
-            }
-          ],
-          "id": "haZSkrIuFXCaG_VaeuGIw"
+          "description": "The incoming request object.",
+          "name": "request",
+          "optional": false,
+          "type": "tel"
         }
-      ]
+      ],
+      "type": "defineFunction",
+      "version": "1.0.0"
     },
     {
-      "type": "defineFunction",
-      "name": "On start",
-      "description": "Initializes this module.",
-      "parameters": [],
       "annotations": [
         {
           "type": "module_starter"
         }
       ],
-      "id": "a5CL6vND6LqD4XOIaMPCO",
       "body": [
         {
-          "type": "call",
           "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/setup_route",
+          "id": "ObDqDqaFfGHCZA0-idtFI",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "\"options\"",
               "name": "method",
-              "expression": "\"options\""
+              "type": "tel"
             },
             {
-              "type": "functionRef",
+              "id": "lmHrkCW5m7UskINDhkPlJ",
               "name": "onHttpRequest",
-              "id": "lmHrkCW5m7UskINDhkPlJ"
+              "type": "functionRef"
             },
             {
-              "type": "tel",
+              "expression": "\"/echo\"",
               "name": "path",
-              "expression": "\"/echo\""
+              "type": "tel"
             }
           ],
-          "id": "ObDqDqaFfGHCZA0-idtFI"
+          "type": "call"
         }
-      ]
+      ],
+      "description": "Initializes this module.",
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "name": "On start",
+      "parameters": [],
+      "type": "defineFunction"
     }
-  ]
+  ],
+  "moduleId": "test",
+  "type": "HTTP"
 }

@@ -1,138 +1,138 @@
 {
+  "description": "A simple WebSocket actor that sends a \"Ping\" message every 100ms.",
+  "handlers": {
+    "onStart": "a5CL6vND6LqD4XOIaMPCO"
+  },
   "id": "ws_interval",
-  "moduleId": "ws_interval",
   "imports": {
     "23ace28c-84bc-400b-91b6-f83bd575b793": {
-      "type": "cloud",
       "id": "23ace28c-84bc-400b-91b6-f83bd575b793",
+      "type": "cloud",
       "versionId": "23ace28c-84bc-400b-91b6-f83bd575b793"
     },
     "bda80c5e-3035-4634-bc3a-048fbe2476b4": {
-      "type": "cloud",
       "id": "bda80c5e-3035-4634-bc3a-048fbe2476b4",
+      "type": "cloud",
       "versionId": "bda80c5e-3035-4634-bc3a-048fbe2476b4"
     }
   },
-  "description": "A simple WebSocket actor that sends a \"Ping\" message every 100ms.",
   "instructions": [
     {
-      "type": "defineFunction",
-      "name": "Handle HTTP request",
-      "description": "Handles HTTP request.",
       "annotations": [],
-      "parameters": [
-        {
-          "type": "tel",
-          "name": "request",
-          "description": "The HTTP request object",
-          "optional": false
-        }
-      ],
-      "id": "AZZxSKhxB2U-KJ9tpObbi",
       "body": [
         {
-          "type": "call",
           "callee": "import/bda80c5e-3035-4634-bc3a-048fbe2476b4/set_interval",
+          "id": "SOyIhE-vIYrq5SnbRWGEu",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "100",
               "name": "interval",
-              "expression": "100"
+              "type": "tel"
             },
             {
-              "type": "tel",
+              "expression": "\"Ping\"",
               "name": "data",
-              "expression": "\"Ping\""
+              "type": "tel"
             }
           ],
-          "id": "SOyIhE-vIYrq5SnbRWGEu"
+          "type": "call"
         },
         {
-          "type": "call",
           "callee": "import/23ace28c-84bc-400b-91b6-f83bd575b793/accept_ws",
+          "id": "ojT7rLHprTab-I1l0G9_y",
           "parameters": [],
-          "id": "ojT7rLHprTab-I1l0G9_y"
-        }
-      ]
-    },
-    {
-      "type": "defineFunction",
-      "name": "Handle message",
-      "description": "Handles message from another actor.",
-      "annotations": [],
-      "parameters": [
-        {
-          "type": "tel",
-          "name": "state",
-          "description": "The state object",
-          "optional": false
-        },
-        {
-          "type": "tel",
-          "name": "message",
-          "description": "Message payload",
-          "optional": false
+          "type": "call"
         }
       ],
-      "id": "Kkg1qmfkuLoLYrMxPCuYu",
-      "body": [
+      "description": "Handles HTTP request.",
+      "id": "AZZxSKhxB2U-KJ9tpObbi",
+      "name": "Handle HTTP request",
+      "parameters": [
         {
-          "type": "call",
-          "callee": "import/23ace28c-84bc-400b-91b6-f83bd575b793/send_message",
-          "parameters": [
-            {
-              "type": "tel",
-              "name": "message",
-              "expression": "message"
-            }
-          ],
-          "id": "qz9b5stKx8In26CjYh0VU"
+          "description": "The HTTP request object",
+          "name": "request",
+          "optional": false,
+          "type": "tel"
         }
-      ]
+      ],
+      "type": "defineFunction"
     },
     {
-      "type": "defineFunction",
-      "name": "On start",
-      "description": "Initializes this module.",
-      "parameters": [],
+      "annotations": [],
+      "body": [
+        {
+          "callee": "import/23ace28c-84bc-400b-91b6-f83bd575b793/send_message",
+          "id": "qz9b5stKx8In26CjYh0VU",
+          "parameters": [
+            {
+              "expression": "message",
+              "name": "message",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        }
+      ],
+      "description": "Handles message from another actor.",
+      "id": "Kkg1qmfkuLoLYrMxPCuYu",
+      "name": "Handle message",
+      "parameters": [
+        {
+          "description": "The state object",
+          "name": "state",
+          "optional": false,
+          "type": "tel"
+        },
+        {
+          "description": "Message payload",
+          "name": "message",
+          "optional": false,
+          "type": "tel"
+        }
+      ],
+      "type": "defineFunction"
+    },
+    {
       "annotations": [
         {
           "type": "module_starter"
         }
       ],
-      "id": "a5CL6vND6LqD4XOIaMPCO",
       "body": [
         {
-          "type": "call",
           "callee": "import/23ace28c-84bc-400b-91b6-f83bd575b793/setup_route",
+          "id": "ObDqDqaFfGHCZA0-idtFI",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "\"get\"",
               "name": "method",
-              "expression": "\"get\""
+              "type": "tel"
             },
             {
-              "type": "functionRef",
+              "id": "AZZxSKhxB2U-KJ9tpObbi",
               "name": "onHttpRequest",
-              "id": "AZZxSKhxB2U-KJ9tpObbi"
+              "type": "functionRef"
             },
             {
-              "type": "functionRef",
               "id": "Kkg1qmfkuLoLYrMxPCuYu",
-              "name": "onMessage"
+              "name": "onMessage",
+              "type": "functionRef"
             },
             {
-              "type": "tel",
+              "expression": "\"/interval\"",
               "name": "path",
-              "expression": "\"/interval\""
+              "type": "tel"
             }
           ],
-          "id": "ObDqDqaFfGHCZA0-idtFI"
+          "type": "call"
         }
-      ]
+      ],
+      "description": "Initializes this module.",
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "name": "On start",
+      "parameters": [],
+      "type": "defineFunction"
     }
   ],
-  "handlers": {
-    "onStart": "a5CL6vND6LqD4XOIaMPCO"
-  }
+  "moduleId": "ws_interval"
 }

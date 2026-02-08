@@ -1,145 +1,145 @@
 {
-  "moduleId": "test",
   "id": "loops",
-  "type": "HTTP",
   "imports": {
     "c2dfa57f-e73e-452a-8707-db7a451965ce": {
       "id": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce",
-      "type": "cloud"
+      "type": "cloud",
+      "versionId": "c2dfa57f-e73e-452a-8707-db7a451965ce"
     }
   },
   "instructions": [
     {
-      "type": "defineFunction",
-      "version": "1.0.0",
-      "name": "Handle request",
       "annotations": [],
-      "parameters": [
-        {
-          "type": "tel",
-          "name": "request",
-          "description": "The incoming request object.",
-          "optional": false
-        }
-      ],
-      "id": "ZVnigLgKIJQ1d_nmeT71g",
       "body": [
         {
-          "type": "assign",
-          "value": "1",
+          "id": "VQGZxEQSEl5wGaphvhAuD",
           "to": "x",
-          "id": "VQGZxEQSEl5wGaphvhAuD"
+          "type": "assign",
+          "value": "1"
         },
         {
-          "type": "while",
-          "version": "1",
-          "condition": "x < 10",
-          "id": "J-szxDRm-fq9VLiFs2BfS",
           "body": [
             {
-              "type": "if",
-              "version": "1",
               "condition": "x == 3",
+              "else": [],
               "id": "3g8FyYwvPHydXys1vNNuO",
               "then": [
                 {
-                  "type": "assign",
-                  "value": "\"yes\"",
+                  "id": "fxfw-yy4fMm5LeTIctd_0",
                   "to": "continued",
-                  "id": "fxfw-yy4fMm5LeTIctd_0"
-                },
-                {
                   "type": "assign",
-                  "value": "4",
-                  "to": "x",
-                  "id": "dkk1eRRsGdjjUXZEDSfON"
+                  "value": "\"yes\""
                 },
                 {
+                  "id": "dkk1eRRsGdjjUXZEDSfON",
+                  "to": "x",
+                  "type": "assign",
+                  "value": "4"
+                },
+                {
+                  "id": "iadlHmh-ommQy08nmvMPc",
                   "type": "continue",
-                  "version": "1",
-                  "id": "iadlHmh-ommQy08nmvMPc"
+                  "version": "1"
                 }
               ],
-              "else": []
+              "type": "if",
+              "version": "1"
             },
             {
-              "type": "if",
-              "version": "1",
               "condition": "x == 5",
+              "else": [],
               "id": "DUYvX78prPTP2h82JHIDq",
               "then": [
                 {
+                  "id": "g0uO709J0C9SjZ3bNLvOv",
                   "type": "break",
-                  "version": "1",
-                  "id": "g0uO709J0C9SjZ3bNLvOv"
+                  "version": "1"
                 }
               ],
-              "else": []
+              "type": "if",
+              "version": "1"
             },
             {
-              "type": "assign",
               "id": "foWSViMu3gAcsK53YQE2v",
-              "value": "x + 1",
-              "to": "x"
-            }
-          ]
-        },
-        {
-          "type": "call",
-          "version": "1",
-          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
-          "parameters": [
-            {
-              "type": "tel",
-              "name": "body",
-              "expression": "{\n  x: x,\n  continued: continued\n}"
-            },
-            {
-              "type": "tel",
-              "name": "responseType",
-              "expression": "\"json\""
+              "to": "x",
+              "type": "assign",
+              "value": "x + 1"
             }
           ],
-          "id": "jMwI6DurROzkjebyNhNyD"
+          "condition": "x < 10",
+          "id": "J-szxDRm-fq9VLiFs2BfS",
+          "type": "while",
+          "version": "1"
+        },
+        {
+          "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/respond_with",
+          "id": "jMwI6DurROzkjebyNhNyD",
+          "parameters": [
+            {
+              "expression": "{\n  x: x,\n  continued: continued\n}",
+              "name": "body",
+              "type": "tel"
+            },
+            {
+              "expression": "\"json\"",
+              "name": "responseType",
+              "type": "tel"
+            }
+          ],
+          "type": "call",
+          "version": "1"
         }
-      ]
+      ],
+      "id": "ZVnigLgKIJQ1d_nmeT71g",
+      "name": "Handle request",
+      "parameters": [
+        {
+          "description": "The incoming request object.",
+          "name": "request",
+          "optional": false,
+          "type": "tel"
+        }
+      ],
+      "type": "defineFunction",
+      "version": "1.0.0"
     },
     {
-      "type": "defineFunction",
-      "name": "On start",
-      "description": "Initializes this module.",
-      "parameters": [],
       "annotations": [
         {
           "type": "module_starter"
         }
       ],
-      "id": "a5CL6vND6LqD4XOIaMPCO",
       "body": [
         {
-          "type": "call",
           "callee": "import/c2dfa57f-e73e-452a-8707-db7a451965ce/setup_route",
+          "id": "ObDqDqaFfGHCZA0-idtFI",
           "parameters": [
             {
-              "type": "tel",
+              "expression": "\"get\"",
               "name": "method",
-              "expression": "\"get\""
+              "type": "tel"
             },
             {
-              "type": "functionRef",
+              "id": "ZVnigLgKIJQ1d_nmeT71g",
               "name": "onHttpRequest",
-              "id": "ZVnigLgKIJQ1d_nmeT71g"
+              "type": "functionRef"
             },
             {
-              "type": "tel",
+              "expression": "\"/loops\"",
               "name": "path",
-              "expression": "\"/loops\""
+              "type": "tel"
             }
           ],
-          "id": "ObDqDqaFfGHCZA0-idtFI"
+          "type": "call"
         }
-      ]
+      ],
+      "description": "Initializes this module.",
+      "id": "a5CL6vND6LqD4XOIaMPCO",
+      "name": "On start",
+      "parameters": [],
+      "type": "defineFunction"
     }
-  ]
+  ],
+  "moduleId": "test",
+  "type": "HTTP"
 }

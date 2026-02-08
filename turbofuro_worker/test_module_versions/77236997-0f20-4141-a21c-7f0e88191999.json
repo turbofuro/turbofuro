@@ -1,112 +1,176 @@
 {
-  "handlers": {},
+  "description": "Utilities for actor-based concurrency. Actors are isolated units of execution that communicate via messages, enabling concurrent and distributed system design.",
+  "icon": "https://assets.turbofuro.com/person-simple-run.svg",
+  "id": "bba1b74a-976e-462d-8a19-85ce40c2ca7f",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "This function should be used by another actor to spawn a new actor of this type. You need to insert this function into exported function definition.",
+      "exported": true,
       "id": "spawn",
       "name": "Spawn actor",
-      "description": "This function should be used by another actor to spawn a new actor of this type. You need to insert this function into exported function definition.",
+      "nativeId": "actors/spawn",
+      "outputDescription": "string",
       "parameters": [
         {
+          "description": "Initial state of created actor",
           "name": "state",
           "optional": true,
-          "description": "Initial state of created actor",
           "type": "tel",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          }
+          "valueDescription": "any"
         },
         {
-          "type": "functionRef",
+          "description": "Function to be called when message is received",
           "name": "onMessage",
-          "optional": false,
-          "description": "Function to be called when message is received"
+          "optional": true,
+          "type": "functionRef"
+        },
+        {
+          "description": "Function to be called when request is received",
+          "name": "onRequest",
+          "optional": true,
+          "type": "functionRef"
         }
       ],
-      "nativeId": "actors/spawn",
-      "exported": true,
-      "annotations": []
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "send",
-      "name": "Send message to actor",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
       "description": "Sends message to another actor. A message handler (if defined) will be executed in the context of the receiving actor. If message handler is not defined, message will be ignored.",
+      "exported": true,
+      "id": "send_command",
+      "name": "Send message to actor",
+      "nativeId": "actors/send",
       "parameters": [
         {
+          "description": "ID of the actor to send message to",
           "name": "id",
           "optional": false,
-          "description": "ID of the actor to send message to",
-          "type": "tel"
+          "type": "tel",
+          "valueDescription": "string"
         },
         {
+          "description": "Message to send to the actor",
           "name": "message",
           "optional": false,
-          "description": "Message to send to the actor",
-          "type": "tel"
+          "type": "tel",
+          "valueDescription": "any"
         }
       ],
-      "nativeId": "actors/send",
-      "exported": true,
-      "annotations": []
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Requests a value from another actor. A request handler (if defined) will be executed in the context of the receiving actor. If the request handler is not defined, request will be ignored.",
+      "exported": true,
+      "id": "CHx-CSQ9m0gyCDxRCIfk-",
+      "name": "Request actor",
+      "nativeId": "actors/request",
+      "parameters": [
+        {
+          "description": "ID of the actor to send message to",
+          "name": "id",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Message to send to the actor",
+          "name": "message",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "any"
+        },
+        {
+          "description": "Specifies how long the actor will wait for the response.",
+          "name": "timeout",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "number"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Retrieves ID of the current actor. Useful for debugging or to allow other actors to send messages to this actor.",
+      "exported": true,
       "id": "get_actor_id",
       "name": "Retrieve actor ID",
-      "description": "Retrieves ID of the current actor. Useful for debugging or to allow other actors to send messages to this actor.",
-      "parameters": [],
       "nativeId": "actors/get_actor_id",
-      "exported": true,
-      "annotations": []
+      "outputDescription": "string",
+      "parameters": [],
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Terminates actor. If actor ID is not provided, current actor is terminated.",
+      "exported": true,
       "id": "terminate",
       "name": "Terminate actor",
-      "description": "Terminates actor. If actor ID is not provided, current actor is terminated.",
+      "nativeId": "actors/terminate",
       "parameters": [
         {
+          "description": "Actor ID to terminate. If not provided, current actor is terminated.",
           "name": "id",
           "optional": true,
-          "description": "Actor ID to terminate. If not provided, current actor is terminated.",
           "type": "tel",
-          "typeDef": {
-            "tag": "string",
-            "strict": true
-          }
+          "valueDescription": "string"
         }
       ],
-      "nativeId": "actors/terminate",
-      "exported": true,
-      "annotations": []
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "decorator": false,
+      "description": "Checks if actor with provided ID exists. Useful to check if actor is still running.",
+      "exported": true,
       "id": "check_actor_exists",
       "name": "Check if actor exists",
-      "description": "Checks if actor with provided ID exists. Useful to check if actor is still running.",
+      "nativeId": "actors/check_actor_exists",
+      "outputDescription": "boolean",
       "parameters": [
         {
+          "description": "Actor ID to terminate. If not provided, current actor is terminated.",
           "name": "id",
           "optional": true,
           "type": "tel",
-          "description": "Actor ID to check. If not provided, current actor is checked.",
-          "typeDef": {
-            "tag": "string",
-            "strict": true
-          }
+          "valueDescription": "string"
         }
       ],
-      "nativeId": "actors/check_actor_exists",
-      "exported": true,
-      "annotations": []
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "description": "Actors are isolated units of execution that communicate with each other using messages. They are similar to microservices, but they are not limited to network communication. They can be used to isolate parts of the application, to implement concurrency, or to implement a distributed system.",
   "moduleId": "77236997-0f20-4141-a21c-7f0e88191999",
-  "id": "77236997-0f20-4141-a21c-7f0e88191999"
+  "theme": "gray"
 }

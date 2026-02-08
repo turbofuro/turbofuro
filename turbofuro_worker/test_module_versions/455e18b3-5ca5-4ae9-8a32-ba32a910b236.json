@@ -1,0 +1,502 @@
+{
+  "description": "Utilities for browser automation using WebDriver protocol. Enables programmatic control of web browsers, including navigation, element interaction, and page manipulation.",
+  "icon": "system://browser",
+  "id": "731e361f-21f3-41fe-b0f9-a86ec692388c",
+  "imports": {
+    "05624c52-d54f-412c-93e8-6f342e8e9bb3": {
+      "id": "05624c52-d54f-412c-93e8-6f342e8e9bb3",
+      "type": "cloud",
+      "versionId": "be9c7d9c-0db1-4f6a-9410-35fe4b27206b"
+    }
+  },
+  "instructions": [
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "webdriver_client",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "decorator": false,
+      "description": "Connect and use client",
+      "exported": true,
+      "id": "t-s9tiNS0tElSSW8IRRqt",
+      "name": "Get client",
+      "nativeId": "webdriver/get_client",
+      "parameters": [
+        {
+          "description": "Url to WebDriver server",
+          "name": "url",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.url"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "webdriver_client",
+          "strict": true,
+          "type": "requirement"
+        },
+        {
+          "resource": "webdriver_element",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "decorator": true,
+      "description": "Selects and provisions a WebDriver Element reference that can be used for other functions.",
+      "exported": true,
+      "id": "Uth--ceiG0yxwjbYr4zKR",
+      "name": "Get element",
+      "nativeId": "webdriver/get_element",
+      "parameters": [
+        {
+          "description": "XPath",
+          "name": "xpath",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "CSS locator",
+          "name": "css",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "webdriver_client",
+          "strict": true,
+          "type": "requirement"
+        },
+        {
+          "resource": "webdriver_element",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "decorator": true,
+      "description": "Selects and provisions WebDriver Element references that can be used for other functions, while iterating over them.",
+      "exported": true,
+      "id": "u9c9ScOAyxmeDXYmPf5pg",
+      "name": "Get elements",
+      "nativeId": "webdriver/get_elements",
+      "parameters": [
+        {
+          "description": "XPath",
+          "name": "xpath",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "CSS locator",
+          "name": "css",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "webdriver_client",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "decorator": false,
+      "description": "Execute client side script",
+      "exported": true,
+      "id": "6OTigoMbA8m8Bvel2ILYh",
+      "name": "Execute script",
+      "nativeId": "webdriver/execute",
+      "outputDescription": "any",
+      "parameters": [
+        {
+          "description": "JavaScript code of the script",
+          "name": "script",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "webdriver_client",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "decorator": false,
+      "description": "Changes current window location",
+      "exported": true,
+      "id": "CpZSoNTMuGSFH5NtslyzK",
+      "name": "Go to",
+      "nativeId": "webdriver/goto",
+      "parameters": [
+        {
+          "description": "URL to go",
+          "name": "url",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.url"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "webdriver_element",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "decorator": false,
+      "description": "Makes a screenshot of given element.\n\nReturns PNG-image as array of bytes",
+      "exported": true,
+      "id": "-hrNv2VhGx11D5skmUbWv",
+      "name": "Screenshot",
+      "nativeId": "webdriver/screenshot",
+      "outputDescription": "array.bytes",
+      "parameters": [],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "webdriver_element",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "decorator": false,
+      "description": "Clicks on a given element.",
+      "exported": true,
+      "id": "Oj-6vo4i-RZ4muIJtGCwG",
+      "name": "Click",
+      "nativeId": "webdriver/click",
+      "parameters": [],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "webdriver_element",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "decorator": false,
+      "description": "Get text of a given element",
+      "exported": true,
+      "id": "_x9XXF65KQmnZidakfStl",
+      "name": "Get text",
+      "nativeId": "webdriver/get_text",
+      "outputDescription": "string",
+      "parameters": [],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "webdriver_element",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "decorator": false,
+      "description": "Get HTML of inner contents of a element",
+      "exported": true,
+      "id": "cTXlSVqxdfG3RxLzF2UyT",
+      "name": "Get HTML",
+      "nativeId": "webdriver/get_html",
+      "parameters": [],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "webdriver_element",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "decorator": false,
+      "description": "Get value of a attribute on a given element",
+      "exported": true,
+      "id": "Jn7ZueS2bpRArNQyoMbzj",
+      "name": "Get attribute",
+      "nativeId": "webdriver/get_attribute",
+      "parameters": [
+        {
+          "description": "Name of the attribute",
+          "name": "name",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "webdriver_element",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "decorator": false,
+      "description": "Get value of a property on a given element",
+      "exported": true,
+      "id": "eQ2MUNtycypeC5btt914C",
+      "name": "Get property",
+      "nativeId": "webdriver/get_property",
+      "parameters": [
+        {
+          "description": "Name of the attribute",
+          "name": "name",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "webdriver_element",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "decorator": false,
+      "description": "Sends key to a given element",
+      "exported": true,
+      "id": "nr4cIucciyb9mdYU5lvh9",
+      "name": "Send keys",
+      "nativeId": "webdriver/send_keys",
+      "parameters": [
+        {
+          "description": "String of keys to apply",
+          "name": "input",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "webdriver_element",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "decorator": false,
+      "description": "Selects an option in select element",
+      "exported": true,
+      "id": "HcUURAB3y5k8XG9wFSE_g",
+      "name": "Select option",
+      "nativeId": "webdriver/select_option",
+      "parameters": [
+        {
+          "description": "Label of the option to click",
+          "name": "label",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "webdriver_client",
+          "strict": true,
+          "type": "consumption"
+        }
+      ],
+      "decorator": false,
+      "description": "Get ID of a given element",
+      "exported": true,
+      "id": "qu_GJ0k7mIqmZCrkv2fdW",
+      "name": "Drop client",
+      "nativeId": "webdriver/drop_client",
+      "parameters": [],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [],
+      "body": [
+        {
+          "callee": "local/t-s9tiNS0tElSSW8IRRqt",
+          "id": "P3WOsS_0SOnTIGtzhlwpj",
+          "parameters": [
+            {
+              "expression": "\"http://localhost:54136\"",
+              "name": "url",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        },
+        {
+          "callee": "local/CpZSoNTMuGSFH5NtslyzK",
+          "id": "X_P9vEC25ZVM-EVRyXAlN",
+          "parameters": [
+            {
+              "expression": "\"https://turbofuro.com\"",
+              "name": "url",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        },
+        {
+          "body": [
+            {
+              "callee": "local/6OTigoMbA8m8Bvel2ILYh",
+              "id": "5KtpT8NcO1tydGYhcb3pt",
+              "parameters": [
+                {
+                  "expression": "```javascript\ndocument.body.style =  \"background: red;\";\n\nconsole.log(\"hello\");\nreturn 5;\n```",
+                  "name": "script",
+                  "type": "tel"
+                }
+              ],
+              "storeAs": "result",
+              "type": "call"
+            },
+            {
+              "callee": "local/cTXlSVqxdfG3RxLzF2UyT",
+              "id": "2wuJa886dH5-JMYA7QDml",
+              "parameters": [],
+              "storeAs": "result",
+              "type": "call"
+            },
+            {
+              "callee": "local/_x9XXF65KQmnZidakfStl",
+              "id": "bo0DAGGisNLVde7miKp3N",
+              "parameters": [],
+              "storeAs": "result",
+              "type": "call"
+            },
+            {
+              "callee": "local/-hrNv2VhGx11D5skmUbWv",
+              "id": "O1vPX0BQQ6sxyIPc8zIEu",
+              "parameters": [],
+              "storeAs": "result",
+              "type": "call"
+            },
+            {
+              "callee": "import/05624c52-d54f-412c-93e8-6f342e8e9bb3/iWHx3RqINh1NLW5QCU5X0",
+              "id": "3XDisf075VbV5DRkzDQlq",
+              "parameters": [
+                {
+                  "expression": "\"screenshot_webdriver.png\"",
+                  "name": "path",
+                  "type": "tel"
+                },
+                {
+                  "expression": "result",
+                  "name": "content",
+                  "type": "tel"
+                }
+              ],
+              "type": "call"
+            },
+            {
+              "callee": "local/Oj-6vo4i-RZ4muIJtGCwG",
+              "id": "2Yr-X9yr6f2_NfxLEe7-6",
+              "parameters": [],
+              "type": "call"
+            }
+          ],
+          "callee": "local/Uth--ceiG0yxwjbYr4zKR",
+          "id": "AQs4Y9ooArF6Tl3_Bp23i",
+          "parameters": [
+            {
+              "expression": "\"/html/body/main/div[2]\"",
+              "name": "xpath",
+              "type": "tel"
+            }
+          ],
+          "type": "call"
+        }
+      ],
+      "decorator": false,
+      "description": "",
+      "exported": false,
+      "id": "ZLH3hTqnQGOY61bCedGNt",
+      "name": "Example",
+      "parameters": [],
+      "type": "defineFunction"
+    }
+  ],
+  "moduleId": "455e18b3-5ca5-4ae9-8a32-ba32a910b236",
+  "theme": "green"
+}

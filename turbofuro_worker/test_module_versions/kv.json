@@ -1,62 +1,62 @@
 {
-  "moduleId": "test",
-  "type": "LIBRARY",
   "handlers": {},
+  "id": "kv",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Writes to local key-value store",
       "id": "write",
       "name": "Write to KV",
-      "description": "Writes to local key-value store",
+      "nativeId": "kv/write",
       "parameters": [
         {
+          "description": "Key to write to",
           "name": "key",
           "optional": false,
-          "description": "Key to write to",
           "typeDef": {
+            "strict": true,
             "tag": "simple",
-            "type": "string",
-            "strict": true
+            "type": "string"
           }
         },
         {
+          "description": "Value to write",
           "name": "value",
-          "optional": false,
-          "description": "Value to write"
+          "optional": false
         }
       ],
-      "nativeId": "kv/write",
+      "type": "defineNativeFunction"
+    },
+    {
       "annotations": [
         {
           "type": "exported"
         }
-      ]
-    },
-    {
-      "type": "defineNativeFunction",
+      ],
+      "description": "Reads from local key-value store",
       "id": "read",
       "name": "Read from KV",
-      "description": "Reads from local key-value store",
+      "nativeId": "kv/read",
       "parameters": [
         {
+          "description": "Key to read from",
           "name": "key",
           "optional": false,
-          "description": "Key to read from",
           "typeDef": {
+            "strict": true,
             "tag": "simple",
-            "type": "string",
-            "strict": true
+            "type": "string"
           }
         }
       ],
-      "nativeId": "kv/read",
-      "annotations": [
-        {
-          "type": "exported"
-        }
-      ]
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "id": "kv"
+  "moduleId": "test",
+  "type": "LIBRARY"
 }

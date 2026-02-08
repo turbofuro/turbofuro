@@ -229,6 +229,16 @@ pub struct ParameterDefinition {
     #[serde(rename = "type")]
     type_: ParameterType,
     value_description: Option<String>,
+    handler_template: Option<FunctionTemplate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FunctionTemplate {
+    pub name: String,
+    pub parameters: Vec<ParameterDefinition>,
+    pub annotations: Vec<FunctionAnnotation>,
+    pub description: Option<String>,
+    pub output_description: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -689,11 +699,7 @@ fn store_in_storage(
     problems
 }
 
-fn analyze_step(
-    context: &mut Context,
-    step: &Step,
-    previous: Option<&Analysis>, // TODO: Use as cache
-) -> Vec<StepAnalysis> {
+fn analyze_step(context: &mut Context, step: &Step) -> Vec<StepAnalysis> {
     let mut list = vec![];
     let capture_storage = context
         .steps_to_capture
@@ -758,7 +764,7 @@ fn analyze_step(
 
             if let Some(body) = body {
                 for step in body {
-                    list.append(&mut analyze_step(context, step, previous));
+                    list.append(&mut analyze_step(context, step));
                 }
             }
 
@@ -789,8 +795,8 @@ fn analyze_step(
                                     let function =
                                         context.functions.iter().find(|f| *f.id == id).cloned();
                                     match function {
-                                        Some(_function) => {
-                                            // TODO: Check if the function is compatible
+                                        Some(_referenced_function) => {
+                                            // TODO: Check function compatibility
                                         }
                                         None => {
                                             analysis.problems.push(AnalysisProblem::Error {
@@ -826,7 +832,8 @@ fn analyze_step(
                     // Apply top resource list
                     match annotation {
                         FunctionAnnotation::Provision { resource } => {
-                            // TODO: Decide how to handle worker resources
+                            // Worker resources (postgres_connection, redis_connection, http_client, etc.)
+                            // are provided by the runtime and don't need validation in static analysis
                             if is_worker_resource(resource) {
                                 continue;
                             }
@@ -834,7 +841,8 @@ fn analyze_step(
                             context.add_resource(resource);
                         }
                         FunctionAnnotation::Consumption { resource } => {
-                            // TODO: Decide how to handle worker resources
+                            // Worker resources (postgres_connection, redis_connection, http_client, etc.)
+                            // are provided by the runtime and don't need validation in static analysis
                             if is_worker_resource(resource) {
                                 continue;
                             }
@@ -862,7 +870,8 @@ fn analyze_step(
                             }
                         }
                         FunctionAnnotation::Requirement { resource } => {
-                            // TODO: Decide how to handle worker resources
+                            // Worker resources (postgres_connection, redis_connection, http_client, etc.)
+                            // are provided by the runtime and don't need validation in static analysis
                             if is_worker_resource(resource) {
                                 continue;
                             }
@@ -977,8 +986,8 @@ fn analyze_step(
                             value_description.unwrap_or_default(),
                         );
                     }
-                    // TODO: Parse function references
                     ParameterType::FunctionRef => {
+                        // Store None in references - actual function ID will be provided at call time
                         function_context
                             .references
                             .insert(parameter.name.clone(), None);
@@ -986,11 +995,11 @@ fn analyze_step(
                 }
             }
             for step in body {
-                list.append(&mut analyze_step(&mut function_context, step, previous));
+                list.append(&mut analyze_step(&mut function_context, step));
             }
 
-            // TODO: Compute annotations
-            // For every sub-context let's observe the resources
+            // TODO: Compute annotations based on resource events observed during function execution
+            // This can be used to validate declared annotations or auto-generate them
         }
         Step::DefineNativeFunction {
             parameters,
@@ -1019,7 +1028,6 @@ fn analyze_step(
                         );
                         analysis.problems.append(&mut problems);
                     }
-                    // TODO: Parse function references
                     ParameterType::FunctionRef => {}
                 }
             }
@@ -1048,7 +1056,7 @@ fn analyze_step(
 
             let mut then_context = context.clone();
             for step in then {
-                list.append(&mut analyze_step(&mut then_context, step, previous));
+                list.append(&mut analyze_step(&mut then_context, step));
             }
             drop(then_context);
 
@@ -1074,7 +1082,7 @@ fn analyze_step(
 
                     let mut branch_context = context.clone();
                     for step in &branch.steps {
-                        list.append(&mut analyze_step(&mut branch_context, step, previous));
+                        list.append(&mut analyze_step(&mut branch_context, step));
                     }
                     drop(branch_context);
                 }
@@ -1083,7 +1091,7 @@ fn analyze_step(
             if let Some(else_) = else_ {
                 let mut else_branch = context.clone();
                 for step in else_ {
-                    list.append(&mut analyze_step(&mut else_branch, step, previous));
+                    list.append(&mut analyze_step(&mut else_branch, step));
                 }
                 drop(else_branch);
             }
@@ -1099,7 +1107,7 @@ fn analyze_step(
             let in_loop = context.inside_loop;
             context.inside_loop = true;
             for step in body {
-                list.append(&mut analyze_step(context, step, previous));
+                list.append(&mut analyze_step(context, step));
             }
 
             context.inside_loop = in_loop;
@@ -1125,7 +1133,7 @@ fn analyze_step(
             let in_loop = context.inside_loop;
             context.inside_loop = true;
             for step in body {
-                list.append(&mut analyze_step(context, step, previous));
+                list.append(&mut analyze_step(context, step));
             }
             context.inside_loop = in_loop;
         }
@@ -1200,11 +1208,11 @@ fn analyze_step(
                 },
             );
             for step in body {
-                list.append(&mut analyze_step(context, step, previous));
+                list.append(&mut analyze_step(context, step));
             }
 
             for step in catch {
-                list.append(&mut analyze_step(&mut catch_context, step, previous));
+                list.append(&mut analyze_step(&mut catch_context, step));
             }
             drop(catch_context);
         }
@@ -1221,24 +1229,76 @@ fn analyze_step(
             // - predict new storage
             // - parse description
             // We assume it can be parsed
-            let value = parse_and_predict_description(
+            let value_desc = parse_and_predict_description(
                 value.clone(),
                 &context.storage,
                 &context.environment,
             );
-            let (_value, mut problems) = description_to_problems(value, Some("value".to_owned()));
+            let (value_desc, mut problems) =
+                description_to_problems(value_desc, Some("value".to_owned()));
             analysis.problems.append(&mut problems);
 
-            let description = parse_and_evaluate_description_notation(description);
-            let (description, mut problems) =
-                description_to_problems(description, Some("description".to_owned()));
+            let target_desc = parse_and_evaluate_description_notation(description);
+            let (target_desc, mut problems) =
+                description_to_problems(target_desc, Some("description".to_owned()));
             analysis.problems.append(&mut problems);
 
-            // TODO: Check if the value is compatible-ish with the description
+            // Check if the value is somewhat compatible with the description
+            // This is a warning, not an error, since parsing can be flexible
+            if let (Some(ref value_desc), Some(ref target_desc)) = (&value_desc, &target_desc) {
+                // Check basic type compatibility
+                let is_basic_compatible = match target_desc {
+                    Description::Array { .. } | Description::ExactArray { .. } => {
+                        match value_desc {
+                            Description::Array { .. } | Description::ExactArray { .. } => true,
+                            Description::BaseType { field_type } => field_type.starts_with("array"),
+                            _ => false,
+                        }
+                    }
+                    Description::Object { .. } => match value_desc {
+                        Description::Object { .. } => true,
+                        Description::BaseType { field_type } => field_type.starts_with("object"),
+                        _ => false,
+                    },
+                    Description::BaseType { field_type } => {
+                        if field_type.starts_with("array") {
+                            match value_desc {
+                                Description::Array { .. } | Description::ExactArray { .. } => true,
+                                Description::BaseType { field_type: v } => v.starts_with("array"),
+                                _ => false,
+                            }
+                        } else if field_type.starts_with("object") {
+                            match value_desc {
+                                Description::Object { .. } => true,
+                                Description::BaseType { field_type: v } => v.starts_with("object"),
+                                _ => false,
+                            }
+                        } else {
+                            // For other types, use full compatibility check
+                            value_desc.is_compatible(target_desc)
+                        }
+                    }
+                    _ => {
+                        // For other description types, use full compatibility check
+                        value_desc.is_compatible(target_desc)
+                    }
+                };
+
+                if !is_basic_compatible {
+                    analysis.problems.push(AnalysisProblem::Warning {
+                        code: "POTENTIALLY_INCOMPATIBLE_PARSE".to_owned(),
+                        message: format!(
+                            "Value type {value_desc} may not be compatible with parse target {target_desc}"
+                        ),
+                        field: Some("value".to_owned()),
+                    });
+                }
+            }
+
             let mut problems = store_in_storage(
                 context,
                 Some(store_as.clone()),
-                description.unwrap_or_default(),
+                target_desc.unwrap_or_default(),
             );
             analysis.problems.append(&mut problems);
         }
@@ -1418,7 +1478,6 @@ pub fn analyze_instructions(
     steps: &Steps,
     declarations: Vec<FunctionDeclaration>,
     steps_to_capture: Vec<String>,
-    previous: Option<&Analysis>,
 ) -> Vec<StepAnalysis> {
     let mut list = vec![];
     for step in steps {
@@ -1434,7 +1493,7 @@ pub fn analyze_instructions(
             output_description: None,
             resource_events: vec![],
         };
-        let mut output = analyze_step(&mut context, step, previous);
+        let mut output = analyze_step(&mut context, step);
         list.append(&mut output);
     }
     list
@@ -1470,7 +1529,6 @@ mod test_analyzer {
                 to: "message".to_owned(),
                 disabled: false,
             },
-            None,
         );
         assert_eq!(steps.len(), 1);
         assert_eq!(steps.first().unwrap().problems.len(), 0);
@@ -1487,7 +1545,6 @@ mod test_analyzer {
                 to: "message".to_owned(),
                 disabled: false,
             },
-            None,
         );
         assert_eq!(steps.len(), 1);
         assert_eq!(steps.first().unwrap().problems.len(), 1);
@@ -2170,7 +2227,7 @@ pub fn analyze(steps: JsValue, declarations: JsValue, steps_to_capture: JsValue)
     let steps_to_capture: Vec<String> = serde_wasm_bindgen::from_value(steps_to_capture)
         .expect("Could not deserialize steps to capture");
 
-    let result = analyze_instructions(&steps, declarations, steps_to_capture, None);
+    let result = analyze_instructions(&steps, declarations, steps_to_capture);
 
     result
         .serialize(&SERIALIZER)

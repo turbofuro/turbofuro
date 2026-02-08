@@ -1,81 +1,126 @@
 {
-  "handlers": {},
+  "description": "Utilities for in-memory key-value storage. Provides a built-in key-value store for sharing data between services running on the same machine, with optional expiration support.",
+  "icon": "https://assets.turbofuro.com/hard-drives.svg",
+  "id": "85419a23-74aa-4d95-8a0b-618793e9a2ec",
+  "imports": {},
   "instructions": [
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Writes to local key-value store. The value will be available to all services running on the same machine.",
+      "exported": true,
       "id": "write",
       "name": "Write to KV",
-      "description": "Writes to local key-value store. The value will be available to all services running on the same machine.",
+      "nativeId": "kv/write",
       "parameters": [
         {
+          "description": "Key to write to",
           "name": "key",
           "optional": false,
-          "description": "Key to write to",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          },
-          "type": "tel"
+          "type": "tel",
+          "valueDescription": "string"
         },
         {
+          "description": "Value to write",
           "name": "value",
           "optional": false,
-          "description": "Value to write",
-          "type": "tel"
+          "type": "tel",
+          "valueDescription": "any"
+        },
+        {
+          "description": "Used to set relative expiration time expressed as number of milliseconds",
+          "name": "expiration",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "number"
         }
       ],
-      "nativeId": "kv/write",
-      "exported": true,
-      "annotations": []
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Increments a numeric value in the key-value store. If the key doesn't exist, it will be created with the increment value. If the key exists but is not a number, an error will be thrown.",
+      "exported": true,
+      "id": "O5hD3M8B82isSnfRRlyAB",
+      "name": "Increment",
+      "nativeId": "kv/increment",
+      "parameters": [
+        {
+          "description": "Key to write to",
+          "name": "key",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        },
+        {
+          "description": "Increment to use, 1 by default",
+          "name": "increment",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "number"
+        },
+        {
+          "description": "Used to set relative expiration time expressed as number of milliseconds",
+          "name": "expiration",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "number"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        }
+      ],
+      "description": "Reads value from a local key-value store. If the key is not found, the action will save a `null` value.",
+      "exported": true,
       "id": "read",
       "name": "Read from KV",
-      "description": "Reads value from a local key-value store. If the key is not found, the action will save a `null` value.",
+      "nativeId": "kv/read",
       "parameters": [
         {
+          "description": "Key to write to",
           "name": "key",
           "optional": false,
-          "description": "Key to read from",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          },
-          "type": "tel"
+          "type": "tel",
+          "valueDescription": "string"
         }
       ],
-      "nativeId": "kv/read",
-      "exported": true,
-      "annotations": []
+      "type": "defineNativeFunction"
     },
     {
-      "type": "defineNativeFunction",
-      "id": "delete",
-      "name": "Delete from KV",
-      "description": "Deletes value from a local key-value store. If the key is not found, the action will do nothing.",
-      "parameters": [
+      "annotations": [
         {
-          "name": "key",
-          "optional": false,
-          "description": "Key to delete",
-          "typeDef": {
-            "tag": "simple",
-            "type": "string",
-            "strict": true
-          },
-          "type": "tel"
+          "type": "exported"
         }
       ],
-      "nativeId": "kv/delete",
+      "description": "Deletes value from a local key-value store. If the key is not found, the action will do nothing.",
       "exported": true,
-      "annotations": []
+      "id": "delete",
+      "name": "Delete from KV",
+      "nativeId": "kv/delete",
+      "parameters": [
+        {
+          "description": "Key to write to",
+          "name": "key",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineNativeFunction"
     }
   ],
-  "imports": {},
-  "description": "Turbofuro Worker has a built-in in-memory key-value store that can be used to share data between services running on the same machine.",
   "moduleId": "a816bac0-336e-4f5c-be43-db999b3e08da",
-  "id": "a816bac0-336e-4f5c-be43-db999b3e08da"
+  "theme": "yellow"
 }

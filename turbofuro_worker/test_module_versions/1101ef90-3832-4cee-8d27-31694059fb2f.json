@@ -1,0 +1,239 @@
+{
+  "description": "Utilities for WebSocket client connections. Enables connecting to WebSocket servers, sending and receiving messages, and handling connection events.",
+  "icon": "system://chats",
+  "id": "432e553a-d8c6-4995-ae63-88a92d23c58d",
+  "imports": {},
+  "instructions": [
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "websocket_client",
+          "strict": true,
+          "type": "provision"
+        },
+        {
+          "resource": "cancellation",
+          "strict": true,
+          "type": "provision"
+        }
+      ],
+      "decorator": false,
+      "description": "Connects to a WebSocket server at the specified URL. The connection will remain open until explicitly closed or an error occurs.",
+      "exported": true,
+      "id": "connect",
+      "name": "Connect WebSocket",
+      "nativeId": "websocket_client/connect",
+      "parameters": [
+        {
+          "description": "WebSocket URL to connect to, e.g. 'ws://localhost:8080' or 'wss://example.com'",
+          "name": "url",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string.url"
+        },
+        {
+          "description": "Function to be called when a message is received from the WebSocket server",
+          "handlerTemplate": {
+            "annotations": [
+              {
+                "resource": "websocket_client",
+                "strict": true,
+                "type": "requirement"
+              }
+            ],
+            "description": "Handles incoming messages from the WebSocket server. The function receives the message payload and has access to the WebSocket client resource for sending responses.",
+            "name": "Handle WebSocket message",
+            "parameters": [
+              {
+                "description": "Message payload",
+                "name": "message",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "any"
+              }
+            ]
+          },
+          "name": "onMessage",
+          "optional": true,
+          "type": "functionRef"
+        },
+        {
+          "description": "Function to be called when the WebSocket connection is closed",
+          "handlerTemplate": {
+            "annotations": [],
+            "description": "Handles WebSocket connection close events. Called when the connection to the WebSocket server is closed, either normally or due to an error.",
+            "name": "Handle WebSocket close",
+            "parameters": [
+              {
+                "description": "Reason the client was closed",
+                "name": "reason",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "string"
+              }
+            ]
+          },
+          "name": "onClose",
+          "optional": true,
+          "type": "functionRef"
+        },
+        {
+          "description": "Function to be called when an error occurs with the WebSocket connection",
+          "handlerTemplate": {
+            "annotations": [
+              {
+                "resource": "websocket_client",
+                "strict": true,
+                "type": "requirement"
+              }
+            ],
+            "description": "Handles WebSocket connection errors. Called when an error occurs with the WebSocket connection. The function receives the error message and has access to the WebSocket client resource.",
+            "name": "Handle WebSocket error",
+            "parameters": [
+              {
+                "description": "Error message",
+                "name": "error",
+                "optional": false,
+                "type": "tel",
+                "valueDescription": "string"
+              }
+            ]
+          },
+          "name": "onError",
+          "optional": true,
+          "type": "functionRef"
+        },
+        {
+          "description": "Headers map to include in the request",
+          "name": "headers",
+          "optional": true,
+          "type": "tel",
+          "valueDescription": "object"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "resource": "websocket_client",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "body": [],
+      "decorator": false,
+      "description": "Handles incoming messages from the server",
+      "exported": false,
+      "id": "J2dXVrlP82e_WKZRfnKh8",
+      "name": "Handle WebSocket message",
+      "parameters": [
+        {
+          "description": "Message payload",
+          "name": "message",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "any"
+        }
+      ],
+      "type": "defineFunction"
+    },
+    {
+      "annotations": [
+        {
+          "resource": "websocket_client",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "body": [],
+      "decorator": false,
+      "description": "",
+      "exported": false,
+      "id": "GPobziN_OZQ7y-dyiN-cP",
+      "name": "Handle WebSocket error",
+      "parameters": [
+        {
+          "description": "Error message",
+          "name": "error",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineFunction"
+    },
+    {
+      "annotations": [],
+      "body": [],
+      "decorator": false,
+      "description": "",
+      "exported": false,
+      "id": "xLYQtezCqqRTbjj-moPhH",
+      "name": "Handle WebSocket close",
+      "parameters": [
+        {
+          "description": "Reason the client was closed",
+          "name": "reason",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "string"
+        }
+      ],
+      "type": "defineFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "websocket_client",
+          "strict": true,
+          "type": "requirement"
+        }
+      ],
+      "decorator": false,
+      "description": "Sends a message over the WebSocket client connection. If no WebSocket client resource is available, the action will fail.",
+      "exported": true,
+      "id": "send_message",
+      "name": "Send message",
+      "nativeId": "websocket_client/send_message",
+      "parameters": [
+        {
+          "description": "Message to send. Can be a string, object (will be serialized to JSON), or array of numbers (will be sent as binary)",
+          "name": "message",
+          "optional": false,
+          "type": "tel",
+          "valueDescription": "any"
+        }
+      ],
+      "type": "defineNativeFunction"
+    },
+    {
+      "annotations": [
+        {
+          "type": "exported"
+        },
+        {
+          "resource": "websocket_client",
+          "strict": true,
+          "type": "consumption"
+        }
+      ],
+      "decorator": false,
+      "description": "Closes the WebSocket connection and consumes the WebSocket client resource. If no WebSocket client resource is available, the action will fail.",
+      "exported": true,
+      "id": "close",
+      "name": "Close WebSocket",
+      "nativeId": "websocket_client/close",
+      "parameters": [],
+      "type": "defineNativeFunction"
+    }
+  ],
+  "moduleId": "1101ef90-3832-4cee-8d27-31694059fb2f",
+  "theme": "sky"
+}
