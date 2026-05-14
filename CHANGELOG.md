@@ -1,7 +1,9 @@
-## 0.1.31 (Unreleased)
+## 0.1.31
 * Add WebSocket client module
 * Renamed string/stripFileExtension -> string/replaceExtension, added string/filename and string/filestem
 * Add standard library modules
+* Bump runtime and TEL versions to match worker version
+* Fix broken Docker image
 
 ## 0.1.30
 * Add regular expression module

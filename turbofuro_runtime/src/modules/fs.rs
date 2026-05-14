@@ -776,7 +776,7 @@ mod tests {
         read_dir(
             &mut context,
             &vec![
-                Parameter::tel("path", "\"test_dir\""),
+                Parameter::tel("path", "\"misc\""),
                 Parameter::tel("recursive", "true"),
             ],
             "test_read_dir",
@@ -791,8 +791,15 @@ mod tests {
         assert_eq!(
             json!([
                 {
-                    "name": "b.txt",
-                    "path": "test_dir/b.txt",
+                    "name": "test2.png",
+                    "path": "misc/test2.png",
+                    "isDir": false,
+                    "isFile": true,
+                    "isSymlink": false
+                },
+                {
+                    "name": "test.jpg",
+                    "path": "misc/test.jpg",
                     "isDir": false,
                     "isFile": true,
                     "isSymlink": false

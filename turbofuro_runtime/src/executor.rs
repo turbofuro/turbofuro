@@ -472,7 +472,7 @@ impl Default for ExecutionTest {
 }
 
 impl ExecutionTest {
-    pub fn get_context(&mut self) -> ExecutionContext {
+    pub fn get_context(&mut self) -> ExecutionContext<'_> {
         let initial_storage = ObjectBody::new();
 
         ExecutionContext {
@@ -495,7 +495,7 @@ impl ExecutionTest {
         }
     }
 
-    pub fn get_debug_context(&mut self, debugger_handle: DebuggerHandle) -> ExecutionContext {
+    pub fn get_debug_context(&mut self, debugger_handle: DebuggerHandle) -> ExecutionContext<'_> {
         let initial_storage = ObjectBody::new();
 
         ExecutionContext {

@@ -40,7 +40,7 @@
           "id": "awtgeZ2eB2gnAHqhxM-DU",
           "then": [
             {
-              "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/send",
+              "callee": "import/77236997-0f20-4141-a21c-7f0e88191999/send_command",
               "id": "ALRP2F7v1dbOljRGy08U6",
               "parameters": [
                 {
